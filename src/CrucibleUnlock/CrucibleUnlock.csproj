@@ -1,0 +1,97 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    第二试炼解锁 mod（MelonLoader 插件）。
+    目标框架必须与 MelonLoader 的加载器一致：net6.0。
+    runtime-unlock 引用当前游戏首次启动生成的 interop 程序集。
+    编译引用不复制进 Mods；运行时由加载器解析自己的生成程序集。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <Version>0.8.6-boss-order</Version>
+    <AssemblyName>CrucibleUnlock</AssemblyName>
+    <RootNamespace>CrucibleUnlock</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <DebugType>none</DebugType>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\SecondBowlBlood\*" LogicalName="NRFW.SecondBowlBlood.%(Filename)%(Extension)" />
+    <Reference Include="Il2Cpp__moonType">
+      <HintPath>..\..\vendor\generated\Il2Cpp__moonType.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MelonLoader">
+      <HintPath>..\..\vendor\refs\MelonLoader.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>..\..\vendor\refs\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2Cppmoon.quantum.forsaken">
+      <HintPath>..\..\vendor\generated\Il2Cppmoon.quantum.forsaken.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppQuantum.Engine">
+      <HintPath>..\..\vendor\generated\Il2CppQuantum.Engine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>..\..\vendor\generated\Il2Cppmscorlib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>..\..\vendor\generated\Il2CppInterop.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2Cpp__forsaken">
+      <HintPath>..\..\vendor\generated\Il2Cpp__forsaken.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>..\..\vendor\generated\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>..\..\vendor\generated\UnityEngine.AnimationModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2Cpp__timeline">
+      <HintPath>..\..\vendor\generated\Il2Cpp__timeline.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2Cpp__moonCore">
+      <HintPath>..\..\vendor\generated\Il2Cpp__moonCore.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2Cpp__moonCoreCommon">
+      <HintPath>..\..\vendor\generated\Il2Cpp__moonCoreCommon.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppSystem">
+      <HintPath>..\..\vendor\generated\Il2CppSystem.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>..\..\vendor\generated\UnityEngine.AudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2Cpp__animation">
+      <HintPath>..\..\vendor\generated\Il2Cpp__animation.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppQuantum.Deterministic">
+      <HintPath>..\..\vendor\generated\Il2CppQuantum.Deterministic.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

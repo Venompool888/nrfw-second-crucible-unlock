@@ -1,0 +1,25 @@
+# Locally supplied build references
+vendor/
+.dotnet-home/
+.nuget/
+.tmp/
+
+# Generated outputs and local release candidates
+**/bin/
+**/obj/
+artifacts/
+dist/
+*.dll
+*.pdb
+*.zip
+
+# Personal data and diagnostics
+*.log
+*.dmp
+*.jsonl
+*.sav
+*.save
+MelonPreferences.cfg
+Player.log
+MelonLoader.log
+DataStore/
