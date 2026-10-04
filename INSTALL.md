@@ -3,8 +3,17 @@
 1. Confirm that Steam reports No Rest for the Wicked public Build **22928553**. The mod is not verified on other builds.
 2. Back up your realm and character saves before adding a loader or mod.
 3. Install a compatible MelonLoader 0.7.x from its [official releases](https://github.com/LavaGang/MelonLoader/releases) and let it generate the game's IL2CPP assemblies.
-4. With the game closed, place `CrucibleUnlock.dll` in the game's `Mods` directory. In `UserData/MelonPreferences.cfg`, set `[CrucibleUnlock]` `mode = "runtime-unlock"`.
-5. Launch through Steam. Confirm the log reports that the build guard passed and both targeted read overrides were installed.
+4. With the game closed, place `CrucibleUnlock.dll` in the game's `Mods` directory. In `UserData/MelonPreferences.cfg`, set these values under `[CrucibleUnlock]` (create the section if needed):
+
+   ```ini
+   [CrucibleUnlock]
+   mode = "runtime-unlock"
+   guard_broken_warrick_music = true
+   repair_warrick_phase2_target = true
+   ```
+
+   The two repair options default to `false` when absent. Set them explicitly for the tested encounter behavior. Keep other preferences already in the file.
+5. Launch through Steam. Confirm `MelonLoader/Latest.log` reports that the build guard passed, both targeted read overrides were installed, and both repair options are `True`.
 
 The unlock exists only while the mod runs. Normal play can still save progress, but this mod does not write a permanent quest completion. To uninstall, close the game and remove `Mods/CrucibleUnlock.dll`; remove MelonLoader separately if desired. Never replace the DLL while the game is running.
 

@@ -2,6 +2,7 @@
 
 ## 0.8.6-boss-order — 2026-10-05
 
+- Installation guide correction: explicitly enable the two Warrick repair options, which otherwise default to off. The DLL is unchanged.
 - Corrected IL2CPP nullable payload marshalling and verified the selected Boss content after room reintegration.
 - Preserved the already tested second-bowl blood route and Warrick phase-two repair.
 - One complete local run matched the original encounter order: Warrick, bloated Warrick, Darak, plagued Darak, checkpoint, Riven Twins, Spider Horse, Executioner, reward room.
