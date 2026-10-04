@@ -2,6 +2,11 @@
 
 Source code for the **second Echo / second Crucible** mod, version `0.8.6-boss-order`.
 
+## Gameplay demonstration
+
+- [Watch on Bilibili](https://www.bilibili.com/video/BV1zbHH6EEGx)
+- [Watch on YouTube](https://www.youtube.com/watch?v=Rw-hCcjvWss)
+
 ## What the mod does
 
 - Temporarily unlocks the second Crucible while the mod is loaded. It does not permanently complete a quest or directly edit a save.
