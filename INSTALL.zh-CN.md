@@ -42,7 +42,7 @@ D:\SteamLibrary\steamapps\common\NoRestForTheWicked\
 
 推荐使用 [MelonLoader 官方安装器](https://github.com/LavaGang/MelonLoader.Installer)：打开安装器，选择《恶意不息》；如果没有自动列出，就用安装器的 **Add Game Manually** 指向游戏。选择兼容的 **0.7.x** 版本并安装。官方安装器的游戏选择和安装方式见其[说明](https://github.com/LavaGang/MelonLoader.Installer#melonloader-installation)。
 
-安装完成后，在游戏安装目录检查加载器文件。按[MelonLoader 官方手动安装说明](https://github.com/LavaGang/MelonLoader#how-to-manually-use-melonloader)，其文件会包括 `MelonLoader` 文件夹，以及与游戏主程序同层的 `version.dll`、`dobby.dll`。没有这些文件时，先排查加载器安装位置。
+安装完成后，在游戏安装目录检查是否出现 `MelonLoader` 文件夹。本次实测的 MelonLoader 0.7.3 安装还在游戏主程序同层生成了 `version.dll`；不同安装方式的文件清单可能不同，**不要以是否存在 `dobby.dll` 判断安装成败**。最终以启动日志出现 `MelonLoader v0.7.x` 且加载器正常运行来确认。
 
 首次安装加载器时，通过 Steam 启动一次游戏，让它生成 IL2CPP 互操作程序集与配置文件；这次启动可能比平常久。进入主菜单后正常退出，再继续下一步。如果加载器没有成功启动，先核对安装位置并查看日志，再继续安装 Mod。不要在游戏运行时复制或替换 Mod DLL。
 
@@ -106,8 +106,7 @@ NoRestForTheWicked\                 ← 游戏安装目录，不要求盘符相�
 ├── NoRestForTheWicked.exe
 ├── NoRestForTheWicked_Data\
 ├── MelonLoader\                    ← 加载器
-├── version.dll                     ← 加载器
-├── dobby.dll                       ← 加载器
+├── version.dll                     ← 本次实测安装中的加载器文件
 ├── Mods\
 │   └── CrucibleUnlock.dll         ← 本 Mod 放在这里
 └── UserData\
