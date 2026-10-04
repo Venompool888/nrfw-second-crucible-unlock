@@ -1,8 +1,6 @@
 # Crucible Unlock for No Rest for the Wicked
 
-Release preparation for the **second Echo / second Crucible** mod, version `0.8.6-boss-order`.
-
-**Publication status: local draft.** The GitHub repository and Nexus Mods page have not been created yet.
+Source code for the **second Echo / second Crucible** mod, version `0.8.6-boss-order`.
 
 ## What the mod does
 
@@ -14,7 +12,7 @@ The mod was tested on the Steam public **Build 22928553**. A full run of the nin
 
 ## Player installation
 
-This draft has **no public download**. Once the release is published, use the archive from its Nexus Mods page and follow [INSTALL.md](INSTALL.md). Do not use the old `0.4.0` archive or its persistent-unlock instructions from the research workspace.
+Get the player archive from [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) and follow [INSTALL.md](INSTALL.md). Do not use the old `0.4.0` archive or its persistent-unlock instructions from the research workspace.
 
 ## Source and builds
 
