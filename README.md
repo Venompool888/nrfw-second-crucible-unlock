@@ -17,7 +17,7 @@ The mod was tested on the Steam public **Build 22928553**. A full run of the nin
 
 ## Player installation
 
-Get the player archive from [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) and follow [INSTALL.md](INSTALL.md). Do not use the old `0.4.0` archive or its persistent-unlock instructions from the research workspace.
+Get the player archive from [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) and follow [INSTALL.md](INSTALL.md). A detailed Windows and Steam guide is available in [简体中文](INSTALL.zh-CN.md). Do not use the old `0.4.0` archive or its persistent-unlock instructions from the research workspace.
 
 ## Source and builds
 
