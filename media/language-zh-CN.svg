@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="154" height="40" viewBox="0 0 154 40" role="img" aria-label="阅读简体中文说明">
+  <title>阅读简体中文说明</title>
+  <rect x="0.5" y="0.5" width="153" height="39" rx="7" fill="#9f303e" stroke="#c65a67"/>
+  <g fill="none" stroke="#ffffff" stroke-width="1.5">
+    <circle cx="22" cy="20" r="9"/>
+    <ellipse cx="22" cy="20" rx="4" ry="9"/>
+    <path d="M13 20h18M15 15.5h14M15 24.5h14"/>
+  </g>
+  <text x="42" y="26" fill="#ffffff" font-family="Arial, 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif" font-size="17" font-weight="600">简体中文</text>
+  <path d="M127 20h11m-4-4 4 4-4 4" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
