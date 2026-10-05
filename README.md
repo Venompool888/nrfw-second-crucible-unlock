@@ -19,6 +19,8 @@ The mod was tested on the Steam public **Build 22928553**. A full run of the nin
 
 Get the player archive from [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) and follow [INSTALL.md](INSTALL.md). A detailed Windows and Steam guide is available in [简体中文](INSTALL.zh-CN.md). Do not use the old `0.4.0` archive or its persistent-unlock instructions from the research workspace.
 
+For a clean Windows PC where an AI agent will prepare the installation, give it the [Chinese agent task sheet](AGENT-INSTALL.zh-CN.md).
+
 ## Source and builds
 
 The source under `src/` is the frozen `0.8.6-boss-order` source. Building it requires MelonLoader references and game-specific generated IL2CPP interop assemblies from the supported game. See [BUILD.md](BUILD.md). The game, MelonLoader binaries, and generated interop assemblies are not included.
