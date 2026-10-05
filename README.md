@@ -15,6 +15,12 @@ Source code for the **second Echo / second Crucible** mod, version `0.8.6-boss-o
 
 The mod was tested on the Steam public **Build 22928553**. A full run of the nine floors on 2026-10-05 showed the seven expected Boss encounters, checkpoint, reward room, and return to the second bowl. This is one tested run on one build, not a compatibility guarantee for later builds. See [version history](CHANGELOG.md).
 
+### Multiplayer / 联机
+
+Supports multiplayer. When the surviving team members defeat a floor's Boss, teammates who died during that Boss fight revive with 50% of their own maximum HP.
+
+支持联机。在某一层的 Boss 战中，如果有队友阵亡，只要存活成员击败本层 Boss，本场 Boss 战中阵亡的队友就会复活，生命值恢复为各自最大生命值的 50%。
+
 ## Player installation
 
 Get the player archive from [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) and follow [INSTALL.md](INSTALL.md). A detailed Windows and Steam guide is available in [简体中文](INSTALL.zh-CN.md). Do not use the old `0.4.0` archive or its persistent-unlock instructions from the research workspace.
