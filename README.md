@@ -19,6 +19,8 @@ The mod was tested on the Steam public **Build 22928553**. A full run of the nin
 
 Get the player archive from [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) and follow [INSTALL.md](INSTALL.md). A detailed Windows and Steam guide is available in [简体中文](INSTALL.zh-CN.md). Do not use the old `0.4.0` archive or its persistent-unlock instructions from the research workspace.
 
+The [standalone Chinese HTML guide](INSTALL.zh-CN.html) can be saved and opened locally in a browser.
+
 ### 让 AI Agent 帮你安装（简体中文）
 
 在只有 Steam、官方游戏和 AI Agent 客户端的 Windows 电脑上，把下面整段直接复制给 DSH、Codex、WorkBuddy 或豆包桌面端。完整步骤见[第二回声 Mod 的 AI Agent 安装任务书](AGENT-INSTALL.zh-CN.md)。
