@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light">
-  <meta name="description" content="第二回声 Mod 0.8.6 的 Windows Steam 超详细安装教程：下载、备份、校验、MelonLoader、配置、日志验证和排错。">
+  <meta name="description" content="第二回声 Mod 0.8.6 的 Windows Steam 安装教程：下载、备份、MelonLoader、配置、游戏效果与故障排查。">
   <title>第二回声 Mod｜超详细安装教程</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -602,7 +602,7 @@
       No Rest for the Wicked · Second Crucible
     </div>
     <h1>第二回声 Mod<br>超详细安装教程</h1>
-    <p>从纯净的 Steam 官方游戏环境出发，手把手完成存档备份、文件校验、MelonLoader 安装、配置项设置与游戏日志核验。游戏内效果由玩家亲自验证。</p>
+    <p>从纯净的 Steam 官方游戏环境出发，手把手完成存档备份、Mod 下载、MelonLoader 安装与配置。游戏内效果由玩家亲自体验；遇到问题时再查看日志。</p>
     <div class="pills">
       <span class="pill">📌 Mod 0.8.6-boss-order</span>
       <span class="pill">🎮 Steam public Build 22928553</span>
@@ -622,10 +622,11 @@
         <a href="#backup">0 · 备份存档</a>
         <a href="#game">1 · 定位版本</a>
         <a href="#loader">2 · MelonLoader</a>
-        <a href="#download">3 · 下载与校验</a>
+        <a href="#download">3 · 下载 Mod</a>
         <a href="#place">4 · 放置 DLL</a>
         <a href="#config">5 · 写入配置</a>
-        <a href="#verify">6 · 启动与核验</a>
+        <a href="#effect">6 · Mod 效果</a>
+        <a href="#verify">日志核对（故障时）</a>
         <a href="#fix">常见排错</a>
         <a href="#remove">更新与卸载</a>
         <a href="#links">参考链接</a>
@@ -654,7 +655,7 @@
         <div class="notice-icon">⛔</div>
         <div class="notice-body">
           <strong>硬性版本门槛：Steam public Build 22928553</strong>
-          <p>游戏更新、加入测试分支或文件哈希不同，都不要绕过版本守卫强行运行。请等待作者发布兼容新版。</p>
+          <p>如果游戏更新或加入测试分支，当前 Mod 可能不兼容。不要绕过版本检查；请等待兼容版本或联系作者。</p>
         </div>
       </div>
 
@@ -709,29 +710,6 @@
           <p>诸如 <code>D:\SteamLibrary\...</code> 仅为示例，并非统一规范。后文提及的 <code>Mods</code>、<code>MelonLoader</code>、<code>UserData</code> 都应直接放在你自己电脑的游戏安装根目录。</p>
         </div>
       </div>
-      <h3>可选：对游戏原文件进行只读哈希校验</h3>
-      <p>熟悉 PowerShell 的玩家可运行 <code>Get-FileHash -Algorithm SHA256 -LiteralPath '完整路径'</code> 校验：</p>
-      <div class="tablewrap">
-        <table>
-          <thead>
-            <tr>
-              <th>原游戏文件</th>
-              <th>守卫期望 SHA-256</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>GameAssembly.dll</code></td>
-              <td><code>5B00EE90833B1BE2EA73E01CB83E710E09E86199D12AC769BE3C0E82ADD8B4BB</code></td>
-            </tr>
-            <tr>
-              <td><code>NoRestForTheWicked_Data\il2cpp_data\Metadata\global-metadata.dat</code></td>
-              <td><code>4C8DFE07E5F5178F8EEFD3D079412EC164EBA5DA798EFD2A2AE03AA37DC79502</code></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p>如出现任何一项不符请立即停止，不要擅自修改游戏本体文件。</p>
     </section>
 
     <section class="section" id="loader">
@@ -753,57 +731,20 @@
     </section>
 
     <section class="section" id="download">
-      <h2><span class="step">3</span>从 Nexus 下载并校验 Mod ZIP</h2>
+      <h2><span class="step">3</span>从 Nexus 下载 Mod ZIP</h2>
       <ol>
         <li>访问 <a href="https://www.nexusmods.com/norestforthewicked/mods/108?tab=files" target="_blank" rel="noopener noreferrer">Nexus Mods：Second Crucible Unlock and Fixes 页面</a>。</li>
         <li>在 <strong>Main files</strong> 栏找到 <strong>Crucible Unlock 0.8.6</strong>，点击 <strong>Manual download</strong>。如需登录或验证，按页面指引完成。</li>
-        <li>在本地“下载”文件夹中找到该 ZIP。切勿混淆为旧版 0.4.0 或 GitHub 自动打包的源码仓库。</li>
-        <li>右键 ZIP → <strong>全部解压</strong>。解压后的文件夹内必须包含：<code>Mods\CrucibleUnlock.dll</code>、<code>CHANGELOG.md</code>、<code>INSTALL.md</code>、<code>SHA256SUMS.txt</code>。</li>
+        <li>在本地“下载”文件夹中找到刚下载的 ZIP。</li>
+        <li>右键 ZIP → <strong>全部解压</strong>。打开解压后的 <code>Mods</code> 文件夹，找到 <code>CrucibleUnlock.dll</code>。</li>
       </ol>
-      <h3>核对下载包与 DLL 的哈希值</h3>
-      <p>打开 Windows PowerShell，依次执行以下命令（将引号内的路径替换为你电脑上的实际位置）：</p>
-      <div class="codebox">
-        <div class="codebox-header">
-          <div class="codebox-dots"><span></span><span></span><span></span></div>
-          <button type="button" class="copy-btn" data-copy aria-label="复制哈希命令">复制</button>
-        </div>
-        <pre>Get-FileHash -Algorithm SHA256 -LiteralPath '你的下载目录\实际文件名.zip'
-Get-FileHash -Algorithm SHA256 -LiteralPath '你的解压目录\Mods\CrucibleUnlock.dll'</pre>
-      </div>
-      <div class="tablewrap">
-        <table>
-          <thead>
-            <tr>
-              <th>文件对象</th>
-              <th>本次 0.8.6 发布包期望 SHA-256</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Nexus ZIP 包</td>
-              <td><code>F3733D6DF54D4E515D5810DC3B0B6657D86FB1850430493FF62ECAB45C9E22CF</code></td>
-            </tr>
-            <tr>
-              <td>CrucibleUnlock.dll</td>
-              <td><code>F456A46C79A8F9C272946BB00BD555D127FFE770E1EDD7D757B44F6EDA5472CC</code></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="notice danger">
-        <div class="notice-icon">⛔</div>
-        <div class="notice-body">
-          <strong>哈希不匹配请立即终止</strong>
-          <p>若比对不符，请先检查是否提取了错误的文件版本。若官方后续更新发布，哈希亦会随之变更；此表严格对应 0.8.6 版本。</p>
-        </div>
-      </div>
     </section>
 
     <section class="section" id="place">
       <h2><span class="step">4</span>把 DLL 放在唯一正确的位置</h2>
       <ol>
         <li>回到第 1 步找到的游戏安装根目录。若尚不存在 <code>Mods</code> 文件夹，则手动新建一个，英文大小写严格为 <code>Mods</code>。</li>
-        <li>将刚刚解压并核验无误的 <code>CrucibleUnlock.dll</code> 复制粘贴进该 <code>Mods</code> 目录。</li>
+        <li>将刚刚解压出的 <code>CrucibleUnlock.dll</code> 复制粘贴进该 <code>Mods</code> 目录。</li>
         <li>核对文件最终完整结构：</li>
       </ol>
       <div class="codebox">
@@ -889,9 +830,22 @@ repair_warrick_phase2_target = true</pre>
       </div>
     </section>
 
+    <section class="section" id="effect">
+      <h2><span class="step">6</span>Mod 效果描述</h2>
+      <p>安装完成后，由玩家本人通过 Steam 启动游戏。首次启动可能稍慢，进入游戏后可按下面的流程体验：</p>
+      <div class="notice">
+        <div class="notice-icon">🎮</div>
+        <div class="notice-body">
+          <strong>第二回声体验流程</strong>
+          <p>传送至试炼中心 → 来到第二个血盆献祭 → 看到血液流出 → 进入试炼 → 开始 Boss Rush → 在后续场次遇到达拉克。</p>
+        </div>
+      </div>
+      <p>达拉克是 Boss Rush 后续场次的 Boss；第一场是沃里克。请由玩家亲自观察献祭动画、血流、Boss 和楼层推进是否正常。如果使用中遇到问题，再阅读下一节“日志核对”。</p>
+    </section>
+
     <section class="section" id="verify">
-      <h2><span class="step">6</span>由用户启动游戏，核对日志与画面</h2>
-      <p>至此，所有<strong>离线部署</strong>已全部就绪。接下来请玩家本人通过 Steam 启动游戏。首次启动可能需要生成 IL2CPP 互操作程序集，因此可能比平常慢；进入游戏主界面后即可退出，开始核验日志。</p>
+      <h2>日志核对</h2>
+      <p><strong>仅在 Mod 无法正常使用时才需要查看本节。</strong>如果第二个血盆能正常献祭、进入试炼且后续玩法正常，就不必打开日志。遇到无法进入、动画异常、Boss 或楼层推进异常时，请先由玩家正常退出游戏，再按下面步骤检查或把相关日志发给作者。</p>
       <ol>
         <li>使用记事本打开 <code class="path">游戏安装目录\MelonLoader\Latest.log</code>，按 <strong>Ctrl + F</strong> 逐条检索以下关键词：</li>
       </ol>
@@ -909,25 +863,13 @@ repair_warrick_phase2_target = True
 [runtime-unlock] installed two targeted read overrides</pre>
       </div>
       <p>这些日志项不一定相邻排列。第一项应显示实际版本，例如实测日志中的 <code>MelonLoader v0.7.3 Open-Beta</code>，不要逐字搜索 <code>v0.7.x</code>。若仅有“已加载”而缺少 <code>build guard passed</code> 或读取覆盖记录，不能据此认定临时解锁已生效；先检查日志是否完整以及是否存在报错。若游戏初次启动重置了该配置，退出后需重新按照第 5 步补全。</p>
-      <ol start="2">
-        <li>确认日志无误后，再次启动游戏前往第二回声献祭盆，观察交互是否正常开放，并亲自尝试献祭与后续楼层挑战。</li>
-      </ol>
       <div class="notice">
         <div class="notice-icon">💡</div>
         <div class="notice-body">
-          <strong>明确划分验证的三个阶段</strong>
-          <p>“DLL 放对目录” ＝ 文件准备完成；“日志关键字齐全” ＝ 引擎加载通过；“盆地献祭正常” ＝ 实机体验通过。请勿将前一步骤的结果直接代入最终成功。</p>
+          <strong>需要帮忙时</strong>
+          <p>你可以把报错附近的日志片段发给作者；分享前先遮住用户名、电脑路径等个人信息。不要仅凭某一行日志判断所有游戏效果是否正常。</p>
         </div>
       </div>
-      <h3>离线安装自检清单</h3>
-      <ul class="checklist">
-        <li><input type="checkbox" id="c1"><label for="c1"><span><strong>游戏版本一致</strong>：Steam public Build 为 22928553，目录从客户端直接定位。</span></label></li>
-        <li><input type="checkbox" id="c2"><label for="c2"><span><strong>已有存档已备份</strong>：<code>DataStore</code> 已复制至安全路径；无存档已注明。</span></label></li>
-        <li><input type="checkbox" id="c3"><label for="c3"><span><strong>加载器安装到位</strong>：MelonLoader 0.7.3 x64 文件平铺在游戏根目录。</span></label></li>
-        <li><input type="checkbox" id="c4"><label for="c4"><span><strong>哈希校验一致</strong>：ZIP 压缩包与解压出的 <code>CrucibleUnlock.dll</code> SHA-256 完全对齐。</span></label></li>
-        <li><input type="checkbox" id="c5"><label for="c5"><span><strong>路径放置唯一</strong>：Mod DLL 位于且仅位于 <code>Mods\CrucibleUnlock.dll</code>。</span></label></li>
-        <li><input type="checkbox" id="c6"><label for="c6"><span><strong>配置文件已核对</strong>：<code>[CrucibleUnlock]</code> 仅有一处，包含 mode 及两个修复开关；运行时是否生效仍须查看日志。</span></label></li>
-      </ul>
     </section>
 
     <section class="section" id="fix">
@@ -967,7 +909,7 @@ repair_warrick_phase2_target = True
             </tr>
             <tr>
               <td>版本守卫（Build guard）报错</td>
-              <td>校验 Steam Build 和两个系统文件哈希；版本不兼容时请静候更新，切勿跳过守卫。</td>
+              <td>确认 Steam public Build 是否为 <code>22928553</code>。若游戏已更新，请等待兼容版本或联系作者，不要绕过版本检查。</td>
             </tr>
             <tr>
               <td>已加载但第二回声未解锁</td>
@@ -986,7 +928,7 @@ repair_warrick_phase2_target = True
     <section class="section" id="remove">
       <h2>以后如何更新或卸载</h2>
       <ul>
-        <li><strong>更新 Mod：</strong>完全退出游戏；将旧版 DLL 备份移出，按新版说明校验新文件，只保留单一 <code>CrucibleUnlock.dll</code>。严禁游戏运行途中替换文件。</li>
+        <li><strong>更新 Mod：</strong>完全退出游戏；将旧版 DLL 备份移出，按新版发布说明安装，只保留单一 <code>CrucibleUnlock.dll</code>。严禁游戏运行途中替换文件。</li>
         <li><strong>单卸载本 Mod：</strong>退出游戏后直接删除 <code>Mods\CrucibleUnlock.dll</code> 即可。配置文件中的相关设定保留与否均不会影响游戏。</li>
         <li><strong>卸载 MelonLoader：</strong>参考 <a href="https://github.com/LavaGang/MelonLoader#un-install" target="_blank" rel="noopener noreferrer">MelonLoader 官方卸载教程</a>移除对应组件。切勿为了卸载加载器而粗暴清空整套存档或 <code>UserData</code> 目录。</li>
       </ul>
