@@ -6,7 +6,7 @@
 
 ![第二回声：解锁与遭遇战修复，Build 22928553](media/header.png)
 
-**[前往 Nexus Mods 下载](https://www.nexusmods.com/norestforthewicked/mods/108)** · [完整安装教程](#下载与安装) · [观看实机演示](#实机演示)
+**[前往 Nexus Mods 下载](https://www.nexusmods.com/norestforthewicked/mods/108)** · [四步安装](INSTALL-QUICK.zh-CN.html) · [完整安装教程](#下载与安装) · [观看实机演示](#实机演示)
 
 版本 **`0.8.6-boss-order`** · 已验证 **Steam public Build 22928553** · 非官方社区 Mod
 
@@ -49,7 +49,7 @@
 
 ## 下载与安装
 
-这份教程写给第一次手动安装 Mod 的 Windows／Steam 玩家。对应的 Mod 是 **Second Crucible Unlock and Encounter Fixes（0.8.6）**，下载页在 [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108?tab=files)。以下按原中文详细教程完整展开；也可单独阅读[中文 Markdown 版](INSTALL.zh-CN.md)或[独立 HTML 版](INSTALL.zh-CN.html)。请使用已发布的 Mod ZIP，不要把 GitHub 的源码 ZIP 当成安装包，也不要使用旧的 `0.4.0` 包。
+这份教程写给第一次手动安装 Mod 的 Windows／Steam 玩家。对应的 Mod 是 **Second Crucible Unlock and Encounter Fixes（0.8.6）**，下载页在 [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108?tab=files)。只看最少步骤可打开[四步安装 HTML](INSTALL-QUICK.zh-CN.html)；下文按原中文详细教程完整展开，也可单独阅读[中文 Markdown 版](INSTALL.zh-CN.md)或[独立 HTML 版](INSTALL.zh-CN.html)。请使用已发布的 Mod ZIP，不要把 GitHub 的源码 ZIP 当成安装包，也不要使用旧的 `0.4.0` 包。
 
 > **先看这句：**下载的 ZIP **不要放进游戏目录后就直接启动**，也不要把整个 ZIP 放进 `Mods`。要先解压，再让文件最终位于 `游戏安装目录\Mods\CrucibleUnlock.dll`。
 
@@ -303,6 +303,7 @@ Get-FileHash -Algorithm SHA256 -LiteralPath '你的解压目录\Mods\CrucibleUnl
 - **[英文简版安装说明](INSTALL.md)：** 安装、配置、验证与卸载
 - **[简体中文详细安装教程](INSTALL.zh-CN.md)：** Windows／Steam 完整步骤、ZIP 放置、校验与故障排查
 - **[独立中文版 HTML 教程](INSTALL.zh-CN.html)：** 保存后可在本地浏览器中打开
+- **[四步安装 HTML](INSTALL-QUICK.zh-CN.html)：** 只保留下载、安装与配置的关键步骤
 
 <a id="install-agent"></a>
 
