@@ -48,6 +48,8 @@ Windows Steam 玩家按四步操作：下载 MelonLoader 0.7.3、安装加载器
 [![简体中文快速安装](media/install-quick-zh-CN.svg)](INSTALL-QUICK.zh-CN.md)
 [![English Quick Install](media/install-quick-en.svg)](INSTALL-QUICK.md)
 
+**[图文安装教程（截图版）](https://venompool888.github.io/nrfw-second-crucible-unlock/)** · [English screenshot guide](https://venompool888.github.io/nrfw-second-crucible-unlock/en.html)
+
 ## 兼容性与安全说明
 
 - **已验证范围：** 2026-10-05 在 Steam public **Build 22928553** 上完成过一次九层完整流程，包含预期的七场 Boss 遭遇战、检查点、奖励房，以及返回第二献祭盆。这仅是一个游戏版本上的一次完整测试，不代表后续版本兼容性保证。其他游戏版本及反复重载场景仍未验证。详见[版本记录](CHANGELOG.md)。

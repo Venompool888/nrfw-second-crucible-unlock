@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>【No Rest for the Wicked】Second Crucible Unlock Mod Installation Guide</title>
+<meta name="description" content="Screenshot installation guide for the Second Crucible unlock mod for No Rest for the Wicked: install MelonLoader, place CrucibleUnlock.dll, place MelonPreferences.cfg. Chinese and English.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <nav class="lang">
+      <a href="index.html">中文</a>
+      <a class="active" href="en.html">English</a>
+    </nav>
+    <h1>【No Rest for the Wicked】Second Crucible Unlock Mod Installation Guide</h1>
+    <p class="meta">Steam version of No Rest for the Wicked · Build 22928553 · Mod 0.9.5</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section>
+    <h2><span class="n">1</span>Preparation</h2>
+    <ol class="downloads">
+      <li>Download <a href="https://magic.rinrei.de/https://github.com/LavaGang/MelonLoader/releases/download/v0.7.3/MelonLoader.Installer.exe" target="_blank" rel="noopener"><strong><u>Melonloader</u></strong></a></li>
+      <li>Download <a href="https://magic.rinrei.de/https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll" target="_blank" rel="noopener"><strong><u>CrucibleUnlock.dll</u></strong></a></li>
+      <li>Download <a href="https://magic.rinrei.de/https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/MelonPreferences.cfg" target="_blank" rel="noopener"><strong><u>MelonPreferences.cfg</u></strong></a></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="n">2</span>Install Melonloader</h2>
+    <p>Select the game <strong>《No Rest for the Wicked》</strong></p>
+    <img class="shot-lg" src="assets/5849120c-c66f-4a0b-b716-05729659feeb.png" width="650" height="940" alt="Select No Rest for the Wicked in the MelonLoader installer">
+    <p>Click <strong>Install</strong></p>
+    <img class="shot-half" src="assets/b7040e8a-8b84-492c-94f0-b49583c1c621.png" width="1235" height="1820" alt="Click install">
+    <p>Installation complete</p>
+    <img class="shot-half" src="assets/b76815a0-cc89-48e9-b6f5-d1c84eb0786f.png" width="1250" height="1820" alt="Installation complete">
+  </section>
+
+  <section>
+    <h2><span class="n">3</span>Place <span>CrucibleUnlock.dll</span></h2>
+    <p>Open the 📂 <strong>Mods folder</strong></p>
+    <img class="shot-half" src="assets/image-RsPh.png" width="2148" height="1080" alt="Open the Mods folder">
+    <p>Place <strong>CrucibleUnlock.dll</strong></p>
+    <img class="shot-half" src="assets/image-YALI.png" width="1701" height="762" alt="Place CrucibleUnlock.dll">
+  </section>
+
+  <section>
+    <h2><span class="n">4</span>Place MelonPreferences.cfg</h2>
+    <p>Open 📂 <strong>UserData</strong></p>
+    <img class="shot-half" src="assets/image-ESrh.png" width="2416" height="1080" alt="Open the UserData folder">
+    <p>Place <strong>MelonPreferences.cfg</strong></p>
+    <img class="shot-half" src="assets/image-atqG.png" width="1684" height="985" alt="Place MelonPreferences.cfg">
+    <div class="note">
+      ⚠️ <strong>If you have installed other mods before</strong>, <code>UserData</code> may already contain a <code>MelonPreferences.cfg</code> — <strong>do not overwrite it.</strong> See <a href="#existing-cfg">“Already have a MelonPreferences.cfg?”</a> at the end of this page.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">5</span>Launch the game</h2>
+    <p>The first launch may be slow; later launches are fast</p>
+    <img class="shot-half" src="assets/image-cRVj.png" width="2373" height="1317" alt="Launch the game">
+    <p>Enjoy BOSS RUSH!</p>
+    <img class="shot-half" src="assets/image-hZaX.png" width="3840" height="2160" alt="Enjoy BOSS RUSH">
+  </section>
+
+  <section id="existing-cfg">
+    <h2>Already have a MelonPreferences.cfg?</h2>
+
+    <p><code>UserData\MelonPreferences.cfg</code> is <strong>one shared file that MelonLoader uses for every mod</strong>. If you have installed any other mod before, or the game has already been launched once, that file already exists. Dropping the downloaded cfg on top of it deletes the settings of your other mods as well.</p>
+
+    <h3>What to do</h3>
+    <ol>
+      <li>Copy your current <code>UserData\MelonPreferences.cfg</code> somewhere else as a backup.</li>
+      <li>Open it in Notepad.</li>
+      <li>Append the whole block below to the end of the file. If a <code>[CrucibleUnlock]</code> section <strong>already exists</strong>, edit the values inside it instead — do <strong>not</strong> create a second <code>[CrucibleUnlock]</code> section.</li>
+    </ol>
+
+<pre><code>[CrucibleUnlock]
+mode = "runtime-unlock"
+guard_broken_warrick_music = true
+repair_warrick_phase2_target = true
+repair_bossrush_progression = true
+repair_ritual_animator = true
+trace_boss_motion = false
+boss_trace_drop_amount = 300</code></pre>
+
+    <ol start="4">
+      <li>Save, close, and start the game again.</li>
+    </ol>
+
+    <h3>Find your case</h3>
+    <table>
+      <thead>
+        <tr><th>Your situation</th><th>What to do</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>No mods installed before, no cfg in <code>UserData</code></td><td>Drop the downloaded <code>MelonPreferences.cfg</code> into <code>UserData\</code></td></tr>
+        <tr><td>The cfg exists but has no <code>[CrucibleUnlock]</code></td><td>Append the block above to the end of the file</td></tr>
+        <tr><td>The cfg already has <code>[CrucibleUnlock]</code></td><td>Change the values in that section only; keep the other mods' sections</td></tr>
+        <tr><td>You messed it up and want a clean start</td><td>Back it up, then delete the cfg; MelonLoader writes a fresh default file on the next launch (other mods' settings return to their defaults)</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      The game must be <strong>fully closed</strong> while you place the DLL or edit the cfg. Also turn on Windows <strong>File name extensions</strong> and make sure the file is named <code>MelonPreferences.cfg</code>, not <code>MelonPreferences.cfg.txt</code>.
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>This page follows the original tutorial and adds one chapter about the configuration file. Original (Chinese): <a href="https://halo.rin.cool/archives/e-yi-bu-xi-di-er-hui-sheng-jie-suo-modan-zhuang-jiao-cheng" target="_blank" rel="noopener">halo.rin.cool</a></p>
+    <p><a href="https://github.com/Venompool888/nrfw-second-crucible-unlock" target="_blank" rel="noopener">GitHub repository</a> · <a href="https://www.nexusmods.com/norestforthewicked/mods/108" target="_blank" rel="noopener">Nexus Mods</a> · Unofficial community mod</p>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -48,6 +48,8 @@ Four steps for Windows Steam players: download MelonLoader 0.7.3, install it, do
 [![简体中文快速安装](media/install-quick-zh-CN.svg)](INSTALL-QUICK.zh-CN.md)
 [![English Quick Install](media/install-quick-en.svg)](INSTALL-QUICK.md)
 
+**[Screenshot installation guide](https://venompool888.github.io/nrfw-second-crucible-unlock/en.html)** · [中文图文教程](https://venompool888.github.io/nrfw-second-crucible-unlock/)
+
 ## Compatibility and safety
 
 - **Tested scope:** one full nine-floor run on 2026-10-05 on Steam public **Build 22928553** showed the seven expected Boss encounters, checkpoint, reward room, and return to the second bowl. This is one tested run on one build, not a compatibility guarantee for later builds. Other game builds and repeated reload scenarios remain unverified. See the [version history](CHANGELOG.md).
