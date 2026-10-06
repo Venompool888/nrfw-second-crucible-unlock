@@ -9,7 +9,7 @@
 
 ![第二试炼：解锁与遭遇战修复，Build 22928553](media/header.png)
 
-**[直接下载 CrucibleUnlock.dll（0.9.5）](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll)** · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [四步安装](INSTALL-QUICK.zh-CN.md)
+**[直接下载 CrucibleUnlock.dll（0.9.5）](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll)** · **[图文安装教程](https://venompool888.github.io/nrfw-second-crucible-unlock/)** · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [四步安装](INSTALL-QUICK.zh-CN.md)
 
 版本 **`0.9.5`** · 支持 **Steam public Build 22928553** · 非官方社区 Mod
 

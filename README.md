@@ -9,7 +9,7 @@ Unlock the **Second Crucible**, with encounter fixes and multiplayer support.
 
 ![Second Crucible: unlock and encounter fixes, Build 22928553](media/header.png)
 
-**[Download CrucibleUnlock.dll (0.9.5)](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll)** · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [Four-step installation](INSTALL-QUICK.md)
+**[Download CrucibleUnlock.dll (0.9.5)](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll)** · **[Screenshot tutorial](https://venompool888.github.io/nrfw-second-crucible-unlock/en.html)** · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [Four-step installation](INSTALL-QUICK.md)
 
 Version **`0.9.5`** · Supported game: **Steam public Build 22928553** · Unofficial community mod
 
