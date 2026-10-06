@@ -19,12 +19,19 @@
 
 [b]安装[/b]
 1. 安装 MelonLoader 0.7.3。
-2. 把 CrucibleUnlock.dll 放到 [code]游戏安装目录\Mods\CrucibleUnlock.dll[/code]。
-3. 在 [code]UserData\MelonPreferences.cfg[/code] 的 [code][CrucibleUnlock][/code] 区块里设置：
-[code]mode = "runtime-unlock"
+
+2. 把 CrucibleUnlock.dll 放到游戏安装目录下的 Mods 文件夹，最终位置必须是：
+[code]游戏安装目录\Mods\CrucibleUnlock.dll[/code]
+
+3. 用记事本打开游戏安装目录下的 UserData\MelonPreferences.cfg，找到 CrucibleUnlock 区块，把值改成：
+[code][CrucibleUnlock]
+mode = "runtime-unlock"
 guard_broken_warrick_music = true
 repair_warrick_phase2_target = true[/code]
-4. 如果之前装过别的 Mod，这个 cfg 已经存在——不要覆盖它，只把上面几行合并进去。教程里有《已经有 MelonPreferences.cfg 的玩家》一章专门讲这件事。
+还没有这个区块，就把上面整段加到文件末尾；已经有了就只改它的值，不要新建第二个。
+
+4. 如果之前装过别的 Mod，这个 cfg 文件已经存在——不要覆盖它，只把上面几行合并进去。教程里有《已经有 MelonPreferences.cfg 的玩家》一章专门讲这件事。
+
 5. 解锁只在 Mod 加载期间生效，不会永久完成任务，也不直接修改存档。游戏运行时不要替换 DLL。
 
 [b]功能[/b]
@@ -49,12 +56,19 @@ You only need [url=https://github.com/Venompool888/nrfw-second-crucible-unlock/r
 
 [b]Install[/b]
 1. Install MelonLoader 0.7.3.
-2. Put CrucibleUnlock.dll at [code]game installation directory\Mods\CrucibleUnlock.dll[/code].
-3. In the [code][CrucibleUnlock][/code] section of [code]UserData\MelonPreferences.cfg[/code], set:
-[code]mode = "runtime-unlock"
+
+2. Put CrucibleUnlock.dll into the Mods folder in your game installation directory. The final location must be:
+[code]game installation directory\Mods\CrucibleUnlock.dll[/code]
+
+3. Open UserData\MelonPreferences.cfg in the game installation directory with Notepad, find the CrucibleUnlock section and set:
+[code][CrucibleUnlock]
+mode = "runtime-unlock"
 guard_broken_warrick_music = true
 repair_warrick_phase2_target = true[/code]
-4. If you already use other mods, that cfg file exists — do not overwrite it, merge the lines above into it instead. The guide has a chapter, “Already have a MelonPreferences.cfg?”, that covers exactly this.
+If that section does not exist yet, add the whole block to the end of the file; if it does, only change its values — do not create a second one.
+
+4. If you already use other mods, that cfg file exists — do not overwrite it, merge the lines above into it instead. The guide has a chapter, "Already have a MelonPreferences.cfg?", that covers exactly this.
+
 5. The unlock is active only while the mod runs. It does not permanently complete a quest and does not edit a save. Do not replace the DLL while the game is running.
 
 [b]Features[/b]
