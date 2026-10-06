@@ -25,6 +25,8 @@ dist/
 *.sav
 *.save
 MelonPreferences.cfg
+# ...but the ready-made 0.9.5 configuration ships with the repository
+!download/0.9.5/MelonPreferences.cfg
 Player.log
 MelonLoader.log
 DataStore/
