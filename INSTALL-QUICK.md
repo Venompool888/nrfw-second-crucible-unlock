@@ -36,6 +36,11 @@ repair_warrick_phase2_target = true
 
 Save and close the configuration file.
 
+**Or use the ready-made configuration file.** Which case are you in?
+
+- **Fresh install** — you do not have `UserData\MelonPreferences.cfg` yet: download [`MelonPreferences.cfg`](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/MelonPreferences.cfg) and drop it into `game installation directory\UserData\`. You can skip the manual editing above; MelonLoader adds the remaining options by itself on first launch.
+- **You already use other mods** — the file exists: **do not overwrite it.** Every mod keeps its settings in that same file, so replacing it also discards theirs. Merge only the `[CrucibleUnlock]` block above into your own file, and back it up first if you want a safety net.
+
 **Done. Launch the game yourself through Steam, then go to the second blood bowl in the Crucible hub to play the Second Crucible.**
 
 If your game is not Build 22928553, or the mod does not work after installation, see the [detailed installation and troubleshooting guide](INSTALL-DETAILED.md) or contact the author. Download the HTML version to open it in a browser.

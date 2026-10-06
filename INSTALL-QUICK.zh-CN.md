@@ -36,6 +36,11 @@ repair_warrick_phase2_target = true
 
 保存并关闭配置文件。
 
+**或者直接用现成的配置文件。你是哪种情况？**
+
+- **全新安装**——还没有 `UserData\MelonPreferences.cfg`：下载 [`MelonPreferences.cfg`](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/MelonPreferences.cfg)，放进 `游戏安装目录\UserData\`，上面手写那几步可以跳过；其余选项 MelonLoader 首次启动时会自己补上。
+- **已经装了别的 Mod**——文件已存在：**不要覆盖它。** 所有 Mod 的设置都在这同一个文件里，覆盖等于把别人的设置一起删掉。请只把上面那段 `[CrucibleUnlock]` 合并进你自己的文件；想保险就先备份一份。
+
 **完成。现在由你本人通过 Steam 启动游戏，前往试炼中心的第二个血盆体验第二试炼。**
 
 如果游戏版本不是 Build 22928553，或安装后无法正常使用，请查看[详细安装与排错教程](INSTALL-DETAILED.zh-CN.md)或联系作者。HTML 版可下载后在浏览器打开。
