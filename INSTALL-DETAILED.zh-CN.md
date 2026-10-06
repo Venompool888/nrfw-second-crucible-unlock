@@ -2,20 +2,19 @@
 
 [四步安装](INSTALL-QUICK.zh-CN.md) · [English](INSTALL-DETAILED.md) · [返回项目首页](README.zh-CN.md)
 
-这份教程写给第一次手动安装 Mod 的 Windows／Steam 玩家。对应的 Mod 是 **Second Crucible Unlock and Encounter Fixes（0.9.5）**，下载页在 [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108?tab=files)。只看最少步骤可打开[四步安装 HTML](INSTALL-QUICK.zh-CN.html)；下文按原中文详细教程完整展开，也可单独阅读[中文 Markdown 版](INSTALL.zh-CN.md)或[独立 HTML 版](INSTALL.zh-CN.html)。请使用已发布的 Mod ZIP，不要把 GitHub 的源码 ZIP 当成安装包，也不要使用旧的 `0.4.0` 包。
+这份教程写给第一次手动安装 Mod 的 Windows／Steam 玩家。对应的 Mod 是 **Second Crucible Unlock and Encounter Fixes（0.9.5）**，下载页在 [GitHub Release](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/tag/v0.9.5)。只看最少步骤可打开[四步安装 HTML](INSTALL-QUICK.zh-CN.html)；下文按原中文详细教程完整展开，也可单独阅读[中文 Markdown 版](INSTALL.zh-CN.md)或[独立 HTML 版](INSTALL.zh-CN.html)。直接下载 DLL 即可，不要把 GitHub 自动生成的源码压缩包当成 Mod，也不要使用旧的 `0.4.0` 包。
 
-> **先看这句：**下载的 ZIP **不要放进游戏目录后就直接启动**，也不要把整个 ZIP 放进 `Mods`。要先解压，再让文件最终位于 `游戏安装目录\Mods\CrucibleUnlock.dll`。
+> **先看这句：**下载 `CrucibleUnlock.dll` 并放入 `游戏安装目录\Mods\CrucibleUnlock.dll`，无需解压。
 
 <a id="install-prepare"></a>
 
 ### 你需要准备什么
 
 - Windows 版 Steam 游戏《恶意不息》（No Rest for the Wicked）。本版只针对 **Steam public Build 22928553** 验证。游戏更新后，等 Mod 发布兼容版本；不要绕过版本检查。
-- [Nexus Mods 文件页](https://www.nexusmods.com/norestforthewicked/mods/108?tab=files)的 **Main files → Crucible Unlock 0.9.5 → Manual download** 下载的 ZIP。
+- [GitHub Release 0.9.5 的 DLL](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll)。
 - 兼容的 **MelonLoader 0.7.x**。作者实测环境为 0.7.3 x64。到 [MelonLoader 官方发布页](https://github.com/LavaGang/MelonLoader/releases)或使用[官方安装器](https://github.com/LavaGang/MelonLoader.Installer)获取，不要从不明镜像站下载。
-- 能解压 ZIP 的工具：Windows 文件资源管理器自带“全部解压”即可。
 
-本 Mod 的 ZIP **不包含 MelonLoader 或游戏文件**。MelonLoader 是要先装好的加载器；Mod 自身的游戏内文件只有 `CrucibleUnlock.dll`。
+MelonLoader 是要先装好的加载器；Mod 自身的游戏内文件只有 `CrucibleUnlock.dll`。
 
 <a id="install-backup"></a>
 
@@ -85,23 +84,12 @@ Get-FileHash -Algorithm SHA256 -LiteralPath '实际完整路径'
 
 <a id="install-files"></a>
 
-### 第 3 步：把 N 网 ZIP 解压到正确位置
+### 第 3 步：下载并放置 DLL
 
-1. 在 N 网文件页点击 **Main files** 下的 **Manual download**。若出现下载方式选择，按页面提示完成下载。
-2. 到 Windows 的“下载”文件夹，找到下载的 `.zip`。右键它，选择**全部解压**。解压目标可以暂时放在“下载”文件夹里。
-3. 打开解压出来的文件夹。这个包的内容应是：
-
-   ```text
-   ZIP 解压目录\
-   ├── Mods\
-   │   └── CrucibleUnlock.dll
-├── README.txt
-   └── SHA256SUMS.txt
-   ```
-
-4. 复制前，按下方[文件校验说明](#install-checksums)核对本次 ZIP 和解压 DLL。若核对结果不符，停止安装。打开其中的 `Mods` 文件夹，**复制** `CrucibleUnlock.dll`。
-5. 回到第 1 步打开的**游戏安装目录**。打开里面的 `Mods` 文件夹；如果没有，就在游戏安装目录新建一个名称恰好为 `Mods` 的文件夹。把 DLL 粘贴进去。
-6. 最后检查完整位置：
+1. 从 [GitHub 0.9.5 Release](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll) 下载 `CrucibleUnlock.dll`。
+2. 可选：按下方[文件校验说明](#install-checksums)核对 SHA-256。
+3. 回到第 1 步打开的**游戏安装目录**。打开里面的 `Mods` 文件夹；如果没有，就在游戏安装目录新建一个名称恰好为 `Mods` 的文件夹。将 DLL 复制进去，并命名为 `CrucibleUnlock.dll`。
+4. 最后检查完整位置：
 
    ```text
    <你的游戏安装目录>\Mods\CrucibleUnlock.dll
@@ -109,13 +97,10 @@ Get-FileHash -Algorithm SHA256 -LiteralPath '实际完整路径'
 
 例如你的主程序位于 `D:\SteamLibrary\steamapps\common\NoRestForTheWicked\NoRestForTheWicked.exe`，那么 DLL 应在 `D:\SteamLibrary\steamapps\common\NoRestForTheWicked\Mods\CrucibleUnlock.dll`。
 
-`README.txt` 和 `SHA256SUMS.txt` 是阅读与校验用文件，**不必**放进 `Mods`。ZIP 解压后的完整文件夹也不必放进游戏目录。
-
 **常见放错位置：**
 
 ```text
-错误：<游戏目录>\Mods\CrucibleUnlock-0.9.5.zip
-错误：<游戏目录>\CrucibleUnlock-0.9.5\Mods\CrucibleUnlock.dll
+错误：<游戏目录>\Mods\CrucibleUnlock-0.9.5.dll
 错误：<游戏目录>\Mods\Mods\CrucibleUnlock.dll
 正确：<游戏目录>\Mods\CrucibleUnlock.dll
 ```
@@ -184,40 +169,26 @@ repair_warrick_phase2_target = True
 
 <a id="install-checksums"></a>
 
-### 文件校验：核对本次 0.9.5 ZIP 与 DLL
+### 可选：核对本次 0.9.5 DLL
 
-本次 N 网主文件的 ZIP SHA-256 为：
-
-```text
-486E810A02EE55F99B7FAF2D3AE385B561B37C26DF622755E50090EE3669EF03
-```
-
-在“下载”文件夹的空白处打开 PowerShell，输入 `Get-FileHash`，后面加上你下载 ZIP 的完整路径，例如：
-
-```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath 'C:\Users\你的用户名\Downloads\CrucibleUnlock-0.9.5.zip'
-```
-
-浏览器保存的文件名可能带有 N 网自动添加的文字或编号；**以你实际下载的文件名替换示例**。只有同一发布包才应与上面哈希相同；未来更新的 ZIP 会不同。
-
-解压后还要核对 `Mods\CrucibleUnlock.dll`；其 SHA-256 应为：
+`CrucibleUnlock.dll` 的 SHA-256 为：
 
 ```text
 EB2753BAE81B22BA2F543B992116F0EE36DF0CD69F06374E8010847BC7F033C0
 ```
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath '你的解压目录\Mods\CrucibleUnlock.dll'
+Get-FileHash -Algorithm SHA256 -LiteralPath '你的下载目录\CrucibleUnlock.dll'
 ```
 
-可在资源管理器中右键文件选择“复制文件地址”，将命令引号内的示例替换为实际路径。**任一哈希不符，先停止安装并检查是否选错文件。**这些数值只适用于本次 `0.9.5` 发布包；未来更新包不同，应以对应版本的新说明为准，不要忽略不符结果继续安装。
+可在资源管理器中右键文件选择“复制文件地址”，将命令引号内的示例替换为实际路径。**哈希不符时先停止安装并检查是否选错文件。**该数值只适用于 `0.9.5`。
 
 **离线安装完成清单：**
 
 - [ ] Steam `public` Build 为 `22928553`，游戏目录已由 Steam 实际定位
 - [ ] 已有 `DataStore` 已复制到游戏目录外并检查副本；若无存档，已记录
 - [ ] 兼容的官方 MelonLoader 文件在游戏根目录；本次实测版本为 `0.7.3 x64`
-- [ ] 本次 Nexus ZIP 与解压 DLL 的 SHA-256 均匹配
+- [ ] 下载的 DLL SHA-256 与本版一致
 - [ ] 只有一个版本的 Mod DLL，路径为 `Mods\CrucibleUnlock.dll`
 - [ ] 配置中只有一个 `[CrucibleUnlock]` 区块，三个设置已保存并重新打开核对
 
@@ -232,28 +203,28 @@ Get-FileHash -Algorithm SHA256 -LiteralPath '你的解压目录\Mods\CrucibleUnl
 | 找不到游戏文件夹 | 从 Steam 的“管理 → 浏览本地文件”重新打开，不要照抄示例 D 盘路径。 |
 | 没有 MelonLoader 日志 | 确认加载器在主程序同层，以及你是否已通过 Steam 启动过一次。 |
 | 游戏安装目录没有 `Mods` 或 `MelonLoader` | 先按第 2 步安装 MelonLoader，并确认指向了包含游戏 `.exe` 的目录。 |
-| `Mods` 里只有 ZIP，看不到 `CrucibleUnlock.dll` | ZIP 还没有按第 3 步解压和复制。 |
-| 日志没有 `Crucible Unlock 0.9.5-husk-hud-candidate 已加载` | 检查 DLL 的完整路径、加载器是否启动、是否拿错了旧版压缩包。 |
+| `Mods` 中没有 `CrucibleUnlock.dll` | 按第 3 步下载并放置 DLL。 |
+| 日志没有 `Crucible Unlock 0.9.5-husk-hud-candidate 已加载` | 检查 DLL 的完整路径以及加载器是否启动。 |
 | 日志显示 `mode = probe` | 配置没有保存到正确的 `UserData\MelonPreferences.cfg`，或存在重复的 `[CrucibleUnlock]`；核对文件扩展名。 |
 | 日志中两个修复选项为 `False` | 按第 4 步在同一 `[CrucibleUnlock]` 区块下显式写 `true`，保存后完全退出并重启游戏。 |
 | 日志里版本守卫失败，或没有 `build guard passed` | 确认 Steam public Build 是否为 **22928553**，并可只读核对上列两个游戏原文件的哈希；游戏更新后等待适配版。不要绕过检查。 |
 | DLL 加载但第二回声没有开放 | 核对 `runtime-unlock` 和 `installed two targeted read overrides`，然后在正确的第二回声入口测试。 |
 | 首次启动很慢 | MelonLoader 可能正在生成 IL2CPP 程序集；先让它完成，再根据日志判断。 |
 
-排查时可向作者提供**相关日志片段**，但分享前先检查并遮去个人用户名、磁盘路径、账号及其他 Mod 的私人配置。说明游戏 Build、MelonLoader 版本、Mod ZIP 版本和具体卡在哪一步，比只说“没用”更容易定位。
+排查时可向作者提供**相关日志片段**，但分享前先检查并遮去个人用户名、磁盘路径、账号及其他 Mod 的私人配置。说明游戏 Build、MelonLoader 版本、Mod DLL 版本和具体卡在哪一步，比只说“没用”更容易定位。
 
 <a id="install-uninstall"></a>
 
 ### 卸载与更新
 
 - **仅卸载本 Mod：**退出游戏，删除或移出 `Mods\CrucibleUnlock.dll`。其他 Mod 和加载器可以保留。配置中的 `[CrucibleUnlock]` 可以保留，不会让已移除的 DLL 生效。
-- **更新本 Mod：**退出游戏，备份旧 DLL，再把新发布包中的 DLL 放到相同位置；查看新版本说明是否要求调整配置。不要在运行中替换 DLL。
+- **更新本 Mod：**退出游戏，备份旧 DLL，再把新版本 DLL 放到相同位置；查看新版本说明是否要求调整配置。不要在运行中替换 DLL。
 - **卸载 MelonLoader：**若还装有其他依赖它的 Mod，先处理那些 Mod。具体步骤请按 [MelonLoader 官方卸载说明](https://github.com/LavaGang/MelonLoader#un-install)操作；不要为了卸载本 Mod 而直接删除整个 `Mods`、`UserData` 或存档目录。
 
 ### 独立安装指南
 
 - **[英文简版安装说明](INSTALL.md)：** 安装、配置、验证与卸载
-- **[简体中文详细安装教程](INSTALL.zh-CN.md)：** Windows／Steam 完整步骤、ZIP 放置、校验与故障排查
+- **[简体中文详细安装教程](INSTALL.zh-CN.md)：** Windows／Steam 完整步骤、DLL 放置、校验与故障排查
 - **[独立中文版 HTML 教程](INSTALL.zh-CN.html)：** 保存后可在本地浏览器中打开
 - **[四步安装 HTML](INSTALL-QUICK.zh-CN.html)：** 只保留下载、安装与配置的关键步骤
 
@@ -272,8 +243,7 @@ Steam Build / 分支：
 游戏根目录：
 存档备份：路径，或“无现有存档”
 MelonLoader：版本、官方来源、新增的关键文件；是否仍待运行验证
-Nexus ZIP：实际文件名、来源、SHA-256
-Mod DLL：实际安装路径、SHA-256
+Mod DLL：来源、安装路径、SHA-256
 配置：三个键的读回值
 离线结论：已就绪 / 停在何处及原因
 待你亲自完成：通过 Steam 启动、到主菜单后退出、查看日志与游戏内第二回声

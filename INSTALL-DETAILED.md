@@ -2,20 +2,19 @@
 
 [Quick install](INSTALL-QUICK.md) · [简体中文](INSTALL-DETAILED.zh-CN.md) · [Back to the project](README.md)
 
-This guide is for Windows/Steam players installing a mod manually for the first time. It covers **Second Crucible Unlock and Encounter Fixes (0.9.5)**, available from [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108?tab=files). The complete instructions from the original detailed Chinese guide are included below; you can also read the standalone [Chinese Markdown guide](INSTALL.zh-CN.md) or [HTML guide](INSTALL.zh-CN.html). Use the released mod ZIP. Do not mistake GitHub's source-code ZIP for the installation package, and do not use the old `0.4.0` package.
+This guide is for Windows/Steam players installing a mod manually for the first time. It covers **Second Crucible Unlock and Encounter Fixes (0.9.5)**, available from the [GitHub release](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/tag/v0.9.5). The complete instructions from the original detailed Chinese guide are included below; you can also read the standalone [Chinese Markdown guide](INSTALL.zh-CN.md) or [HTML guide](INSTALL.zh-CN.html). Download the single DLL. Do not use GitHub's automatically generated source archive or the old `0.4.0` package.
 
-> **Read this first:** **Do not simply put the downloaded ZIP in the game directory and launch the game**, and do not put the whole ZIP in `Mods`. Extract it first, then make sure the file ends up at `game installation directory\Mods\CrucibleUnlock.dll`.
+> **Read this first:** Download `CrucibleUnlock.dll` and place it at `game installation directory\Mods\CrucibleUnlock.dll`. No extraction is needed.
 
 <a id="install-prepare"></a>
 
 ### What you need
 
 - The Windows Steam version of **No Rest for the Wicked**. This release has only been verified against **Steam public Build 22928553**. After a game update, wait for a compatible mod release; do not bypass the version check.
-- The ZIP downloaded through **Main files → Crucible Unlock 0.9.5 → Manual download** on the [Nexus Mods files page](https://www.nexusmods.com/norestforthewicked/mods/108?tab=files).
+- The [0.9.5 DLL from the GitHub release](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll).
 - A compatible **MelonLoader 0.7.x** release. The author's tested setup uses 0.7.3 x64. Get it from the [official MelonLoader releases page](https://github.com/LavaGang/MelonLoader/releases) or use the [official installer](https://github.com/LavaGang/MelonLoader.Installer). Do not download it from unknown mirror sites.
-- A tool that can extract ZIP files. Windows File Explorer's built-in **Extract All** is sufficient.
 
-The mod ZIP **does not include MelonLoader or game files**. MelonLoader is the loader that must be installed first; the mod's only in-game file is `CrucibleUnlock.dll`.
+MelonLoader is the loader that must be installed first; this mod's only in-game file is `CrucibleUnlock.dll`.
 
 <a id="install-backup"></a>
 
@@ -85,23 +84,12 @@ This section describes the manual installation process for players. If an AI age
 
 <a id="install-files"></a>
 
-### Step 3: Extract the Nexus Mods ZIP and place the DLL correctly
+### Step 3: Download and place the DLL
 
-1. On the Nexus Mods files page, click **Manual download** under **Main files**. If you are asked to choose a download method, follow the page's instructions to finish downloading.
-2. Open the Windows **Downloads** folder and find the downloaded `.zip`. Right-click it and select **Extract All**. You can temporarily extract it into your Downloads folder.
-3. Open the extracted folder. The package should contain:
-
-   ```text
-   ZIP extraction directory\
-   ├── Mods\
-   │   └── CrucibleUnlock.dll
-├── README.txt
-   └── SHA256SUMS.txt
-   ```
-
-4. Before copying, check this release's ZIP and extracted DLL using the [file verification instructions](#install-checksums) below. Stop the installation if the results do not match. Open the extracted `Mods` folder and **copy** `CrucibleUnlock.dll`.
-5. Return to the **game installation directory** opened in Step 1. Open its `Mods` folder. If there is no such folder, create one directly inside the game installation directory and name it exactly `Mods`. Paste the DLL into it.
-6. Finally, check the full location:
+1. Download `CrucibleUnlock.dll` from the [GitHub 0.9.5 release](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll).
+2. Optionally verify the file using the [SHA-256 instructions](#install-checksums) below.
+3. Return to the **game installation directory** opened in Step 1. Open its `Mods` folder. If there is no such folder, create one directly inside the game installation directory and name it exactly `Mods`. Copy the downloaded DLL there, naming it `CrucibleUnlock.dll`.
+4. Finally, check the full location:
 
    ```text
    <your game installation directory>\Mods\CrucibleUnlock.dll
@@ -109,13 +97,10 @@ This section describes the manual installation process for players. If an AI age
 
 For example, if your game executable is at `D:\SteamLibrary\steamapps\common\NoRestForTheWicked\NoRestForTheWicked.exe`, the DLL belongs at `D:\SteamLibrary\steamapps\common\NoRestForTheWicked\Mods\CrucibleUnlock.dll`.
 
-`README.txt` and `SHA256SUMS.txt` are documentation and verification files. They **do not need** to go into `Mods`. The complete extracted folder does not need to go into the game directory either.
-
 **Common incorrect locations:**
 
 ```text
-Incorrect: <game directory>\Mods\CrucibleUnlock-0.9.5.zip
-Incorrect: <game directory>\CrucibleUnlock-0.9.5\Mods\CrucibleUnlock.dll
+Incorrect: <game directory>\Mods\CrucibleUnlock-0.9.5.dll
 Incorrect: <game directory>\Mods\Mods\CrucibleUnlock.dll
 Correct:   <game directory>\Mods\CrucibleUnlock.dll
 ```
@@ -184,40 +169,26 @@ If the first run rewrites the configuration, fully exit the game, reopen the con
 
 <a id="install-checksums"></a>
 
-### File verification: Check this release's 0.9.5 ZIP and DLL
+### Optional file verification: Check the 0.9.5 DLL
 
-The SHA-256 of this release's main ZIP on Nexus Mods is:
-
-```text
-486E810A02EE55F99B7FAF2D3AE385B561B37C26DF622755E50090EE3669EF03
-```
-
-To check it, open PowerShell from an empty area of your Downloads folder and enter `Get-FileHash` with the full path to the ZIP you downloaded, for example:
-
-```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath 'C:\Users\your-username\Downloads\CrucibleUnlock-0.9.5.zip'
-```
-
-The browser's saved filename may contain extra text or numbers added automatically by Nexus Mods. **Replace the example with the actual filename you downloaded.** Only this exact release package should match the hash above; ZIPs from future updates will have different hashes.
-
-After extraction, also check `Mods\CrucibleUnlock.dll`. Its SHA-256 must be:
+The SHA-256 of `CrucibleUnlock.dll` is:
 
 ```text
 EB2753BAE81B22BA2F543B992116F0EE36DF0CD69F06374E8010847BC7F033C0
 ```
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath 'your extraction directory\Mods\CrucibleUnlock.dll'
+Get-FileHash -Algorithm SHA256 -LiteralPath 'your Downloads directory\CrucibleUnlock.dll'
 ```
 
-You can right-click a file in File Explorer and select **Copy as path**, then replace the example inside the command's quotes with the actual path. **If either hash does not match, stop the installation and check whether you selected the wrong file.** These values apply only to this `0.9.5` release package. Future packages will differ; use the new instructions for the corresponding version, and do not ignore a mismatch and continue installing.
+You can right-click the file in File Explorer and select **Copy as path**, then replace the example inside the command's quotes with the actual path. **If the hash does not match, stop the installation and check whether you selected the wrong file.** This value applies only to version `0.9.5`.
 
 **Offline installation checklist:**
 
 - [ ] Steam is on `public` Build `22928553`, and the game directory has been located through Steam
 - [ ] Any existing `DataStore` has been copied outside the game directory and the copy checked; if there are no saves, that has been recorded
 - [ ] Compatible official MelonLoader files are in the game root directory; the version tested for this release is `0.7.3 x64`
-- [ ] The SHA-256 values of this release's Nexus ZIP and extracted DLL both match
+- [ ] The SHA-256 of the downloaded DLL matches this release
 - [ ] There is only one version of the mod DLL, at `Mods\CrucibleUnlock.dll`
 - [ ] The configuration contains only one `[CrucibleUnlock]` section, and all three settings have been saved and checked by reopening the file
 
@@ -232,15 +203,15 @@ After completing the offline checklist, you still need to launch the game, inspe
 | You cannot find the game folder | Open it again through Steam's **Manage → Browse local files**. Do not copy the example drive-D path literally. |
 | There is no MelonLoader log | Confirm that the loader is alongside the game executable and that you have launched the game once through Steam. |
 | The game installation directory has no `Mods` or `MelonLoader` folder | Install MelonLoader as described in Step 2, and confirm that it points to the directory containing the game's `.exe`. |
-| `Mods` contains only a ZIP, with no `CrucibleUnlock.dll` | The ZIP has not yet been extracted and its DLL copied as described in Step 3. |
-| The log does not contain `Crucible Unlock 0.9.5-husk-hud-candidate 已加载` | Check the DLL's full path, whether the loader started, and whether you accidentally downloaded an older archive. |
+| `Mods` does not contain `CrucibleUnlock.dll` | Download the DLL and place it as described in Step 3. |
+| The log does not contain `Crucible Unlock 0.9.5-husk-hud-candidate 已加载` | Check the DLL's full path and whether the loader started. |
 | The log shows `mode = probe` | The configuration was not saved to the correct `UserData\MelonPreferences.cfg`, or there is a duplicate `[CrucibleUnlock]` section. Check the file extension. |
 | Both repair options are `False` in the log | Explicitly set both to `true` in the same `[CrucibleUnlock]` section as described in Step 4. Save, then fully exit and restart the game. |
 | The version guard fails in the log, or there is no `build guard passed` entry | Confirm that the Steam public Build is **22928553**. You can also check the two original game-file hashes listed above without modifying the files. After a game update, wait for a compatible mod release. Do not bypass the check. |
 | The DLL loads, but the second Echo does not unlock | Check for `runtime-unlock` and `installed two targeted read overrides`, then test at the correct second Echo entrance. |
 | The first launch is very slow | MelonLoader may be generating IL2CPP assemblies. Let it finish, then assess the result using the log. |
 
-When troubleshooting, you can provide the author with **relevant log excerpts**, but review them before sharing and redact personal usernames, disk paths, account details, and private configuration belonging to other mods. Include the game Build, MelonLoader version, mod ZIP version, and the exact step where you got stuck. This makes the issue easier to diagnose than simply saying “it doesn't work.”
+When troubleshooting, you can provide the author with **relevant log excerpts**, but review them before sharing and redact personal usernames, disk paths, account details, and private configuration belonging to other mods. Include the game Build, MelonLoader version, mod DLL version, and the exact step where you got stuck. This makes the issue easier to diagnose than simply saying “it doesn't work.”
 
 <a id="install-uninstall"></a>
 
@@ -253,7 +224,7 @@ When troubleshooting, you can provide the author with **relevant log excerpts**,
 ### Standalone installation guides
 
 - **[English player guide](INSTALL.md):** installation, configuration, verification, and removal
-- **[Detailed Simplified Chinese guide](INSTALL.zh-CN.md):** Windows and Steam walkthrough, ZIP placement, checks, and troubleshooting
+- **[Detailed Simplified Chinese guide](INSTALL.zh-CN.md):** Windows and Steam walkthrough, DLL placement, checks, and troubleshooting
 - **[Standalone Chinese HTML guide](INSTALL.zh-CN.html):** save it and open it locally in a browser
 
 <a id="install-agent"></a>
@@ -271,8 +242,7 @@ Steam Build / branch:
 Game root directory:
 Save backup: path, or "no existing saves"
 MelonLoader: version, official source, key files added; whether runtime verification is still pending
-Nexus ZIP: actual filename, source, SHA-256
-Mod DLL: actual installation path, SHA-256
+Mod DLL: source, installation path, SHA-256
 Configuration: the three values read back from the file
 Offline result: ready / blocked step and reason
 Still for you to complete: launch through Steam, exit after reaching the main menu, check logs and the second Crucible in-game

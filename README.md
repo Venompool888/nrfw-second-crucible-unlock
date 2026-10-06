@@ -9,7 +9,7 @@ Unlock the **Second Crucible**, with encounter fixes and multiplayer support.
 
 ![Second Crucible: unlock and encounter fixes, Build 22928553](media/header.png)
 
-**[Download 0.9.5 ZIP directly](download/0.9.5/CrucibleUnlock-0.9.5.zip)** · [Download DLL directly](download/0.9.5/Mods/CrucibleUnlock.dll) · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [Four-step installation](INSTALL-QUICK.md)
+**[Download CrucibleUnlock.dll (0.9.5)](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll)** · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [Four-step installation](INSTALL-QUICK.md)
 
 Version **`0.9.5`** · Supported game: **Steam public Build 22928553** · Unofficial community mod
 
@@ -43,7 +43,7 @@ See the mod in action:
 
 ## Download and installation
 
-Four steps for Windows Steam players: download MelonLoader 0.7.3, install it, download the [0.9.5 ZIP](download/0.9.5/CrucibleUnlock-0.9.5.zip), then place the DLL and set the three options.
+Four steps for Windows Steam players: download MelonLoader 0.7.3, install it, download the [0.9.5 DLL](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll), place it in `Mods`, then set the three options.
 
 [![简体中文快速安装](media/install-quick-zh-CN.svg)](INSTALL-QUICK.zh-CN.md)
 [![English Quick Install](media/install-quick-en.svg)](INSTALL-QUICK.md)

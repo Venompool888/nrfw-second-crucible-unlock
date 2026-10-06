@@ -18,11 +18,11 @@ If the game is missing from the list, click **Add Game Manually**, select `NoRes
 
 ## 3 · Download the mod
 
-Download the [0.9.5 ZIP directly from GitHub](download/0.9.5/CrucibleUnlock-0.9.5.zip). You can also get the same version from [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108?tab=files). The ZIP contains `Mods/CrucibleUnlock.dll`.
+Download [CrucibleUnlock.dll 0.9.5 directly](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll) and place it at `<game directory>\Mods\CrucibleUnlock.dll`. No extraction is needed.
 
 ## 4 · Place the DLL and set the configuration
 
-1. Right-click the ZIP, select **Extract All**, and find `Mods\CrucibleUnlock.dll` inside
+1. Download `CrucibleUnlock.dll` directly; no extraction is needed
 2. In your Steam library, right-click the game → **Manage** → **Browse local files**. Open the `Mods` folder in the game installation directory, or create it if missing. Copy `CrucibleUnlock.dll` into it. The final location must be `game installation directory\Mods\CrucibleUnlock.dll`
 3. Open `game installation directory\UserData\MelonPreferences.cfg` in Notepad. If the file or folder is missing, create it in the game installation directory. Turn on Windows **File name extensions** and make sure the file is not named `MelonPreferences.cfg.txt`
 4. Search for `[CrucibleUnlock]`. If that section exists, change its values; otherwise, add the block below to the end of the file. Keep other mods' settings and do not create a second `[CrucibleUnlock]` section

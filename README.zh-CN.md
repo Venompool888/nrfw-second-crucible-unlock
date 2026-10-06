@@ -9,7 +9,7 @@
 
 ![第二试炼：解锁与遭遇战修复，Build 22928553](media/header.png)
 
-**[直接下载 0.9.5 ZIP](download/0.9.5/CrucibleUnlock-0.9.5.zip)** · [直接下载 DLL](download/0.9.5/Mods/CrucibleUnlock.dll) · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [四步安装](INSTALL-QUICK.zh-CN.md)
+**[直接下载 CrucibleUnlock.dll（0.9.5）](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll)** · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [四步安装](INSTALL-QUICK.zh-CN.md)
 
 版本 **`0.9.5`** · 支持 **Steam public Build 22928553** · 非官方社区 Mod
 
@@ -43,7 +43,7 @@
 
 ## 下载与安装
 
-Windows Steam 玩家按四步操作：下载 MelonLoader 0.7.3、安装加载器、下载 [0.9.5 ZIP](download/0.9.5/CrucibleUnlock-0.9.5.zip)、放入 DLL 并设置三项配置。
+Windows Steam 玩家按四步操作：下载 MelonLoader 0.7.3、安装加载器、下载 [0.9.5 DLL](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll)、放入 `Mods` 并设置三项配置。
 
 [![简体中文快速安装](media/install-quick-zh-CN.svg)](INSTALL-QUICK.zh-CN.md)
 [![English Quick Install](media/install-quick-en.svg)](INSTALL-QUICK.md)

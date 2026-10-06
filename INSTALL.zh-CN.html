@@ -663,7 +663,7 @@
         <div class="notice-icon">⚠️</div>
         <div class="notice-body">
           <strong>最容易装错的地方</strong>
-          <p>下载的 ZIP 必须先在系统解压。最终必须看到 <code class="path">游戏安装目录\Mods\CrucibleUnlock.dll</code>，而不是 ZIP 包、多层 <code>Mods\Mods</code> 或一整层解压文件夹。</p>
+          <p>下载单独的 <code>CrucibleUnlock.dll</code> 并放入 <code class="path">游戏安装目录\Mods\CrucibleUnlock.dll</code>，无需解压。</p>
         </div>
       </div>
 
@@ -731,12 +731,11 @@
     </section>
 
     <section class="section" id="download">
-      <h2><span class="step">3</span>从 Nexus 下载 Mod ZIP</h2>
+      <h2><span class="step">3</span>下载 Mod DLL</h2>
       <ol>
         <li>访问 <a href="https://www.nexusmods.com/norestforthewicked/mods/108?tab=files" target="_blank" rel="noopener noreferrer">Nexus Mods：Second Crucible Unlock and Fixes 页面</a>。</li>
-        <li>在 <strong>Main files</strong> 栏找到 <strong>Crucible Unlock 0.9.5</strong>，点击 <strong>Manual download</strong>。如需登录或验证，按页面指引完成。</li>
-        <li>在本地“下载”文件夹中找到刚下载的 ZIP。</li>
-        <li>右键 ZIP → <strong>全部解压</strong>。打开解压后的 <code>Mods</code> 文件夹，找到 <code>CrucibleUnlock.dll</code>。</li>
+        <li>直接从 <a href="https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll" target="_blank" rel="noopener noreferrer">GitHub Release 下载 CrucibleUnlock.dll（0.9.5）</a>。</li>
+        <li>无需解压，直接将下载的 DLL 放入游戏目录下的 <code>Mods</code> 文件夹。</li>
       </ol>
     </section>
 
@@ -744,7 +743,7 @@
       <h2><span class="step">4</span>把 DLL 放在唯一正确的位置</h2>
       <ol>
         <li>回到第 1 步找到的游戏安装根目录。若尚不存在 <code>Mods</code> 文件夹，则手动新建一个，英文大小写严格为 <code>Mods</code>。</li>
-        <li>将刚刚解压出的 <code>CrucibleUnlock.dll</code> 复制粘贴进该 <code>Mods</code> 目录。</li>
+        <li>将下载的 <code>CrucibleUnlock.dll</code> 复制粘贴进该 <code>Mods</code> 目录。</li>
         <li>核对文件最终完整结构：</li>
       </ol>
       <div class="codebox">
@@ -768,8 +767,8 @@
               <td><code>游戏目录\Mods\CrucibleUnlock.dll</code></td>
             </tr>
             <tr>
-              <td>🔴 错误：直接塞 ZIP</td>
-              <td><code>游戏目录\Mods\CrucibleUnlock-0.9.5.zip</code></td>
+              <td>🔴 错误：DLL 文件名不符</td>
+              <td><code>游戏目录\Mods\CrucibleUnlock-0.9.5.dll</code></td>
             </tr>
             <tr>
               <td>🔴 错误：嵌套双层 Mods</td>
@@ -892,7 +891,7 @@ repair_warrick_phase2_target = True
               <td>确认加载器解压在 <code>.exe</code> 同级目录；确认是否已由玩家主动启动过游戏。</td>
             </tr>
             <tr>
-              <td><code>Mods</code> 文件夹内是 ZIP</td>
+              <td><code>Mods</code> 文件夹内没有 <code>CrucibleUnlock.dll</code></td>
               <td>必须先在本地解压，仅将解压出的 <code>CrucibleUnlock.dll</code> 复制进去。</td>
             </tr>
             <tr>

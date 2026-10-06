@@ -14,9 +14,9 @@ With the game closed, copy the required references from your own installation an
 ./setup-local-refs.ps1 -GameRoot 'C:/Games/NoRestForTheWicked'
 dotnet build src/CrucibleUnlock/CrucibleUnlock.csproj -c Release
 dotnet run --project tests/RuntimePolicyTests/RuntimePolicyTests.csproj -c Release
-./package-local.ps1
+./package-local.ps1 -DllPath '../crucible-mod/.worktrees/husk-overhead-locales/src/CrucibleUnlock/bin/Release/CrucibleUnlock.dll'
 ```
 
 Adjust `-GameRoot` to your actual installation. `setup-local-refs.ps1` only reads the game installation and copies selected references into this repository's ignored `vendor/` directory. Do not substitute arbitrary game versions: the runtime build guard is intentionally exact.
 
-The build output is `src/CrucibleUnlock/bin/Release/CrucibleUnlock.dll`. Build and runtime compatibility are limited to the specified game build.
+The packaging step accepts only the verified 0.9.5 DLL hash; it rejects stale or different build outputs. Build and runtime compatibility are limited to the specified game build.

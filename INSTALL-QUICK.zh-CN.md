@@ -18,11 +18,11 @@ Windows Steam 玩家用这个版本即可。准备好官方游戏、浏览器和
 
 ## 3 · 下载 Mod
 
-从 GitHub [直接下载 0.9.5 ZIP](download/0.9.5/CrucibleUnlock-0.9.5.zip)，也可以在 [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108?tab=files) 下载同版本。ZIP 内含 `Mods/CrucibleUnlock.dll`。
+从 GitHub [直接下载 CrucibleUnlock.dll（0.9.5）](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll)，将它放入 `<游戏目录>\Mods\CrucibleUnlock.dll`。无需解压。
 
 ## 4 · 放入 DLL，写好配置
 
-1. 右键 ZIP，选择**全部解压**，找到里面的 `Mods\CrucibleUnlock.dll`
+1. 直接下载 `CrucibleUnlock.dll`，无需解压
 2. 在 Steam 库中右键游戏 → **管理** → **浏览本地文件**。打开游戏安装目录下的 `Mods` 文件夹；没有就新建。把 `CrucibleUnlock.dll` 复制进去，最终位置应是 `游戏安装目录\Mods\CrucibleUnlock.dll`
 3. 用记事本打开 `游戏安装目录\UserData\MelonPreferences.cfg`。如果文件或文件夹不存在，就在游戏安装目录中新建。请打开 Windows 的“显示文件扩展名”，确认文件不是 `MelonPreferences.cfg.txt`
 4. 搜索 `[CrucibleUnlock]`。已有这个区块就修改其中的值；没有就把下面整段加到文件末尾。保留其他 Mod 的配置，且不要建立第二个 `[CrucibleUnlock]` 区块
