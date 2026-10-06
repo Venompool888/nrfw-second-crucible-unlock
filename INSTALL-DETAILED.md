@@ -95,8 +95,7 @@ This section describes the manual installation process for players. If an AI age
    ZIP extraction directory\
    ├── Mods\
    │   └── CrucibleUnlock.dll
-   ├── CHANGELOG.md
-   ├── INSTALL.md
+├── README.txt
    └── SHA256SUMS.txt
    ```
 
@@ -110,13 +109,13 @@ This section describes the manual installation process for players. If an AI age
 
 For example, if your game executable is at `D:\SteamLibrary\steamapps\common\NoRestForTheWicked\NoRestForTheWicked.exe`, the DLL belongs at `D:\SteamLibrary\steamapps\common\NoRestForTheWicked\Mods\CrucibleUnlock.dll`.
 
-`CHANGELOG.md`, `INSTALL.md`, and `SHA256SUMS.txt` are documentation and verification files. They **do not need** to go into `Mods`. The complete extracted folder does not need to go into the game directory either.
+`README.txt` and `SHA256SUMS.txt` are documentation and verification files. They **do not need** to go into `Mods`. The complete extracted folder does not need to go into the game directory either.
 
 **Common incorrect locations:**
 
 ```text
 Incorrect: <game directory>\Mods\CrucibleUnlock-0.9.5.zip
-Incorrect: <game directory>\CrucibleUnlock-0.9.5-husk-hud-candidate\Mods\CrucibleUnlock.dll
+Incorrect: <game directory>\CrucibleUnlock-0.9.5\Mods\CrucibleUnlock.dll
 Incorrect: <game directory>\Mods\Mods\CrucibleUnlock.dll
 Correct:   <game directory>\Mods\CrucibleUnlock.dll
 ```
@@ -284,6 +283,5 @@ Report actual paths and verification results without posting full personal logs 
 **Ready-to-copy installation prompt:**
 
 ```text
-Please help me install the second Echo Mod for No Rest for the Wicked on this Windows PC. First open and read the full GitHub installation brief: https://github.com/Venompool888/nrfw-second-crucible-unlock/blob/main/AGENT-INSTALL.zh-CN.md . Then actually carry out the download, version check, save backup, installation, and offline verification described there; do not just summarize the guide. This PC currently has only Steam, the official game, your AI agent client, and possibly Chrome; Git, Python, the .NET SDK, and Mod tools are not preinstalled. Obtain files only from the official sources specified in the brief. If a page requires me to sign in, solve a CAPTCHA, or download manually, tell me exactly what to do and continue afterward. Do not launch or operate the game for me; I will perform in-game verification myself. Stop and report if the game version or file hashes do not match, or if existing files would be overwritten. Finish by listing the actual installation paths, verification results, and steps I still need to complete.
+Please help me install the second Echo Mod for No Rest for the Wicked on this Windows PC. First open and read the full GitHub installation brief: https://github.com/Venompool888/nrfw-second-crucible-unlock/blob/v0.9.5/AGENT-INSTALL.zh-CN.md . Then actually carry out the download, version check, save backup, installation, and offline verification described there; do not just summarize the guide. This PC currently has only Steam, the official game, your AI agent client, and possibly Chrome; Git, Python, the .NET SDK, and Mod tools are not preinstalled. Obtain files only from the official sources specified in the brief. If a page requires me to sign in, solve a CAPTCHA, or download manually, tell me exactly what to do and continue afterward. Do not launch or operate the game for me; I will perform in-game verification myself. Stop and report if the game version or file hashes do not match, or if existing files would be overwritten. Finish by listing the actual installation paths, verification results, and steps I still need to complete.
 ```
-

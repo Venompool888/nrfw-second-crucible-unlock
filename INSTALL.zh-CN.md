@@ -56,8 +56,7 @@ D:\SteamLibrary\steamapps\common\NoRestForTheWicked\
    ZIP 解压目录\
    ├── Mods\
    │   └── CrucibleUnlock.dll
-   ├── CHANGELOG.md
-   ├── INSTALL.md
+   ├── README.txt
    └── SHA256SUMS.txt
    ```
 
@@ -71,13 +70,13 @@ D:\SteamLibrary\steamapps\common\NoRestForTheWicked\
 
 例如你的主程序位于 `D:\SteamLibrary\steamapps\common\NoRestForTheWicked\NoRestForTheWicked.exe`，那么 DLL 应在 `D:\SteamLibrary\steamapps\common\NoRestForTheWicked\Mods\CrucibleUnlock.dll`。
 
-`CHANGELOG.md`、`INSTALL.md` 和 `SHA256SUMS.txt` 是阅读与校验用文件，**不必**放进 `Mods`。ZIP 解压后的完整文件夹也不必放进游戏目录。
+`README.txt` 和 `SHA256SUMS.txt` 是阅读与校验用文件，**不必**放进 `Mods`。ZIP 解压后的完整文件夹也不必放进游戏目录。
 
 **常见放错位置：**
 
 ```text
 错误：<游戏目录>\Mods\CrucibleUnlock-0.9.5.zip
-错误：<游戏目录>\CrucibleUnlock-0.9.5-husk-hud-candidate\Mods\CrucibleUnlock.dll
+错误：<游戏目录>\CrucibleUnlock-0.9.5\Mods\CrucibleUnlock.dll
 错误：<游戏目录>\Mods\Mods\CrucibleUnlock.dll
 正确：<游戏目录>\Mods\CrucibleUnlock.dll
 ```

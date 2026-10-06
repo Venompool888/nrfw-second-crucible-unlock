@@ -13,7 +13,7 @@ Gameplay demonstration: [Bilibili](https://www.bilibili.com/video/BV1zbHH6EEGx) 
 
 ## Installation
 
-Detailed Chinese installation guide (ZIP placement, configuration, verification, troubleshooting): [安装教程（简体中文）](https://github.com/Venompool888/nrfw-second-crucible-unlock/blob/main/INSTALL.zh-CN.md)
+Detailed Chinese installation guide (ZIP placement, configuration, verification, troubleshooting): [安装教程（简体中文）](https://github.com/Venompool888/nrfw-second-crucible-unlock/blob/v0.9.5/INSTALL.zh-CN.md)
 
 1. Back up your realm and character saves.
 2. Install compatible [MelonLoader 0.7.x](https://github.com/LavaGang/MelonLoader/releases) and launch the game once to generate IL2CPP assemblies. Close the game.

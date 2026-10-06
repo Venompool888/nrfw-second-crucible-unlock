@@ -95,8 +95,7 @@ Get-FileHash -Algorithm SHA256 -LiteralPath '实际完整路径'
    ZIP 解压目录\
    ├── Mods\
    │   └── CrucibleUnlock.dll
-   ├── CHANGELOG.md
-   ├── INSTALL.md
+├── README.txt
    └── SHA256SUMS.txt
    ```
 
@@ -110,13 +109,13 @@ Get-FileHash -Algorithm SHA256 -LiteralPath '实际完整路径'
 
 例如你的主程序位于 `D:\SteamLibrary\steamapps\common\NoRestForTheWicked\NoRestForTheWicked.exe`，那么 DLL 应在 `D:\SteamLibrary\steamapps\common\NoRestForTheWicked\Mods\CrucibleUnlock.dll`。
 
-`CHANGELOG.md`、`INSTALL.md` 和 `SHA256SUMS.txt` 是阅读与校验用文件，**不必**放进 `Mods`。ZIP 解压后的完整文件夹也不必放进游戏目录。
+`README.txt` 和 `SHA256SUMS.txt` 是阅读与校验用文件，**不必**放进 `Mods`。ZIP 解压后的完整文件夹也不必放进游戏目录。
 
 **常见放错位置：**
 
 ```text
 错误：<游戏目录>\Mods\CrucibleUnlock-0.9.5.zip
-错误：<游戏目录>\CrucibleUnlock-0.9.5-husk-hud-candidate\Mods\CrucibleUnlock.dll
+错误：<游戏目录>\CrucibleUnlock-0.9.5\Mods\CrucibleUnlock.dll
 错误：<游戏目录>\Mods\Mods\CrucibleUnlock.dll
 正确：<游戏目录>\Mods\CrucibleUnlock.dll
 ```
@@ -285,6 +284,5 @@ Mod DLL：实际安装路径、SHA-256
 **可直接复制的安装指令：**
 
 ```text
-请帮我在这台 Windows 电脑上安装《恶意不息》（No Rest for the Wicked）的第二回声 Mod。先打开并完整阅读 GitHub 上的安装任务书：https://github.com/Venompool888/nrfw-second-crucible-unlock/blob/main/AGENT-INSTALL.zh-CN.md ，然后按任务书实际执行下载、版本核对、存档备份、安装和离线复核，不要只总结教程。电脑目前只有 Steam、官方游戏、你这个 AI Agent 客户端，可能还有 Chrome；没有预装 Git、Python、.NET SDK 或 Mod 工具。只从任务书指定的官方来源取文件；如果网页需要我登录、过验证码或手动下载，请告诉我具体该做什么，完成后继续。不要替我启动或操作游戏；游戏内验证由我亲自完成。遇到游戏版本、文件哈希不符或将覆盖现有文件时，停止并报告。最后列出实际安装路径、校验结果及仍需我完成的步骤。
+请帮我在这台 Windows 电脑上安装《恶意不息》（No Rest for the Wicked）的第二回声 Mod。先打开并完整阅读 GitHub 上的安装任务书：https://github.com/Venompool888/nrfw-second-crucible-unlock/blob/v0.9.5/AGENT-INSTALL.zh-CN.md ，然后按任务书实际执行下载、版本核对、存档备份、安装和离线复核，不要只总结教程。电脑目前只有 Steam、官方游戏、你这个 AI Agent 客户端，可能还有 Chrome；没有预装 Git、Python、.NET SDK 或 Mod 工具。只从任务书指定的官方来源取文件；如果网页需要我登录、过验证码或手动下载，请告诉我具体该做什么，完成后继续。不要替我启动或操作游戏；游戏内验证由我亲自完成。遇到游戏版本、文件哈希不符或将覆盖现有文件时，停止并报告。最后列出实际安装路径、校验结果及仍需我完成的步骤。
 ```
-
