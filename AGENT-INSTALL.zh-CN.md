@@ -2,7 +2,7 @@
 
 把**整个文件**交给 DSH、Codex、WorkBuddy、豆包桌面端等能访问本机文件和网页的 AI Agent，再说一句：“请按这份任务书帮我安装第二回声 Mod。”本文件适用于一台仅装有 Windows、Steam、官方《恶意不息》（No Rest for the Wicked）、AI Agent 客户端和可选 Chrome 的电脑。**不需要预装 Git、Python、.NET SDK、解压软件或本项目源码。**
 
-目标是把已发布的 **Second Crucible Unlock and Encounter Fixes 0.8.6** 安装到正确位置并完成离线检查。它只针对 **Steam public Build 22928553** 验证；第二回声解锁只在 Mod 加载期间有效，并非永久改写存档。包从 [Nexus Mods 的本 Mod 文件页](https://www.nexusmods.com/norestforthewicked/mods/108?tab=files)获取；MelonLoader 从[官方 v0.7.3 发布页](https://github.com/LavaGang/MelonLoader/releases/tag/v0.7.3)获取。手动操作细节见[玩家安装教程](INSTALL.zh-CN.md)。
+目标是把已发布的 **Second Crucible Unlock and Encounter Fixes 0.9.5** 安装到正确位置并完成离线检查。它只针对 **Steam public Build 22928553** 验证；第二回声解锁只在 Mod 加载期间有效，并非永久改写存档。安装包可从[本仓库直接下载](download/0.9.5/CrucibleUnlock-0.9.5.zip)，也可从 [Nexus Mods 文件页](https://www.nexusmods.com/norestforthewicked/mods/108?tab=files)获取；MelonLoader 从[官方 v0.7.3 发布页](https://github.com/LavaGang/MelonLoader/releases/tag/v0.7.3)获取。手动操作细节见[玩家安装教程](INSTALL.zh-CN.md)。
 
 ## 直接交给 Agent 的指令
 
@@ -14,7 +14,7 @@
 >
 > 从官方 GitHub 发布页获取 **MelonLoader v0.7.3 Windows x64**，核对来源和压缩包内容，安装到游戏根目录。只添加新文件；出现与现有文件冲突就停下报告。不要用“安装器已打开”当成安装成功。此阶段不要启动游戏；首次生成 IL2CPP 程序集和运行日志由我稍后亲自启动完成。
 >
-> 打开 Nexus Mods 文件页，在 **Main files** 选择 **Crucible Unlock 0.8.6** 的 **Manual download**。若 Nexus 要求登录或人工点击，给我页面和准确操作提示，等我下载完成后继续。只接受该官方页面取得的 0.8.6 ZIP；不要拿 GitHub 源码 ZIP 当 Mod，也不要从搜索结果、镜像站或历史研究目录找 DLL。下载后验证 ZIP SHA-256 为 `F3733D6DF54D4E515D5810DC3B0B6657D86FB1850430493FF62ECAB45C9E22CF`，解压后验证 `Mods/CrucibleUnlock.dll` 的 SHA-256 为 `F456A46C79A8F9C272946BB00BD555D127FFE770E1EDD7D757B44F6EDA5472CC`。任何一项不符都停止，不安装。
+> 从本仓库 `download/0.9.5/CrucibleUnlock-0.9.5.zip` 下载发布包，或从 Nexus Mods 文件页 **Main files → Crucible Unlock 0.9.5 → Manual download** 获取。不要拿 GitHub 自动生成的源码 ZIP 当 Mod，也不要从搜索结果、镜像站或历史研究目录找 DLL。下载后验证 ZIP SHA-256 为 `486E810A02EE55F99B7FAF2D3AE385B561B37C26DF622755E50090EE3669EF03`，解压后验证 `Mods/CrucibleUnlock.dll` 的 SHA-256 为 `EB2753BAE81B22BA2F543B992116F0EE36DF0CD69F06374E8010847BC7F033C0`。任何一项不符都停止，不安装。
 >
 > 在游戏根目录创建 `Mods`（若尚不存在），只把已校验的 DLL 复制到 `Mods/CrucibleUnlock.dll`；不要把 ZIP 或整个解压目录放进 `Mods`。在 `UserData/MelonPreferences.cfg` 的**唯一** `[CrucibleUnlock]` 区块写入下面三项，保留文件中其他配置。若该文件不存在，可以新建 UTF-8 纯文本文件，不要产生 `.txt` 后缀。写完读回检查。
 >
@@ -33,7 +33,7 @@
 2. **版本门槛。**只读查看清单的 `buildid`，确认是 `22928553` 且是 `public` 分支。可以进一步只读核对游戏 `GameAssembly.dll` 的 SHA-256 为 `5B00EE90833B1BE2EA73E01CB83E710E09E86199D12AC769BE3C0E82ADD8B4BB`，以及 `NoRestForTheWicked_Data\il2cpp_data\Metadata\global-metadata.dat` 为 `4C8DFE07E5F5178F8EEFD3D079412EC164EBA5DA798EFD2A2AE03AA37DC79502`。任一不符，停止；不要降级游戏或改守卫。
 3. **备份。**存档通常在 `%USERPROFILE%\AppData\LocalLow\Moon Studios\NoRestForTheWicked\DataStore`。只复制已有 `DataStore` 到游戏目录外，建议桌面上的 `NRFW-save-backup-YYYYMMDD-HHMMSS`；源目录保持原样。若这台电脑从未运行游戏，可能尚无该目录。
 4. **加载器。**官方 v0.7.3 发布页有 Windows x64 手动压缩包。先检查压缩包的顶层路径、游戏根目录现有文件及任何重名目标，再解压到游戏根目录。只新增文件；不能确定是否会覆盖时先停下。Windows 自带“全部解压”或 PowerShell `Expand-Archive` 即可，不用安装额外解压软件。不要把加载器解压到 `Mods` 里。因本任务禁止 Agent 启动游戏，此时只能确认静态文件位置，不能声称加载器已运行。
-5. **下载 Mod。**Nexus 网页可能需要账号和人工交互。Agent 应让用户在官方页面完成登录、验证码或点击，再从浏览器下载目录读取本次 ZIP。没有可靠的直接下载入口时，保持在等待用户下载的状态，不擅自改用其他包。2026-10-05 核对的 0.8.6 发布 ZIP 和 DLL 哈希见上文；未来若页面更新、主文件版本或哈希变化，停止并向用户说明需要新版任务书。
+5. **下载 Mod。**优先用本仓库的直接 ZIP 链接；Nexus 页面需要账号或人工交互时，由用户完成登录、验证码或点击。2026-10-06 核对的 0.9.5 ZIP 和 DLL 哈希见上文；任何来源的文件哈希不符都停止，不擅自改用其它包。
 6. **配置。**这三个键必须在同一个 `[CrucibleUnlock]` 区块；两个 Boss 修复选项省略时缺省为 `false`。如果 MelonLoader 首次运行后重写配置，需在用户退出游戏后重新读回并核对。不要插入第二个同名区块。
 
 可用 Windows 自带 PowerShell 只读计算哈希，例如 `Get-FileHash -Algorithm SHA256 -LiteralPath '实际完整路径'`。`实际完整路径` 必须由 Agent 在本机查到，不能照抄示例或作者的路径。
@@ -54,6 +54,6 @@ Mod DLL：安装路径、SHA-256
 待用户亲自完成：通过 Steam 启动、到主菜单后退出、查看日志与游戏内第二回声
 ```
 
-用户本人首次启动后，可把 `<游戏根目录>\MelonLoader\Latest.log` 中的相关片段交给 Agent **只读**核对。预期包括 `Crucible Unlock 0.8.6-boss-order 已加载`、`mode = runtime-unlock`、两个修复选项为 `True`、`[runtime-unlock] build guard passed` 和 `[runtime-unlock] installed two targeted read overrides`。日志缺失或版本守卫失败都不算验证通过。游戏内献祭、Boss 与层数体验由用户亲自操作和判断；首次生成 IL2CPP 程序集可能耗时较长。日志分享前遮去用户名、路径等个人信息。
+用户本人首次启动后，可把 `<游戏根目录>\MelonLoader\Latest.log` 中的相关片段交给 Agent **只读**核对。预期包括 `Crucible Unlock 0.9.5-husk-hud-candidate 已加载`、`mode = runtime-unlock`、两个修复选项为 `True`、`[runtime-unlock] build guard passed` 和 `[runtime-unlock] installed two targeted read overrides`。日志缺失或版本守卫失败都不算验证通过。游戏内献祭、Boss 与层数体验由用户亲自操作和判断；首次生成 IL2CPP 程序集可能耗时较长。日志分享前遮去用户名、路径等个人信息。
 
 如需卸载，只在游戏退出后处理本 Mod 新增的 `Mods\CrucibleUnlock.dll`；MelonLoader 的卸载按[官方说明](https://github.com/LavaGang/MelonLoader#un-install)单独进行。不要为卸载本 Mod 删除整个 `Mods`、`UserData` 或存档目录。

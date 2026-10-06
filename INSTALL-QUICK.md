@@ -4,7 +4,7 @@
 
 For Windows Steam players. Have the official game, a browser, and File Explorer ready.
 
-For: **Steam public Build 22928553 · Mod 0.8.6**
+For: **Steam public Build 22928553 · Mod 0.9.5**
 
 ## 1 · Download MelonLoader
 
@@ -18,7 +18,7 @@ If the game is missing from the list, click **Add Game Manually**, select `NoRes
 
 ## 3 · Download the mod
 
-Open the [Second Crucible mod page on Nexus](https://www.nexusmods.com/norestforthewicked/mods/108), click the orange **Manual** download button, then choose **Slow Download**. If the page asks you to sign in, create a Nexus account or sign in to your existing account first. You will get a ZIP file.
+Download the [0.9.5 ZIP directly from GitHub](download/0.9.5/CrucibleUnlock-0.9.5.zip). You can also get the same version from [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108?tab=files). The ZIP contains `Mods/CrucibleUnlock.dll`.
 
 ## 4 · Place the DLL and set the configuration
 

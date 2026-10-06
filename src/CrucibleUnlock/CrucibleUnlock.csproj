@@ -9,7 +9,7 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
-    <Version>0.8.6-boss-order</Version>
+    <Version>0.9.5-husk-hud-candidate</Version>
     <AssemblyName>CrucibleUnlock</AssemblyName>
     <RootNamespace>CrucibleUnlock</RootNamespace>
     <LangVersion>latest</LangVersion>
@@ -23,6 +23,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="Unity.TextMeshPro"><HintPath>..\..\vendor\generated\Unity.TextMeshPro.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.UI"><HintPath>..\..\vendor\generated\UnityEngine.UI.dll</HintPath><Private>false</Private></Reference>
     <EmbeddedResource Include="Assets\SecondBowlBlood\*" LogicalName="NRFW.SecondBowlBlood.%(Filename)%(Extension)" />
     <Reference Include="Il2Cpp__moonType">
       <HintPath>..\..\vendor\generated\Il2Cpp__moonType.dll</HintPath>

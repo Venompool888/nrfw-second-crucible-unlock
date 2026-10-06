@@ -1,5 +1,14 @@
 # Version history
 
+## 0.9.5 — 2026-10-06
+
+- Added configurable Second Crucible Boss trace rewards, defaulting to 300 for eligible Bosses.
+- Raised the active hero's echo limit to 2000 in the Second Crucible shop flow.
+- Corrected Broken Vow Boss HUD and health handling, and Wallowing Husk name, trace identity, and overhead health-bar handling.
+- Included 12 game-language mappings for the Wallowing Husk name.
+- Offline verification passed on the development source. The final overhead health-bar change remains unconfirmed in play.
+- Supported game version: Steam public Build 22928553 only. The DLL's internal MelonLoader label retains `0.9.5-husk-hud-candidate` from the verified build.
+
 ## 0.8.6-boss-order — 2026-10-05
 
 - Installation guide correction: explicitly enable the two Warrick repair options, which otherwise default to off. The DLL is unchanged.

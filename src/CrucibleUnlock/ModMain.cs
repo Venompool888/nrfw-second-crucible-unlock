@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Text.Json;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(CrucibleUnlock.ModMain), "Crucible Unlock", "0.8.6-boss-order", "NRFW research", "")]
+[assembly: MelonInfo(typeof(CrucibleUnlock.ModMain), "Crucible Unlock", "0.9.5-husk-hud-candidate", "NRFW research", "")]
 [assembly: MelonGame("Moon Studios", "NoRestForTheWicked")]
 [assembly: MelonAdditionalDependencies("0Harmony")]
 
@@ -93,6 +93,7 @@ namespace CrucibleUnlock
         private MelonPreferences_Entry<bool> _traceBossMotion;
         private MelonPreferences_Entry<bool> _repairWarrickPhase2Target;
         private MelonPreferences_Entry<bool> _repairBossRushProgression, _repairRitualAnimator;
+        private MelonPreferences_Entry<int> _bossTraceDropAmount;
         private MelonPreferences_Entry<string> _motionTraceDirectory;
         private MotionTraceSink _motionSink;
         private bool _motionActive;
@@ -112,10 +113,12 @@ namespace CrucibleUnlock
                 "第二试炼清场修复", "开层时调用原生SetFloor，沿用原生清场、提示、交互与转场");
             _repairRitualAnimator = category.CreateEntry("repair_ritual_animator", true,
                 "献祭动作角色绑定修复", "只在献祭轨绑定缺失或错误时临时指向当前献祭角色，结束恢复");
+            _bossTraceDropAmount = category.CreateEntry("boss_trace_drop_amount", BossTraceDropApi.DefaultAmount,
+                "第二试炼 Boss 痕迹掉落数量", "每个 Boss 原生痕迹掉落基数，0关闭，允许0至1000；多人修正沿用原生规则；重启生效");
             _guardBrokenWarrickMusic = category.CreateEntry("guard_broken_warrick_music", false,
                 "首 Boss 坏音乐防护", "仅在已确认的隐藏 Warrick 对象身份与坏子引用结构相符时跳过音乐时间轴；不处理献祭动画");
             _repairWarrickPhase2Target = category.CreateEntry("repair_warrick_phase2_target", false,
-                "沃里克二阶段目标修复", "旧版出生前二阶段目标修复；重复出生漏修问题仍待单独处理");
+                "沃里克二阶段目标修复", "每次二阶段动作执行时，将本实体已确认错误的远方落点改为当刻位置；覆盖重复出生，不改共享资产或存档");
             _baseDirectory = Path.GetDirectoryName(typeof(ModMain).Assembly.Location) ?? AppDomain.CurrentDomain.BaseDirectory;
             _traceBossMotion = category.CreateEntry("trace_boss_motion", false,
                 "首 Boss 位移日志", "主线程轮询隐藏首 Warrick 的显示位置、模型偏移与动作，不添加位置同步钩子，后台写入独立 JSONL");
@@ -123,7 +126,7 @@ namespace CrucibleUnlock
                 "位移日志目录", "每次启动创建独立文件，不覆盖旧日志");
 
             LoggerInstance.Msg("=====================================================");
-            LoggerInstance.Msg("Crucible Unlock 0.8.6-boss-order 已加载");
+            LoggerInstance.Msg("Crucible Unlock 0.9.5-husk-hud-candidate 已加载");
             LoggerInstance.Msg($"MelonLoader: {typeof(MelonMod).Assembly.GetName().Version}");
             LoggerInstance.Msg($"CLR: {Environment.Version}  64bit={Environment.Is64BitProcess}");
             LoggerInstance.Msg($"mode = {_mode.Value}   目录 = {_baseDirectory}");
@@ -131,6 +134,7 @@ namespace CrucibleUnlock
             LoggerInstance.Msg($"trace_boss_motion = {_traceBossMotion.Value}");
             LoggerInstance.Msg($"repair_warrick_phase2_target = {_repairWarrickPhase2Target.Value}");
             LoggerInstance.Msg($"repair_bossrush_progression = {_repairBossRushProgression.Value}; repair_ritual_animator = {_repairRitualAnimator.Value}");
+            LoggerInstance.Msg($"boss_trace_drop_amount = {_bossTraceDropAmount.Value}");
             LoggerInstance.Msg($"目标：quest step GUID {StepGuid} / PrimeState GUID {PrimeStateGuid}");
             LoggerInstance.Msg("=====================================================");
         }
@@ -143,6 +147,12 @@ namespace CrucibleUnlock
                 if (mode == "runtime-unlock")
                 {
                     BuildGuard.Verify(_baseDirectory, message => LoggerInstance.Msg(message));
+                    try { BossTraceDropApi.SetAmount(_bossTraceDropAmount.Value); }
+                    catch (ArgumentOutOfRangeException)
+                    {
+                        BossTraceDropApi.ResetToDefault();
+                        LoggerInstance.Warning("[boss-traces] invalid configuration; using default=" + BossTraceDropApi.DefaultAmount);
+                    }
                     if (_guardBrokenWarrickMusic.Value)
                         BrokenWarrickMusicGuard.Install(message => LoggerInstance.Msg(message), message => LoggerInstance.Error(message));
                     try
@@ -166,6 +176,11 @@ namespace CrucibleUnlock
                     }
                     if (_traceBossMotion.Value) StartMotionTrace();
                     if (_repairBossRushProgression.Value) BossRushProgressionRepair.Install();
+                    BossTraceDropRepair.Install();
+                    BrokenVowBossRepair.Install();
+                    BossTracePickupDiagnostics.Install();
+                    HuskBossNameRepair.Install();
+                    EchoCapRepair.Install();
                     if (_repairRitualAnimator.Value)
                     {
                         RitualAnimatorRepair.Install();
@@ -224,7 +239,7 @@ namespace CrucibleUnlock
             {
                 _motionSink = new MotionTraceSink(path);
                 var start = _motionSink.NewRecord("trace_started");
-                start.note = "CrucibleUnlock 0.8.6-boss-order; build 22928553; hook-free motion sampling; ritual/progression hooks logged separately; phase2 target repair enabled=" + _repairWarrickPhase2Target.Value + "; actual application/restoration reported in loader log; raw/interpolated/simulation-frame/teleport unknown";
+                start.note = "CrucibleUnlock 0.9.5-husk-hud-candidate; build 22928553; hook-free motion sampling; ritual/progression hooks logged separately; phase2 target repair enabled=" + _repairWarrickPhase2Target.Value + "; per-entity action target application reported in loader log; raw/interpolated/simulation-frame/teleport unknown";
                 _motionSink.TryWrite(start);
                 BossMotionTrace.Install(_motionSink, message => LoggerInstance.Msg(message), message => LoggerInstance.Error(message));
                 _motionActive = true;

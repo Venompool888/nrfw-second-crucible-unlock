@@ -4,7 +4,7 @@
 
 Windows Steam 玩家用这个版本即可。准备好官方游戏、浏览器和文件资源管理器。
 
-适用：**Steam public Build 22928553 · Mod 0.8.6**
+适用：**Steam public Build 22928553 · Mod 0.9.5**
 
 ## 1 · 下载 MelonLoader
 
@@ -18,7 +18,7 @@ Windows Steam 玩家用这个版本即可。准备好官方游戏、浏览器和
 
 ## 3 · 下载 Mod
 
-打开 [第二试炼 Mod 的 Nexus 页面](https://www.nexusmods.com/norestforthewicked/mods/108)，点击橙色 **Manual** 下载按钮，再选择 **Slow Download**。若页面要求登录，先注册 Nexus 账号或登录已有账号。下载完成后会得到一个 ZIP 文件。
+从 GitHub [直接下载 0.9.5 ZIP](download/0.9.5/CrucibleUnlock-0.9.5.zip)，也可以在 [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108?tab=files) 下载同版本。ZIP 内含 `Mods/CrucibleUnlock.dll`。
 
 ## 4 · 放入 DLL，写好配置
 

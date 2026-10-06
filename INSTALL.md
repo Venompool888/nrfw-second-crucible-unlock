@@ -1,4 +1,6 @@
-# Player guide — 0.8.6-boss-order
+# Player guide — 0.9.5
+
+Download the [ZIP](download/0.9.5/CrucibleUnlock-0.9.5.zip) or the [DLL](download/0.9.5/Mods/CrucibleUnlock.dll) directly from this repository. The ZIP contains `Mods/CrucibleUnlock.dll`; MelonLoader is installed separately.
 
 1. Confirm that Steam reports No Rest for the Wicked public Build **22928553**. The mod is not verified on other builds.
 2. Back up your realm and character saves before adding a loader or mod.

@@ -12,6 +12,8 @@ dist/
 *.dll
 *.pdb
 *.zip
+!download/0.9.5/Mods/CrucibleUnlock.dll
+!download/0.9.5/CrucibleUnlock-0.9.5.zip
 
 # Personal data and diagnostics
 *.log

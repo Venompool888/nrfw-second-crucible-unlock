@@ -9,9 +9,9 @@ Unlock the **Second Crucible**, with encounter fixes and multiplayer support.
 
 ![Second Crucible: unlock and encounter fixes, Build 22928553](media/header.png)
 
-**[Download on Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108)** · [Four-step installation](INSTALL-QUICK.md) · [Watch gameplay](#gameplay-demonstration)
+**[Download 0.9.5 ZIP directly](download/0.9.5/CrucibleUnlock-0.9.5.zip)** · [Download DLL directly](download/0.9.5/Mods/CrucibleUnlock.dll) · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [Four-step installation](INSTALL-QUICK.md)
 
-Version **`0.8.6-boss-order`** · Tested on **Steam public Build 22928553** · Unofficial community mod
+Version **`0.9.5`** · Supported game: **Steam public Build 22928553** · Unofficial community mod
 
 ## Contents
 
@@ -28,6 +28,8 @@ Version **`0.8.6-boss-order`** · Tested on **Steam public Build 22928553** · U
 - **Access the second Crucible.** The unlock is active only while the mod is loaded. It does not permanently complete a quest or directly edit a save.
 - **Play the existing encounter sequence.** The mod reuses the game's encounters and repairs the second offering bowl, floor blood route, room progression, Boss content selection, and Warrick's second phase.
 - **Play in multiplayer.** When the surviving team members defeat a floor's Boss, teammates who died during that Boss fight can revive and rejoin.
+- **Collect Boss traces and choose more echoes.** Eligible Second Crucible Bosses award 300 traces by default, and the mod raises the active hero's echo limit to 2000.
+- **See corrected Boss presentation.** The Broken Vow and Wallowing Husk encounters receive scoped HUD fixes, including the Husk name in the game's 12 supported languages.
 
 ## Multiplayer and revival
 
@@ -41,7 +43,7 @@ See the mod in action:
 
 ## Download and installation
 
-Four steps for Windows Steam players: download MelonLoader 0.7.3, install it, download the Nexus ZIP, then place the DLL and set the three options.
+Four steps for Windows Steam players: download MelonLoader 0.7.3, install it, download the [0.9.5 ZIP](download/0.9.5/CrucibleUnlock-0.9.5.zip), then place the DLL and set the three options.
 
 [![简体中文快速安装](media/install-quick-zh-CN.svg)](INSTALL-QUICK.zh-CN.md)
 [![English Quick Install](media/install-quick-en.svg)](INSTALL-QUICK.md)
@@ -51,13 +53,14 @@ Need help? See the [detailed installation and troubleshooting guide](INSTALL-DET
 ## Compatibility and safety
 
 - **Tested scope:** one full nine-floor run on 2026-10-05 on Steam public **Build 22928553** showed the seven expected Boss encounters, checkpoint, reward room, and return to the second bowl. This is one tested run on one build, not a compatibility guarantee for later builds. Other game builds and repeated reload scenarios remain unverified. See the [version history](CHANGELOG.md).
+- **0.9.5 validation:** offline checks passed. The final Wallowing Husk overhead health-bar change has not yet been confirmed in play.
 - **Save behavior:** the unlock exists only while the mod runs. Normal play can still save progress; the mod does not write permanent quest completion.
 - **Updates and removal:** never replace the DLL while the game is running. To uninstall, close the game and remove `Mods/CrucibleUnlock.dll`; remove MelonLoader separately if desired. See the [player guide](INSTALL.md).
 - **Old builds:** do not use the old `0.4.0` archive or its persistent-unlock instructions from the research workspace.
 
 ## Technical details and building
 
-The source under [`src/`](src/) is the frozen **`0.8.6-boss-order`** source snapshot.
+The source under [`src/`](src/) is the frozen **`0.9.5-husk-hud-candidate`** source snapshot.
 
 - The mod checks the **exact supported game build** before installing its runtime hooks.
 - Building requires MelonLoader references and game-specific generated IL2CPP interop assemblies from the supported game.
@@ -70,4 +73,3 @@ See **[BUILD.md](BUILD.md)** for local requirements, build commands, tests, and 
 The code is available under **[MIT](LICENSE-CODE.md)**. The six image data files under `src/CrucibleUnlock/Assets/SecondBowlBlood/` are outside that code license; see the license file for its full scope.
 
 This is an **unofficial community project**.
-

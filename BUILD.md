@@ -1,6 +1,6 @@
 # Build from source
 
-This is a source snapshot of the tested `0.8.6-boss-order` DLL. Build references are supplied by the local MelonLoader installation for the supported game build.
+This is the source snapshot for the offline-verified `0.9.5-husk-hud-candidate` DLL distributed in `download/0.9.5/`. Its final overhead health-bar change has not yet been confirmed in play. Build references are supplied by the local MelonLoader installation for the supported game build.
 
 ## Local requirements
 
