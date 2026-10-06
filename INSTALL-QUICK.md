@@ -1,6 +1,6 @@
 # Second Crucible Mod | Four-step installation
 
-[简体中文](INSTALL-QUICK.zh-CN.md) · [HTML file](INSTALL-QUICK.html) · [Download HTML](https://github.com/Venompool888/nrfw-second-crucible-unlock/raw/refs/heads/main/INSTALL-QUICK.html)
+[简体中文](INSTALL-QUICK.zh-CN.md)
 
 For Windows Steam players. Have the official game, a browser, and File Explorer ready.
 
@@ -38,6 +38,6 @@ Save and close the configuration file.
 
 **Done. Launch the game yourself through Steam, then go to the second blood bowl in the Crucible hub to play the Second Crucible.**
 
-If your game is not Build 22928553, or the mod does not work after installation, see the [detailed installation and troubleshooting guide](INSTALL-DETAILED.md) or contact the author. Download the HTML version to open it in a browser.
+If your game is not Build 22928553, or the mod does not work after installation, contact the author.
 
 [Back to the project](README.md)

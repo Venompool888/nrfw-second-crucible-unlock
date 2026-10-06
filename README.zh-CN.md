@@ -48,14 +48,12 @@ Windows Steam 玩家按四步操作：下载 MelonLoader 0.7.3、安装加载器
 [![简体中文快速安装](media/install-quick-zh-CN.svg)](INSTALL-QUICK.zh-CN.md)
 [![English Quick Install](media/install-quick-en.svg)](INSTALL-QUICK.md)
 
-遇到问题再看[详细安装与排错教程](INSTALL-DETAILED.zh-CN.md)。
-
 ## 兼容性与安全说明
 
 - **已验证范围：** 2026-10-05 在 Steam public **Build 22928553** 上完成过一次九层完整流程，包含预期的七场 Boss 遭遇战、检查点、奖励房，以及返回第二献祭盆。这仅是一个游戏版本上的一次完整测试，不代表后续版本兼容性保证。其他游戏版本及反复重载场景仍未验证。详见[版本记录](CHANGELOG.md)。
 - **0.9.5 验证状态：**离线检查通过；堕落外壳普通头顶血条的最后修正尚未由玩家实机确认。
 - **存档行为：** 解锁只在 Mod 运行期间存在。正常游玩仍可能保存进度；本 Mod 不会把对应任务永久写成完成。
-- **更新与卸载：** 不要在游戏运行时替换 DLL。卸载时先退出游戏，再移除 `Mods/CrucibleUnlock.dll`；如需卸载 MelonLoader，请单独处理。详见[卸载与更新说明](INSTALL.zh-CN.md#卸载与更新)。
+- **更新与卸载：** 不要在游戏运行时替换 DLL。卸载时先退出游戏，再移除 `Mods/CrucibleUnlock.dll`；如需卸载 MelonLoader，请单独处理。
 - **旧版提醒：** 不要使用旧的 `0.4.0` 压缩包，也不要沿用研究工作区中旧版的永久解锁说明。
 
 ## 技术说明与源码构建

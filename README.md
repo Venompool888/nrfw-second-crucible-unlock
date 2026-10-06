@@ -48,14 +48,12 @@ Four steps for Windows Steam players: download MelonLoader 0.7.3, install it, do
 [![简体中文快速安装](media/install-quick-zh-CN.svg)](INSTALL-QUICK.zh-CN.md)
 [![English Quick Install](media/install-quick-en.svg)](INSTALL-QUICK.md)
 
-Need help? See the [detailed installation and troubleshooting guide](INSTALL-DETAILED.md).
-
 ## Compatibility and safety
 
 - **Tested scope:** one full nine-floor run on 2026-10-05 on Steam public **Build 22928553** showed the seven expected Boss encounters, checkpoint, reward room, and return to the second bowl. This is one tested run on one build, not a compatibility guarantee for later builds. Other game builds and repeated reload scenarios remain unverified. See the [version history](CHANGELOG.md).
 - **0.9.5 validation:** offline checks passed. The final Wallowing Husk overhead health-bar change has not yet been confirmed in play.
 - **Save behavior:** the unlock exists only while the mod runs. Normal play can still save progress; the mod does not write permanent quest completion.
-- **Updates and removal:** never replace the DLL while the game is running. To uninstall, close the game and remove `Mods/CrucibleUnlock.dll`; remove MelonLoader separately if desired. See the [player guide](INSTALL.md).
+- **Updates and removal:** never replace the DLL while the game is running. To uninstall, close the game and remove `Mods/CrucibleUnlock.dll`; remove MelonLoader separately if desired.
 - **Old builds:** do not use the old `0.4.0` archive or its persistent-unlock instructions from the research workspace.
 
 ## Technical details and building

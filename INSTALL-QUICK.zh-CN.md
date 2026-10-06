@@ -1,6 +1,6 @@
 # Second Crucible（第二试炼）Mod｜四步安装
 
-[English](INSTALL-QUICK.md) · [HTML 文件](INSTALL-QUICK.zh-CN.html) · [下载 HTML](https://github.com/Venompool888/nrfw-second-crucible-unlock/raw/refs/heads/main/INSTALL-QUICK.zh-CN.html)
+[English](INSTALL-QUICK.md)
 
 Windows Steam 玩家用这个版本即可。准备好官方游戏、浏览器和文件资源管理器。
 
@@ -38,6 +38,6 @@ repair_warrick_phase2_target = true
 
 **完成。现在由你本人通过 Steam 启动游戏，前往试炼中心的第二个血盆体验第二试炼。**
 
-如果游戏版本不是 Build 22928553，或安装后无法正常使用，请查看[详细安装与排错教程](INSTALL-DETAILED.zh-CN.md)或联系作者。HTML 版可下载后在浏览器打开。
+如果游戏版本不是 Build 22928553，或安装后无法正常使用，请联系作者。
 
 [返回项目首页](README.zh-CN.md)

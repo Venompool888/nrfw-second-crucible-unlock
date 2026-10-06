@@ -18,7 +18,7 @@ An unofficial MelonLoader mod for No Rest for the Wicked **Steam public Build 22
    repair_warrick_phase2_target = true
    ```
 
-The unlock is active only while the mod runs. Do not replace the DLL while the game is running. For the full guide, see the [English instructions](INSTALL.md) or [简体中文安装说明](INSTALL.zh-CN.md).
+The unlock is active only while the mod runs. Do not replace the DLL while the game is running. For the full guide, see the [English quick install](https://github.com/Venompool888/nrfw-second-crucible-unlock/blob/main/INSTALL-QUICK.md) or the [简体中文快速安装](https://github.com/Venompool888/nrfw-second-crucible-unlock/blob/main/INSTALL-QUICK.zh-CN.md).
 
 ## Features
 
