@@ -12,8 +12,11 @@ dist/
 *.dll
 *.pdb
 *.zip
-!download/0.9.5/Mods/CrucibleUnlock.dll
-!download/0.9.5/CrucibleUnlock-0.9.5.zip
+
+# The published 0.9.5 DLL ships inside the repository, so it must not be
+# caught by the *.dll rule above. The release ZIP is no longer stored here:
+# it is published as a GitHub Release asset and on Nexus Mods.
+!download/0.9.5/CrucibleUnlock.dll
 
 # Personal data and diagnostics
 *.log
