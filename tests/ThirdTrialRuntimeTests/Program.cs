@@ -53,16 +53,24 @@ static class Program
         }
         public void Install()
         {
+            TrialRepairLog.Hooks.Clear();
             ThirdTrialRuntime.StopWithoutNativeReads();EnemyRestorationRuntime.Catalog=Catalog;EnemyRestorationRuntime.CurrentViewsReady=true;
             EnemyRestorationRuntime.Prepare=f=>
             {
                 f.InstanceDataStorage.Events.Add("assets");if(FailAssets)throw new InvalidOperationException("owned graph preparation failure");
                 foreach(var p in Catalog.Profiles)foreach(long id in new[]{p.NpcGuid,p.HostGuid,p.ControllerGuid,p.ViewGuid})
                     f.DynamicAssetDB.Assets[id]=f.Assets[id];
+                foreach(var p in Catalog.Profiles.Where(p=>p.BlockedActions.Length>0))f.DynamicAssetDB.Assets[p.PrivateWeaponGuid]=f.Assets[p.PrivateWeaponGuid];
+                f.PrivateAssetsPrepared=Catalog.Profiles.Length*4+Catalog.Profiles.Count(p=>p.BlockedActions.Length>0);
             };
             ThirdTrialRuntime.Install();
         }
-        public void Init()=>Invoke("AfterInit",Frame);
+        public void Init()
+        {
+            if(Frame.OfficialContentExports==0)
+                TrialRepairLog.Dispatch(typeof(InitializeContentSystem),"OnInit",Frame,()=>new InitializeContentSystem().OnInit(Frame));
+            else Invoke("AfterInit",Frame); // Repeated mod callback, not repeated native export.
+        }
         public InfiniteDungeonPlaylist Private=>Frame.DynamicAssetDB.FindAsset(new(){Value=ThirdTrialPolicy.PlaylistGuid})?.TryCast<InfiniteDungeonPlaylist>();
         public void CheckFailed(string reason,bool canRemain=false)
         {
@@ -72,6 +80,7 @@ static class Program
     }
     static void Main()
     {
+        CheckOfficialInitializationOrder();
         var f=new Fixture();string source=Snapshot(f.Original);f.Install();f.Init();
         Check(ThirdTrialRuntime.Enabled&&ThirdTrialRuntime.IsFrameReady(f.Frame),"actual OnInit ready");var p=f.Private;
         Check(p!=null&&p.Pointer!=f.Original.Pointer&&Snapshot(f.Original)==source,"real second fixture independently cloned and unchanged");
@@ -87,9 +96,9 @@ static class Program
         }
         Check(p.Entries[10].RandomizedFromType&&(int)p.Entries[10].FloorType==4,"native second reward retained");
         var events=f.Frame.InstanceDataStorage.Events;
-        Check(events[0]=="assets"&&events.Count(x=>x=="tree")==10&&events.Count(x=>x=="block")==10,"asset graph before storage");
+        Check(events.IndexOf("official-content-complete")<events.IndexOf("assets")&&events.Count(x=>x=="tree")==10&&events.Count(x=>x=="block")==10,"native content then asset graph before private storage");
         Check(events.IndexOf("block")>events.LastIndexOf("tree")&&events.IndexOf("playlist")>events.LastIndexOf("block"),"Trees then all blocks then playlist order");
-        Check(events.Take(events.IndexOf("block")).Count(x=>x=="dependency")==41,"all forty private dependencies plus team before blocks");
+        Check(events.Skip(events.IndexOf("official-content-complete")+1).TakeWhile(x=>x!="block").Count(x=>x=="dependency")==40,"all forty private dependencies before blocks; official Team reused");
         int writes=f.Frame.InstanceDataStorage.Writes,adds=f.Frame.PlaylistAdds,trees=f.Frame.TreeBuilds,blocks=f.Frame.BlockBuilds;f.Init();
         Check(f.Frame.InstanceDataStorage.Writes==writes&&f.Frame.PlaylistAdds==adds&&f.Frame.TreeBuilds==trees&&f.Frame.BlockBuilds==blocks&&ThirdTrialRuntime.IsFrameReady(f.Frame),"repeat OnInit no duplicate writes");
         EnemyRestorationRuntime.CurrentViewsReady=false;Check(!ThirdTrialRuntime.IsFrameReady(f.Frame)&&ThirdTrialRuntime.ResolveReadyPlaylist(f.Frame)==null,"all current views gate");
@@ -167,5 +176,35 @@ static class Program
         }
         Check(!AppDomain.CurrentDomain.GetAssemblies().Any(a=>a.GetName().Name.StartsWith("Il2Cpp")||a.GetName().Name.StartsWith("Unity")),"no native/game assemblies loaded");
         Console.WriteLine("Actual ThirdTrialRuntime source managed tests passed: "+checks+"; no game DLL references or execution.");
+    }
+    static void CheckOfficialInitializationOrder()
+    {
+        var f=new Fixture();f.Install();
+        var installed=TrialRepairLog.Hooks.Single(h=>h.Postfix=="AfterInit");
+        Console.WriteLine("INIT ORDER actual production hook: "+installed.TargetType.Name+"."+installed.Method+" postfix "+installed.Postfix);
+        TrialRepairLog.Dispatch(typeof(StartOfFrameSystem),"OnInit",f.Frame,()=>new StartOfFrameSystem().OnInit(f.Frame));
+        bool noEarlyAssets=f.Frame.DynamicAssetDB.Assets.Count==0&&f.Frame.PrivateAssetsPrepared==0&&f.Frame.Exports==0&&f.Frame.PlaylistAdds==0;
+        bool exported=false;Exception error=null;
+        try
+        {
+            TrialRepairLog.Dispatch(typeof(InitializeContentSystem),"OnInit",f.Frame,()=>new InitializeContentSystem().OnInit(f.Frame));
+            exported=true;
+        }
+        catch(Exception caught){error=caught;}
+        Console.WriteLine("INIT ORDER official content exported="+exported+"; pooled="+f.Frame.OfficialPooledExports+"; error="+error?.Message);
+        Check(exported,"official ExportRandomAssets must finish before bootstrap; observed: "+error);
+        Check(noEarlyAssets,"StartOfFrame cannot create restored assets, export blocks or register playlist before content");
+        Check(installed.TargetType==typeof(InitializeContentSystem),"bootstrap registered at verified content completion");
+        var events=f.Frame.InstanceDataStorage.Events;
+        Check(events.IndexOf("official-content-complete")<events.IndexOf("assets"),"all private asset creation after native content export");
+        Check(f.Frame.PrivateAssetsPrepared==43,"all forty-three graph assets prepared only after native export");
+        Check(f.Frame.OfficialContentExports==1&&f.Frame.OfficialPooledExports==1,"unrelated official pooled exports continue");
+        Check(f.Frame.InstanceDataStorage.m_storageTeamData.m_storage.Count==1,"official static Team reused without duplicate Add");
+        var team=f.Frame.InstanceDataStorage.m_storageTeamData.m_storage[0];
+        Check(team.Pointer==f.Frame.Assets[f.Catalog.TeamGuid].Pointer,"reuse exact official static Team pointer");
+        Check(ThirdTrialRuntime.IsFrameReady(f.Frame)&&f.Frame.PlaylistAdds==1,"bootstrap ready after content");
+        int writes=f.Frame.InstanceDataStorage.Writes;
+        TrialRepairLog.Dispatch(typeof(StartOfFrameSystem),"OnInit",f.Frame,()=>new StartOfFrameSystem().OnInit(f.Frame));
+        Check(f.Frame.InstanceDataStorage.Writes==writes,"start-of-frame no bootstrap side effects");
     }
 }

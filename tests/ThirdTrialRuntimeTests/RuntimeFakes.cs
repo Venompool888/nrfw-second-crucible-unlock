@@ -97,7 +97,8 @@ namespace Il2CppQuantum
     {
         public readonly FakeDynamicDB DynamicAssetDB=new();public readonly FakeContext Context=new();
         public long SourcePlaylist;public bool FailPlaylistAdd,FailPlaylistAfterAdd,WrongPlaylistReadback,DifferentPointerReadback;
-        public int PlaylistAdds;
+        public int PlaylistAdds,PrivateAssetsPrepared;
+        public int OfficialContentExports,OfficialPooledExports;
         public void AddAsset(AssetObject value,AssetGuid guid)
         {
             if(InstanceDataStorage.m_storageRuntimeNpcAttachments.m_storage.Count!=10||InstanceDataStorage.m_storageTree.m_storage.Count!=10)
@@ -111,7 +112,23 @@ namespace Il2CppQuantum
             if(FailPlaylistAfterAdd)throw new InvalidOperationException("playlist Add after insertion failure");
         }
     }
-    class StartOfFrameSystem {public void OnInit(Frame frame){} }
+    class StartOfFrameSystem {public void OnInit(Frame frame){frame.InstanceDataStorage.Events.Add("official-start");} }
+    class InitializeContentSystem
+    {
+        public void OnInit(Frame frame)
+        {
+            frame.InstanceDataStorage.Events.Add("official-content-begin");
+            // Native ExportRandomAssets Add is deliberately NON-idempotent, even
+            // if the exact same static Team object was already added by a mod.
+            foreach(var team in frame.Assets.Values.OfType<TeamData>())frame.InstanceDataStorage.Add(team);
+            frame.OfficialContentExports++;
+            // Represents further unrelated official/pooled content exports that
+            // must remain reachable after Team export succeeds.
+            frame.InstanceDataStorage.Add(new NpcSpawnerData{Guid=new(){Value=883344455566L}});
+            frame.OfficialPooledExports++;
+            frame.InstanceDataStorage.Events.Add("official-content-complete");
+        }
+    }
     class InfiniteDungeonRoguelitePlaylistRuleDirector {public void UpdateActiveRun(Frame frame){} }
     static class InfiniteDungeonAPI {public static AssetRefInfiniteDungeonFloorData GetSourcePlaylist(Frame f)=>new(){Id=new(){Value=f.SourcePlaylist}};}
 }
@@ -119,9 +136,18 @@ namespace CrucibleUnlock
 {
     static partial class TrialRepairLog
     {
+        internal sealed record Hook(Type TargetType,string Method,Type PatchType,string Prefix,string Postfix);
+        internal static readonly List<Hook> Hooks=new();
         internal static void Patch(HarmonyLib.Harmony owner,Type type,string name,Type[] args,Type patchType,string prefix=null,string postfix=null)
         {
             if(type.GetMethod(name,args)==null)throw new MissingMethodException(name);
+            Hooks.Add(new Hook(type,name,patchType,prefix,postfix));
+        }
+        internal static void Dispatch(Type type,string method,Frame frame,Action original)
+        {
+            original();
+            foreach(var hook in Hooks.Where(h=>h.TargetType==type&&h.Method==method&&h.Postfix!=null))
+                hook.PatchType.GetMethod(hook.Postfix,System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic).Invoke(null,new object[]{frame});
         }
     }
     static class EnemyRestorationRuntime

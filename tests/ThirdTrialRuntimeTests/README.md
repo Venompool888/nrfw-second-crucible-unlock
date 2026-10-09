@@ -8,9 +8,10 @@ Run with the task SDK and local TEMP/TMP/DOTNET_CLI_HOME:
 
 `dotnet run --project tests/ThirdTrialRuntimeTests/ThirdTrialRuntimeTests.csproj -c Release`
 
-365 checks pass with zero build warnings/errors:
+375 checks pass with zero build warnings/errors:
 
 - Clones precisely the original second resource-manager source. Original source has an unchanged complete snapshot of Entries/Type/SpawnPoint/flags before and after success and each initialization failure.
+- Fake Harmony records production target type, method and postfix and dispatches the native initialization sequence. StartOfFrame runs first, then InitializeContentSystem performs non-idempotent static Team export and an unrelated pooled spawner export, then the registered postfix runs. All forty-three private graph assets, blocks and playlist remain absent before native content finishes. The exact official Team pointer is reused without another Add, and pooled initialization can continue.
 - Ten fixed Arena entries contain each stage's full ordered EntryNuggetGuids; entry11 preserves independent native randomized Reward. Private source is Roguelite1 and third SpawnPoint. Second respite5/5, loot/healing/experience flags and 65536 loot modifier remain copied.
 - Asset preparation happens first; all forty private dependencies and the shared Team precede attachment creation; all ten Trees precede all ten prepared Blocks; playlist registration happens last. Repeated OnInit makes no extra cache writes or Tree/Block/Playlist creations.
 - Readiness requires the current-view flag, initialized storage identity, exact owned private source, all ten dynamic NPC/controller assets, all ten NPC cache identities, attachment blocks and private Tree OwnerGuid. Another Frame with uninitialized storage is rejected; another Frame sharing the initialized storage and same graph is accepted.
@@ -20,3 +21,5 @@ Run with the task SDK and local TEMP/TMP/DOTNET_CLI_HOME:
 An Add that inserts and then throws may leave unused private objects cached; tests require entry readiness to remain false. This matches the production lifetime rule that cache-backed assets cannot be discarded by an unsupported removal path.
 
 These tests validate real managed orchestration against modeled native contracts. They do not validate the game's actual serializer, simulation, streaming, animations or rewards through engine execution. Serialized rehydration yielding a new pointer is deliberately rejected by strict ownership, so native rehydration behavior remains a gameplay candidate boundary.
+
+Startup ordering regression: with the actual old StartOfFrameSystem.OnInit hook, this harness produced `native duplicate Add rejected: 370725232116713263`, `official content exported=False`, `pooled=0`. After the production hook moved to InitializeContentSystem.OnInit postfix, the same non-idempotent native model reports `official content exported=True`, `pooled=1`. Red/green outputs are stored in `artifacts/third-entry/runtime-init-order-red.txt` and `runtime-init-order-green.txt`. Repeated tests dispatch only the mod postfix because native content export itself is intentionally non-idempotent and normally runs once per storage.

@@ -4,7 +4,7 @@ using System.Reflection.PortableExecutable;
 var provider=new Names();
 const string Q="Il2CppQuantum.";
 var hooks=new[] {
- new Spec("Il2Cppmoon.quantum.forsaken",Q+"StartOfFrameSystem","OnInit","Void",new[]{Q+"Frame"},"ThirdTrialRuntime","AfterInit",false),
+ new Spec("Il2Cppmoon.quantum.forsaken",Q+"InitializeContentSystem","OnInit","Void",new[]{Q+"Frame"},"ThirdTrialRuntime","AfterInit",false),
  new Spec("Il2Cpp__forsaken","Il2Cpp.RuntimeAssetResolutionContext","Update","Void",Array.Empty<string>(),"EnemyRestorationRuntime","BeforeResolutionUpdate",true),
  new Spec("Il2Cpp__forsaken","Il2CppMoon.Playmode.InitializeQuantumAssetDatabase","InitializeResourceManager","Void",new[]{"Il2CppMoon.TheLoop.ViewFrame"},"EnemyRestorationRuntime","BeforeResourceManagerReset",true),
  new Spec("Il2Cppmoon.quantum.forsaken",Q+"QuestAPI","IsQuestStepComplete","System.Boolean",new[]{Q+"Frame",Q+"AssetRefGameQuestStepData"},"ThirdTrialEntry","QuestPrefix",true),

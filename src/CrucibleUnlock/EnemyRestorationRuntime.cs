@@ -27,7 +27,7 @@ namespace CrucibleUnlock
             try
             {
                 if(attachSimulationHook)
-                    TrialRepairLog.Patch(owner, typeof(StartOfFrameSystem), "OnInit", new[] { typeof(Frame) },
+                    TrialRepairLog.Patch(owner, typeof(InitializeContentSystem), "OnInit", new[] { typeof(Frame) },
                         typeof(EnemyRestorationRuntime), postfix: nameof(AfterSimulationInit));
                 TrialRepairLog.Patch(owner, typeof(RuntimeAssetResolutionContext), "Update", Type.EmptyTypes,
                     typeof(EnemyRestorationRuntime), prefix: nameof(BeforeResolutionUpdate));

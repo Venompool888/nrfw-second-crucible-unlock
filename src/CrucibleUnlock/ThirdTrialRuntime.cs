@@ -22,7 +22,11 @@ namespace CrucibleUnlock
             var owner=new PatchOwner("NRFW.CrucibleUnlock.ThirdTrialRuntime");
             try
             {
-                TrialRepairLog.Patch(owner,typeof(StartOfFrameSystem),"OnInit",new[]{typeof(Frame)},typeof(ThirdTrialRuntime),postfix:nameof(AfterInit));
+                // InitializeContentSystem exports shared static caches with native
+                // duplicate-key insertion. Run after that export, never ahead of it
+                // from StartOfFrameSystem.OnInit, so Team and other shared refs are
+                // adopted by pointer rather than pre-inserted then exported twice.
+                TrialRepairLog.Patch(owner,typeof(InitializeContentSystem),"OnInit",new[]{typeof(Frame)},typeof(ThirdTrialRuntime),postfix:nameof(AfterInit));
                 TrialRepairLog.Patch(owner,typeof(InfiniteDungeonRoguelitePlaylistRuleDirector),"UpdateActiveRun",new[]{typeof(Frame)},
                     typeof(ThirdTrialRuntime),prefix:nameof(BeforeRuleUpdate));
                 _enabled=true;

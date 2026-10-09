@@ -42,6 +42,14 @@
 
 ## 验证与交付边界
 
-Release构建及各离线检查具体计数见任务 `artifacts/third-trial/` 和测试包 `verification.json`。实际AI动作、出生数量、视图、清层/奖励、死亡重进、多人仍未运行验证。本次仅准备任务分支候选，不安装、不启动游戏、不修改存档、不合并main、不发布。
+Release构建及各离线检查具体计数见任务 `artifacts/third-trial/` 和测试包 `verification.json`。实际AI动作、出生数量、视图、清层/奖励、死亡重进、多人仍由用户验证。用户已单独授权切换并启动本任务候选；不修改源存档或原游戏文件、不合并main、不发布。
 
-候选开关 `[CrucibleUnlock] third_trial_restored_enemies = true`，与既有 `mode = "runtime-unlock"` 配合。只想暂时关闭第三改动可设false并重启；第二/弩枪正式功能仍保留。安装/切换必须游戏退出，先备份当前自研插件和配置，保持游戏原文件不动；后续由用户授权安装并本人测试。
+候选开关 `[CrucibleUnlock] third_trial_restored_enemies = true`，与既有 `mode = "runtime-unlock"` 配合。只想暂时关闭第三改动可设false并重启；第二/弩枪正式功能仍保留。安装/切换必须游戏退出，先备份当前自研插件和配置，保持游戏原文件不动；由用户本人游玩测试。
+
+## R2：初始化顺序修复（2026-10-10）
+
+首次候选启动在官方内容初始化时失败：旧 StartOfFrameSystem.OnInit postfix 提前插入共享敌对 TeamData，随后官方 ExportRandomAssets 再次 Add 同一 GUID 370725232116713263，抛 duplicate key 并终止该会话。首包与失败日志保留为历史证据，不作为可游玩验收。
+
+0.9.16-third-trial-candidate-r2 把第三完整 bootstrap 及独立恢复模块可选 simulation hook 都移到 InitializeContentSystem.OnInit postfix，等待官方随机池、活动等初始化返回后再注册私有资产。原生调用链与签名证据见 [init-order-review.md](init-order-review.md)。该回调本身不代表官方初始化成功，实际启动结果必须从新会话日志核对。
+
+真实生产 Install 注册/派发回归先复现旧钩子的重复 key，再确认新钩子 official content exported=True、pooled=1。StartOfFrame 阶段私有资产数为0，官方初始化后为43；复用官方同一 Team pointer，重复 mod callback 不重复写入。实际 ThirdTrialRuntime 源码375项、实际 storage150项通过；另7组离线检查全通过，Release0警告0错误，8组第三 hook、unsafe interop及throwing stub审计通过。房间、敌人和生成规则与首包一致。
