@@ -19,6 +19,7 @@ namespace CrucibleUnlock
         private static int _reportedProfiles;
         private static int _reportedResults;
         private static int _reportedLogError;
+        private static volatile bool _componentLayoutVerified;
 
         internal static void Install(Action<string> log, Action<string> error)
         {
@@ -60,6 +61,8 @@ namespace CrucibleUnlock
         {
             if (!_enabled || __0 == null) return true;
             bool privateSource = false;
+            string phase = "source-playlist";
+            EntityRef origin = default;
             try
             {
                 privateSource = InfiniteDungeonAPI.GetSourcePlaylist(__0).Id.Value == ThirdTrialPolicy.PlaylistGuid;
@@ -69,23 +72,30 @@ namespace CrucibleUnlock
                 // points at the content source, and its integration group is copied
                 // from that source before Spawn. SpawnerData on the new component
                 // is populated only after Spawn returns, so scope comes from origin.
+                phase = "new-components";
                 bool hasNpcSpawner = __0.Has<DynamicNpcSpawnerComponent>(__1);
                 bool hasGroup = __0.Has<IntegrationGroupComponent>(__1);
                 bool hasIdentity = __0.Has<IdentityComponent>(__1);
                 if (!hasNpcSpawner || !hasGroup || !hasIdentity)
                     return Block(ref __result, "new NPC spawner components missing; npc=" + hasNpcSpawner +
                         "; integration=" + hasGroup + "; identity=" + hasIdentity);
-                var origin = __0.Get<IdentityComponent>(__1).Scope;
+                phase = "component-layout";
+                VerifyComponentLayout();
+                phase = "identity-scope";
+                origin = ReadIdentityScope(__0, __1);
                 if (origin.Raw == 0 || origin.Raw == __1.Raw)
                     return Block(ref __result, "new NPC spawner identity has invalid source scope");
+                phase = "source-components";
                 bool hasSourceSpawner = __0.Has<DynamicSpawnerComponent>(origin);
                 bool hasSourceGroup = __0.Has<IntegrationGroupComponent>(origin);
                 if (!hasSourceSpawner || !hasSourceGroup)
                     return Block(ref __result, "source spawner components missing; dynamic=" + hasSourceSpawner +
                         "; integration=" + hasSourceGroup);
-                var group = __0.Get<IntegrationGroupComponent>(__1);
-                var sourceGroup = __0.Get<IntegrationGroupComponent>(origin);
-                var spawner = __0.Get<DynamicSpawnerComponent>(origin);
+                phase = "integration-groups";
+                var group = ReadIntegrationGroup(__0, __1);
+                var sourceGroup = ReadIntegrationGroup(__0, origin);
+                phase = "owner-refs; newIndex=" + group.StreamingNodeDataIndex.m_index +
+                    "; sourceIndex=" + sourceGroup.StreamingNodeDataIndex.m_index;
                 var owner = group.StreamingNodeDataIndex.Get(__0);
                 var sourceOwner = sourceGroup.StreamingNodeDataIndex.Get(__0);
                 if (owner == null || sourceOwner == null) return Block(ref __result, "integration streaming node missing");
@@ -95,6 +105,7 @@ namespace CrucibleUnlock
 
                 // RuntimeStreamingNodeRef is the source of ownership even while the
                 // next room is preloaded and GetCurrentFloor still names this room.
+                phase = "owner-ancestry";
                 RuntimeStreamingNode nugget = null, bucket = null, chunk = null;
                 var node = owner;
                 for (int depth = 0; node != null && depth < 16; ++depth, node = node.Parent)
@@ -116,15 +127,20 @@ namespace CrucibleUnlock
                     return Block(ref __result, "selected arena spawned from unexpected content: bucket=" +
                         (bucket?.Id.Value ?? 0) + "; nugget=" + (nugget?.Id.Value ?? 0));
 
-                long spawnerGuid = spawner.DynamicSpawnerData.Get(__0)?.Guid ?? 0;
+                phase = "source-component";
+                var sourceDataRef = ReadSourceSpawnerRef(__0, origin);
+                phase = "source-data; index=" + sourceDataRef.m_index;
+                long spawnerGuid = sourceDataRef.Get(__0)?.Guid ?? 0;
                 // The native index is keyed by the integration ID assigned to
                 // this content group. This checks the current ID-to-node mapping
                 // directly, without assuming the node-state field has already
                 // been refreshed for every possible owner kind.
+                phase = "native-owner-map; spawner=" + spawnerGuid + "; integration=" + group.IntegrationId;
                 var integrationSystem = __0.GetSystem<IntegrationStreamingSystem>();
                 var mappedOwner = integrationSystem?.TryGetIntegrationNodeById(__0, group.IntegrationId);
                 bool integrationMapsToOwner = mappedOwner != null && mappedOwner.Id.Value == owner.Id.Value &&
                     mappedOwner.Entity.Raw == owner.Entity.Raw;
+                phase = "generated-entry; chunk=" + stage.ChunkGuid;
                 bool entryMatches = GeneratedEntryMatches(__0, stage);
                 var decision = ThirdTrialSpawningPolicy.Decide(ThirdTrialPolicy.PlaylistGuid,
                     ThirdTrialPolicy.PlaylistGuid, chunk.Id.Value, stage.ChunkGuid,
@@ -137,6 +153,7 @@ namespace CrucibleUnlock
                         "; nugget=" + stage.NuggetGuid + "; spawner=" + spawnerGuid +
                         "; integration=" + group.IntegrationId + "; mappedOwner=" + integrationMapsToOwner +
                         "; generatedEntry=" + entryMatches);
+                phase = "restored-readiness; profile=" + stage.ProfileKey;
                 if (!ThirdTrialRuntime.IsFrameReady(__0) ||
                     !ThirdTrialRuntime.TryGetNpc(__0, stage.ProfileKey, out var replacement))
                     return Block(ref __result, "restored NPC not ready for " + stage.ProfileKey);
@@ -156,7 +173,8 @@ namespace CrucibleUnlock
             catch (Exception exception)
             {
                 if (!privateSource) return true;
-                return Block(ref __result, "native spawn scope error: " + exception.GetType().Name + ": " + exception.Message);
+                return Block(ref __result, "native spawn scope error: phase=" + phase + "; new=" + __1.Raw +
+                    "; source=" + origin.Raw + "; " + exception);
             }
         }
 
@@ -174,8 +192,10 @@ namespace CrucibleUnlock
                 if (index < 0 || !__0.Has<DynamicNpcSpawnerComponent>(__1)) return;
                 bool verified = __0.IsVerified;
                 int mask = 1 << (index + (verified ? 10 : 0));
+                if ((Volatile.Read(ref _reportedResults) & mask) != 0) return;
+                VerifyComponentLayout();
+                long storedNpc = ReadStoredNpcRef(__0, __1).Id.Value;
                 if ((Interlocked.Or(ref _reportedResults, mask) & mask) != 0) return;
-                long storedNpc = __0.Get<DynamicNpcSpawnerComponent>(__1).NpcData.Id.Value;
                 TrialRepairLog.Write("[third-spawn] RESULT expectedNpc=" + __2.Id.Value + "; storedNpc=" + storedNpc +
                     "; entity=" + __result.Raw + "; verified=" + verified);
             }
@@ -185,8 +205,54 @@ namespace CrucibleUnlock
         private static void ReportLogError(string stage, Exception error)
         {
             if (Interlocked.Exchange(ref _reportedLogError, 1) != 0) return;
-            try { TrialRepairLog.Write("[third-spawn] LOGERROR " + stage + ": " + error.GetType().Name + ": " + error.Message); }
+            try { TrialRepairLog.Write("[third-spawn] LOGERROR " + stage + ": " + error); }
             catch { } // Diagnostics never change the native result or runtime control.
+        }
+
+        private static unsafe void VerifyComponentLayout()
+        {
+            if (_componentLayoutVerified) return;
+            IdentityComponent identity = default;
+            IntegrationGroupComponent group = default;
+            if (sizeof(IdentityComponent) != 24 || IdentityComponent.SIZE != 24 ||
+                sizeof(IntegrationGroupComponent) != 8 || IntegrationGroupComponent.SIZE != 8 ||
+                sizeof(EntityRef) != 8 || sizeof(DynamicSpawnerDataRef) != 4 || sizeof(AssetRefNpcData) != 8 ||
+                DynamicSpawnerComponent.SIZE != 32 || DynamicNpcSpawnerComponent.SIZE != 80 ||
+                (byte*)&identity.Scope - (byte*)&identity != 8 ||
+                (byte*)&group.IntegrationId - (byte*)&group != 0 ||
+                (byte*)&group.StreamingNodeDataIndex - (byte*)&group != 4)
+                throw new InvalidOperationException("Native spawner component layout mismatch.");
+            _componentLayoutVerified = true;
+        }
+
+        // These are official AOT specializations. Get returns an UNBOXED component
+        // pointer, not a CLR wrapper or IL2CPP object; never construct a class at it.
+        private static unsafe EntityRef ReadIdentityScope(Frame frame, EntityRef entity)
+        {
+            var pointer = EntityRefExtensions.Get<IdentityComponent>(entity, frame);
+            if (pointer == null) throw new InvalidOperationException("Identity component Has=true/Get=null; entity=" + entity.Raw);
+            return *(EntityRef*)((byte*)pointer + 8);
+        }
+
+        private static unsafe IntegrationGroupComponent ReadIntegrationGroup(Frame frame, EntityRef entity)
+        {
+            var pointer = EntityRefExtensions.Get<IntegrationGroupComponent>(entity, frame);
+            if (pointer == null) throw new InvalidOperationException("Integration group Has=true/Get=null; entity=" + entity.Raw);
+            return *(IntegrationGroupComponent*)pointer;
+        }
+
+        private static unsafe DynamicSpawnerDataRef ReadSourceSpawnerRef(Frame frame, EntityRef entity)
+        {
+            var pointer = EntityRefExtensions.Get<DynamicSpawnerComponent>(entity, frame);
+            if (pointer == null) throw new InvalidOperationException("Dynamic spawner Has=true/Get=null; entity=" + entity.Raw);
+            return *(DynamicSpawnerDataRef*)pointer;
+        }
+
+        private static unsafe AssetRefNpcData ReadStoredNpcRef(Frame frame, EntityRef entity)
+        {
+            var pointer = EntityRefExtensions.Get<DynamicNpcSpawnerComponent>(entity, frame);
+            if (pointer == null) throw new InvalidOperationException("NPC spawner Has=true/Get=null; entity=" + entity.Raw);
+            return *(AssetRefNpcData*)((byte*)pointer + 16);
         }
 
         private static bool GeneratedEntryMatches(Frame frame, ThirdTrialStage stage)
@@ -197,6 +263,7 @@ namespace CrucibleUnlock
             for (int i = 0; i < playlist.Count; ++i)
             {
                 var entry = playlist[i];
+                if (entry == null) throw new InvalidOperationException("Runtime playlist entry projection is null; index=" + i);
                 if (entry.Chunk.Id.Value != stage.ChunkGuid) continue;
                 ++matches;
                 var pointer = entry.Nuggets;

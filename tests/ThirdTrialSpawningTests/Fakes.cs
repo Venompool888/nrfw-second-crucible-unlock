@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.InteropServices;
 using CrucibleUnlock;
 using Il2CppQuantum;
 using Il2CppQuantum.StreamingGraph;
@@ -22,12 +23,39 @@ namespace Il2CppQuantum
             Il2CppPhoton.Deterministic.FP rotation,EnemyDifficulty difficulty,long patrolRouteId,string faderGroupId) => default;
     }
     class DynamicSpawnerData { public long Guid; }
-    class DynamicSpawnerDataRef { public DynamicSpawnerData Data; public DynamicSpawnerData Get(Frame f) => Data; }
-    class DynamicSpawnerComponent { public DynamicSpawnerDataRef DynamicSpawnerData=new(); }
-    class DynamicNpcSpawnerComponent { public DynamicSpawnerDataRef SpawnerData=new(); public AssetRefNpcData NpcData; }
-    class IdentityComponent { public EntityRef Scope; }
-    class IntegrationGroupComponent { public NodeRef StreamingNodeDataIndex=new(); public int IntegrationId; }
-    class NodeRef { public RuntimeStreamingNode Node; public RuntimeStreamingNode Get(Frame f) => Node; }
+    static class NativeRecords
+    {
+        static int next;
+        public static readonly Dictionary<int,DynamicSpawnerData> Data=new();
+        public static readonly Dictionary<int,RuntimeStreamingNode> Nodes=new();
+        public static int Index()=>Interlocked.Increment(ref next);
+    }
+    struct DynamicSpawnerDataRef
+    {
+        public int m_index; public static int SIZE=>4;
+        public DynamicSpawnerData Data {get=>NativeRecords.Data.GetValueOrDefault(m_index);set{m_index=NativeRecords.Index();NativeRecords.Data[m_index]=value;}}
+        public DynamicSpawnerData Get(Frame f)=>Data;
+    }
+    class DynamicSpawnerComponent { public static int SIZE=>32; public DynamicSpawnerDataRef DynamicSpawnerData; }
+    class DynamicNpcSpawnerComponent { public static int SIZE=>80; public DynamicSpawnerDataRef SpawnerData {get;set;} public AssetRefNpcData NpcData; }
+    [StructLayout(LayoutKind.Explicit,Size=24)]
+    struct IdentityComponent
+    {
+        [FieldOffset(0)] public long ScopeGen;
+        [FieldOffset(8)] public EntityRef Scope;
+        [FieldOffset(16)] public long Guid;
+        public static int SIZE=>24;
+    }
+    static class NativeLayout { public static int GroupSize {get;set;}=8; }
+    struct IntegrationGroupComponent { public int IntegrationId; public NodeRef StreamingNodeDataIndex; public static int SIZE=>NativeLayout.GroupSize; }
+    struct NodeRef
+    {
+        public int m_index;
+        public RuntimeStreamingNode Node {get=>NativeRecords.Nodes.GetValueOrDefault(m_index);set{m_index=NativeRecords.Index();NativeRecords.Nodes[m_index]=value;}}
+        public RuntimeStreamingNode Get(Frame f)=>Node;
+    }
+    static unsafe class EntityRefExtensions
+    { public static void* Get<T>(EntityRef entity,Frame frame)=>(void*)frame.RawPointer(entity,typeof(T)); }
     class IntegrationStreamingSystem
     {
         public readonly Dictionary<int,RuntimeStreamingNode> Nodes=new();
@@ -39,17 +67,49 @@ namespace Il2CppQuantum
     class RuntimeEntry { public AssetRefNuggetData Chunk; public NuggetPointer Nuggets=new(); }
     class Frame
     {
+        public static int GenericGets,NativeGets;
+        public static readonly List<Frame> AllocatedFrames=new();
+        public Frame()=>AllocatedFrames.Add(this);
         public long Source=ThirdTrialPolicy.PlaylistGuid;
         public bool ThrowSource {get;set;}
         public bool IsVerified {get;set;}=true;
         public bool ThrowNpcGet {get;set;}
+        public bool NullDynamicGet {get;set;}
         public long PlayerCurrentChunk {get;set;}
         public readonly Dictionary<(long,Type),object> Components=new();
         public readonly List<string> ComponentReads=new();
+        public readonly HashSet<(long,Type)> NullRawPointers=new();
         public readonly List<RuntimeEntry> Playlist=new();
         public IntegrationStreamingSystem Integration=new();
         public bool Has<T>(EntityRef entity) {ComponentReads.Add("Has:"+typeof(T).Name);return Components.ContainsKey((entity.Raw,typeof(T)));}
-        public T Get<T>(EntityRef entity) {ComponentReads.Add("Get:"+typeof(T).Name);if(ThrowNpcGet&&typeof(T)==typeof(DynamicNpcSpawnerComponent))throw new InvalidOperationException("injected diagnostic read failure");return (T)Components[(entity.Raw,typeof(T))];}
+        public T Get<T>(EntityRef entity)
+        {
+            ComponentReads.Add("Get:"+typeof(T).Name);
+            GenericGets++;
+            if(typeof(T)==typeof(IntegrationGroupComponent)||typeof(T)==typeof(DynamicSpawnerComponent)||typeof(T)==typeof(DynamicNpcSpawnerComponent))
+                throw new NullReferenceException("Modeled unsupported Frame.Get AOT specialization: "+typeof(T).Name);
+            return (T)Components[(entity.Raw,typeof(T))];
+        }
+        readonly Dictionary<(long,Type),IntPtr> buffers=new();
+        public IntPtr RawPointer(EntityRef entity,Type type)
+        {
+            ComponentReads.Add("NativeGet:"+type.Name);
+            NativeGets++;
+            if(NullRawPointers.Contains((entity.Raw,type)))return IntPtr.Zero;
+            if(!Components.TryGetValue((entity.Raw,type),out var component))return IntPtr.Zero;
+            if(NullDynamicGet&&type==typeof(DynamicSpawnerComponent))return IntPtr.Zero;
+            if(ThrowNpcGet&&type==typeof(DynamicNpcSpawnerComponent))throw new InvalidOperationException("injected diagnostic read failure");
+            int size=type==typeof(IdentityComponent)?24:type==typeof(IntegrationGroupComponent)?8:type==typeof(DynamicSpawnerComponent)?32:80;
+            if(!buffers.TryGetValue((entity.Raw,type),out var ptr)) {ptr=Marshal.AllocHGlobal(size);buffers.Add((entity.Raw,type),ptr);}
+            Marshal.Copy(new byte[size],0,ptr,size);
+            if(type==typeof(IdentityComponent))Marshal.StructureToPtr((IdentityComponent)component,ptr,false);
+            else if(type==typeof(IntegrationGroupComponent))Marshal.StructureToPtr((IntegrationGroupComponent)component,ptr,false);
+            else if(type==typeof(DynamicSpawnerComponent))Marshal.StructureToPtr(((DynamicSpawnerComponent)component).DynamicSpawnerData,ptr,false);
+            else Marshal.StructureToPtr(((DynamicNpcSpawnerComponent)component).NpcData,IntPtr.Add(ptr,16),false);
+            return ptr;
+        }
+        public static void FreeAllBuffers()
+        {foreach(var frame in AllocatedFrames)foreach(var ptr in frame.buffers.Values)Marshal.FreeHGlobal(ptr);AllocatedFrames.Clear();}
         public T GetSystem<T>() where T:class=>Integration as T;
         public List<AssetRefNuggetData> ResolveList(NuggetPointer pointer)=>pointer.Values;
     }

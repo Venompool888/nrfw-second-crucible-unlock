@@ -3,6 +3,7 @@
     <OutputType>Exe</OutputType><TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <SpawnSource Condition="'$(SpawnSource)' == ''">../../src/CrucibleUnlock/ThirdTrialSpawning.cs</SpawnSource>
   </PropertyGroup>
   <ItemGroup>

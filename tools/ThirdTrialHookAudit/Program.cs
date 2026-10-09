@@ -70,6 +70,19 @@ if (plugin.GetTypeDefinition(runtime).GetMethods().Any(m => plugin.GetString(plu
  throw new Exception("Unused resolver Update callback remains.");
 Console.WriteLine("PASS: loader OnUpdate calls current-view pump; pump reads Core.AssetCtx; unused resolver Update callback removed.");
 Console.WriteLine("PASS: canonical simulation views required by Unity; no second EntityViewData construction; snapshot published after full bootstrap; current manager read.");
+var spawnType=plugin.TypeDefinitions.Single(t=>provider.GetTypeFromDefinition(plugin,t,0)=="CrucibleUnlock.ThirdTrialSpawning");
+var spawnCalls=plugin.GetTypeDefinition(spawnType).GetMethods()
+ .Where(h=>plugin.GetMethodDefinition(h).RelativeVirtualAddress!=0).SelectMany(Calls).ToArray();
+foreach(string component in new[]{"IdentityComponent","IntegrationGroupComponent","DynamicSpawnerComponent","DynamicNpcSpawnerComponent"}) {
+ string generic="<"+Q+component+">";
+ if(spawnCalls.Any(c=>c==Q+"Core.FrameBase.Get"+generic || c==Q+"FrameBase.Get"+generic || c==Q+"Frame.Get"+generic))
+  throw new Exception("Spawner uses boxed component Get instead of official component pointer: "+component);
+ if(!spawnCalls.Contains(Q+"EntityRefExtensions.Get"+generic))
+  throw new Exception("Spawner lacks official component pointer read: "+component);
+}
+if(spawnCalls.Contains(Q+"DynamicSpawnerComponent..ctor") || spawnCalls.Contains(Q+"DynamicNpcSpawnerComponent..ctor"))
+ throw new Exception("Spawner wraps raw component memory as a boxed IL2CPP object.");
+Console.WriteLine("PASS: spawner reads four component pointers through official EntityRefExtensions.Get; no boxed Frame.Get component reads or raw-pointer object wrappers.");
 Console.WriteLine("PASS: 8 third-trial callbacks on 7 native targets and required embedded manifests/blood resources; PE metadata only.");
 
 MethodDefinitionHandle PluginMethod(string type, string method) {
@@ -97,7 +110,10 @@ List<string> Calls(MethodDefinitionHandle method) {
  return calls;
 }
 string MethodName(EntityHandle h) {
- if(h.Kind==HandleKind.MethodSpecification)return MethodName(plugin.GetMethodSpecification((MethodSpecificationHandle)h).Method);
+ if(h.Kind==HandleKind.MethodSpecification) {
+  var spec=plugin.GetMethodSpecification((MethodSpecificationHandle)h);
+  return MethodName(spec.Method)+"<"+string.Join(",",spec.DecodeSignature(provider,(object)null))+">";
+ }
  if(h.Kind==HandleKind.MethodDefinition) {
   var m=plugin.GetMethodDefinition((MethodDefinitionHandle)h);
   return provider.GetTypeFromDefinition(plugin,m.GetDeclaringType(),0)+"."+plugin.GetString(m.Name);
