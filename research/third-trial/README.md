@@ -1,6 +1,8 @@
 # 第三试炼恢复敌人候选
 
-当前准备R6：R5实机第三献祭、路线和模型/战斗缓存已通过，刷怪在首回调因误把新NPC spawner当原始出生点而封闭。R6保持原8byte Spawn接口，通过Identity.Scope回源并交叉核对两份IntegrationGroup，再沿原白名单/房间归属改NPC参数；postfix有限记录原生保存的NPCref及返回entity，预测/确认帧分别记录，诊断不改变生成或控制。原生时序见 [R5刷怪来源证据](../../artifacts/third-launch/r5-empty-room-native-review.md)。真实源码刷怪回归48项通过（冻结R5同harness50项/37失败），其它Runtime87/Views101/ThirdRuntime423/storage154/entry33/presentation41和policy通过，7目标8callback及弩枪/JIT/unsafe/stub审计通过，Release0警告0错误。实际敌人、清层、奖励和重进须R6新会话用户验证。
+当前已安装R6：R5实机第三献祭、路线和模型/战斗缓存已通过，刷怪在首回调因误把新NPC spawner当原始出生点而封闭。R6保持原8byte Spawn接口，通过Identity.Scope回源并交叉核对两份IntegrationGroup，再沿原白名单/房间归属改NPC参数；postfix有限记录原生保存的NPCref及返回entity，预测/确认帧分别记录，诊断不改变生成或控制。原生时序见 [R5刷怪来源证据](../../artifacts/third-launch/r5-empty-room-native-review.md)。最终真实源码刷怪回归50项通过（冻结R5同harness50项/37失败），其它Runtime87/Views101/ThirdRuntime423/storage154/entry33/presentation41和policy通过，7目标8callback及弩枪/JIT/unsafe/stub审计通过，Release0警告0错误。实际敌人、清层、奖励和重进须R6新会话用户验证。
+
+R6代码f543a25e9096a84682804dc4189aa6a338bdc0d4，DLL SHA256 fa0295c5745a532b06b010fe219788a0587dc1f3813352038dfc9fdc375e3886，zip SHA256 29069ea097c1898c4a8623de0a1aaa38a3b3453ef3b5a55009234c86c1ec1f85。18:48:26 UTC备份校验并安装，18:48:57 UTC按已有授权Steam启动；记录/回滚位于artifacts/third-launch/installation-r6-20261009T184826534Z，实际新会话看artifacts/third-launch/log-review-r6.md。冻结包初次回归48项；后续两项纯诊断补充的50项最终记录另存artifacts/third-launch/r6-final-spawn-validation.json，生产源码/DLL未改变。
 
 当前修复候选为R5，接续同一任务分支和9186fe3基线；后来正式main 7db4e4a尚未同步或合并。R4主线程视图注册成功后，进入世界在私有View GUID -611686018427387902发生foreign runtime cache collision，第三入口关闭；R4于18:11:27 UTC正常退出。
 
