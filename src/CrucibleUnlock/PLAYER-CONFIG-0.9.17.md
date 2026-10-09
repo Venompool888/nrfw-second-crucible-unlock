@@ -1,6 +1,6 @@
-# 玩家配置：Crucible Unlock 0.9.17-player-defaults 候选
+# 玩家配置：Crucible Unlock 0.9.17
 
-本说明只适用于核心 `CrucibleUnlock.dll` **0.9.17-player-defaults 候选**与 `NRFWBowgunAudioSync.dll` **0.3.3** 的组合。两个 DLL 的既有依赖关系不变。0.9.17 是预发布候选，已完成离线核验，尚未实机测试；**0.9.16 仍是最新正式版**，请按该版本自己的安装说明操作。
+本说明只适用于核心 `CrucibleUnlock.dll` **0.9.17-player-defaults 正式版**与 `NRFWBowgunAudioSync.dll` **0.3.3** 的组合。两个 DLL 的既有依赖关系不变。0.9.17 已通过离线核验，用户于 2026-10-10 实机试用后反馈没有问题，是当前最新正式版；0.9.16 的实机记录仍只属于旧版。
 
 ## 普通玩家需要设置什么
 
@@ -18,6 +18,6 @@
 
 ## 从旧配置升级
 
-保留已有 `MelonPreferences.cfg` 及其他 mod 的设置。如需整理，只编辑 `[CrucibleUnlock]` 自身区块即可。旧 `mode`、音乐/献祭/清场等修复开关、轨迹日志设置和 `bowgun_weapon_class` 等键在 0.9.17 候选核心中不再读取；它们即使仍留在文件中也不会控制新版行为。`boss_trace_drop_amount` 的旧值会继续读取；**`0` 仍表示本 mod 覆盖为零，不掉落目标 Boss 痕迹**。
+保留已有 `MelonPreferences.cfg` 及其他 mod 的设置。如需整理，只编辑 `[CrucibleUnlock]` 自身区块即可。旧 `mode`、音乐/献祭/清场等修复开关、轨迹日志设置和 `bowgun_weapon_class` 等键在 0.9.17 核心中不再读取；它们即使仍留在文件中也不会控制新版行为。`boss_trace_drop_amount` 的旧值会继续读取；**`0` 仍表示本 mod 覆盖为零，不掉落目标 Boss 痕迹**。
 
-旧版 0.9.16 的配置与这份候选说明不同。这份说明适用于 0.9.17 预发布候选。是否用于后续正式版，以届时实际发布内容为准。
+旧版 0.9.16 的配置与本说明不同；使用旧版 DLL 时仍按对应版本的安装说明操作。

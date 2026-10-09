@@ -1,6 +1,6 @@
 # Build from source
 
-This repository contains the `0.9.17-player-defaults` prerelease core candidate and the unchanged `0.3.3` bowgun audio/input component. The 0.9.17 candidate is offline-verified and not play-tested; `0.9.16` remains the latest stable release. Release hashes are recorded in each version folder under `download/`.
+This repository contains the `0.9.17-player-defaults` stable core release and the unchanged `0.3.3` bowgun audio/input component. Offline checks passed, and the user reported no issues after trying 0.9.17 in-game on 2026-10-10. Version `0.9.17` is the latest stable release. Release hashes are recorded in each version folder under `download/`.
 
 ## Local requirements
 
@@ -19,7 +19,7 @@ Adjust `-GameRoot` to your actual installation. `setup-local-refs.ps1` only read
 
 `verify-local.ps1` builds both plugins, runs the runtime policy suite and 77 bowgun policy checks, the player entry-point configuration suite, 15 core hook registrations and compiled callbacks, and 12 input metadata/thread contracts. Pure tests use managed fixtures; metadata tools read PE/IL without loading game assemblies. Pass `-Dotnet 'C:/path/to/dotnet.exe'` to select a specific .NET 6 executable.
 
-Packaging accepts only the 0.9.17 core hash and the unchanged 0.3.3 audio/input hash. A compiler/source/build-setting change may produce a different hash; that output is a new candidate and is rejected. Broader unsafe-wrapper/native-asset audits passed on the accepted development build. The public repository contains authored plugin code and reproducible policy/metadata checks; raw research exports and game-specific dependencies remain locally supplied.
+Packaging accepts only the 0.9.17 core hash and the unchanged 0.3.3 audio/input hash. A compiler/source/build-setting change may produce a different hash; that output is a different build and is rejected by the pinned package check. Broader unsafe-wrapper/native-asset audits passed on the accepted development build. The public repository contains authored plugin code and reproducible policy/metadata checks; raw research exports and game-specific dependencies remain locally supplied.
 
 For separate builds and packaging:
 

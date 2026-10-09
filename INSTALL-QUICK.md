@@ -4,7 +4,7 @@
 
 For Windows Steam players. Have the official game, a browser, and File Explorer ready.
 
-For: **Steam public Build 22928553 · Mod 0.9.17 prerelease candidate**. This candidate has offline verification only; it has not been play-tested. Version 0.9.16 remains the latest stable release.
+For: **Steam public Build 22928553 · Mod 0.9.17 stable release**. Offline checks passed, and the user reported no issues after trying 0.9.17 in-game on 2026-10-10.
 
 ## 1 · Download MelonLoader
 
@@ -26,7 +26,7 @@ The loader creates `UserData\MelonPreferences.cfg` on first launch. The mod enab
 
 An optional [`MelonPreferences.cfg` example](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/MelonPreferences.cfg) contains only the Crucible Unlock setting. It is not required; never replace an existing shared preferences file with it.
 
-**Done. Launch the game yourself through Steam, then go to the second blood bowl in the Crucible hub to play the Second Crucible.** This 0.9.17 candidate has not been play-tested; use the 0.9.16 stable release if you require a tested version.
+**Done. Launch the game yourself through Steam, then go to the second blood bowl in the Crucible hub to play the Second Crucible.** The user reported no issues in an in-game trial of 0.9.17 on 2026-10-10; other game builds and untested paths are not covered by that feedback.
 
 If your game is not Build 22928553, or the mod does not work after installation, contact the author.
 

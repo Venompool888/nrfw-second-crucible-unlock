@@ -9,9 +9,9 @@ Unlock the **Second Crucible**, with encounter fixes and multiplayer support.
 
 ![Second Crucible: unlock and encounter fixes, Build 22928553](media/header.png)
 
-**[Download 0.9.17 prerelease core](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/CrucibleUnlock.dll)** · **[Download bowgun audio/input 0.3.3](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/NRFWBowgunAudioSync.dll)** · [0.9.17 quick install](INSTALL-QUICK.md) · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108)
+**[Download 0.9.17 core](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/CrucibleUnlock.dll)** · **[Download bowgun audio/input 0.3.3](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/NRFWBowgunAudioSync.dll)** · [0.9.17 quick install](INSTALL-QUICK.md) · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108)
 
-Latest stable release: **`0.9.16`** · Candidate prerelease: **`0.9.17`** (offline-verified; not play-tested) · Supported game: **Steam public Build 22928553** · Unofficial community mod
+Latest stable release: **`0.9.17`** · Supported game: **Steam public Build 22928553** · Unofficial community mod
 
 ## Contents
 
@@ -45,17 +45,17 @@ See the mod in action:
 
 ## Download and installation
 
-For the 0.9.17 prerelease, download MelonLoader 0.7.3 and both DLLs, then place them in `Mods`. The core enables the accepted runtime behavior by default; no preference-file setup is needed. To change Boss trace quantity, edit only `boss_trace_drop_amount` in the existing `[CrucibleUnlock]` section. Keep the 0.9.16 stable release if you need a play-tested version.
+For 0.9.17, download MelonLoader 0.7.3 and both DLLs, then place them in `Mods`. The core enables the accepted runtime behavior by default; no preference-file setup is needed. To change Boss trace quantity, edit only `boss_trace_drop_amount` in the existing `[CrucibleUnlock]` section. The setting accepts 0–1000, defaults to 300, and 0 means no target Boss traces drop.
 
 [![简体中文快速安装](media/install-quick-zh-CN.svg)](INSTALL-QUICK.zh-CN.md)
 [![English Quick Install](media/install-quick-en.svg)](INSTALL-QUICK.md)
 
-**[Screenshot guide (0.9.16 stable)](https://venompool888.github.io/nrfw-second-crucible-unlock/en.html)** · [中文截图教程（0.9.16 稳定版）](https://venompool888.github.io/nrfw-second-crucible-unlock/)
+**[Screenshot guide (0.9.17)](https://venompool888.github.io/nrfw-second-crucible-unlock/en.html)** · [中文截图教程（0.9.17）](https://venompool888.github.io/nrfw-second-crucible-unlock/)
 
 ## Compatibility and safety
 
-- **Tested scope:** one full nine-floor run on 2026-10-05 on Steam public **Build 22928553** showed the seven expected Boss encounters, checkpoint, reward room, and return to the second bowl. This is one tested run on one build, not a compatibility guarantee for later builds. Other game builds and repeated reload scenarios remain unverified. See the [version history](CHANGELOG.md).
-- **0.9.17 prerelease:** offline build and managed entry-point checks only; this candidate has not received in-game testing. Version 0.9.16 remains the latest stable release.
+- **Earlier baseline test:** one full nine-floor run on 2026-10-05 on Steam public **Build 22928553** showed the seven expected Boss encounters, checkpoint, reward room, and return to the second bowl. This is one tested run on one build, not a compatibility guarantee for later builds. Other game builds and repeated reload scenarios remain unverified. See the [version history](CHANGELOG.md).
+- **0.9.17 release:** offline build and managed entry-point checks passed. On 2026-10-10, the user tried 0.9.17 in-game and reported no issues. This feedback does not establish coverage of every encounter, controller, or multiplayer path.
 - **0.9.16 validation:** 24 bowgun shots were recorded in a local test (18 during keyboard/mouse input and 6 during Gamepad input), with no input-thread errors. Sixteen shots had independent audio/playback IDs matching the projectile-release frame. PS controller models and audible onset remain unverified. Two return/reuse cleanup paths have incomplete per-shot logging; no restoration errors were recorded. The earlier Husk overhead health-bar change has not received a new focused play test.
 - **Save behavior:** the unlock exists only while the mod runs. Normal play can still save progress; the mod does not write permanent quest completion.
 - **Updates and removal:** never replace the DLL while the game is running. To uninstall, close the game and remove `Mods/CrucibleUnlock.dll` and `Mods/NRFWBowgunAudioSync.dll`; remove MelonLoader separately if desired.
@@ -63,7 +63,7 @@ For the 0.9.17 prerelease, download MelonLoader 0.7.3 and both DLLs, then place 
 
 ## Technical details and building
 
-The source under [`src/`](src/) contains the **0.9.17 player-defaults prerelease candidate** and the unchanged **0.3.3** audio/input component. The core behavior changes are not play-tested; 0.9.16 remains the latest stable release.
+The source under [`src/`](src/) contains the **0.9.17 player-defaults release** and the unchanged **0.3.3** audio/input component. Version 0.9.17 is the latest stable release.
 
 - The mod checks the **exact supported game build** before installing its runtime hooks.
 - Building requires MelonLoader references and game-specific generated IL2CPP interop assemblies from the supported game.
