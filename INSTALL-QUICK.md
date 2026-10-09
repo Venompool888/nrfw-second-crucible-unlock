@@ -4,7 +4,7 @@
 
 For Windows Steam players. Have the official game, a browser, and File Explorer ready.
 
-For: **Steam public Build 22928553 · Mod 0.9.5**
+For: **Steam public Build 22928553 · Mod 0.9.16**
 
 ## 1 · Download MelonLoader
 
@@ -18,14 +18,13 @@ If the game is missing from the list, click **Add Game Manually**, select `NoRes
 
 ## 3 · Download the mod
 
-Download [CrucibleUnlock.dll 0.9.5 directly](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll) and place it at `<game directory>\Mods\CrucibleUnlock.dll`. No extraction is needed.
+Download [CrucibleUnlock.dll 0.9.16 directly](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/CrucibleUnlock.dll) and [NRFWBowgunAudioSync.dll 0.3.3](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/NRFWBowgunAudioSync.dll) for bowgun keyboard/mouse input and sound. No extraction is needed.
 
-## 4 · Place the DLL and set the configuration
+## 4 · Place both DLLs and set the configuration
 
-1. Download `CrucibleUnlock.dll` directly; no extraction is needed
-2. In your Steam library, right-click the game → **Manage** → **Browse local files**. Open the `Mods` folder in the game installation directory, or create it if missing. Copy `CrucibleUnlock.dll` into it. The final location must be `game installation directory\Mods\CrucibleUnlock.dll`
-3. Open `game installation directory\UserData\MelonPreferences.cfg` in Notepad. If the file or folder is missing, create it in the game installation directory. Turn on Windows **File name extensions** and make sure the file is not named `MelonPreferences.cfg.txt`
-4. Search for `[CrucibleUnlock]`. If that section exists, change its values; otherwise, add the block below to the end of the file. Keep other mods' settings and do not create a second `[CrucibleUnlock]` section
+1. In your Steam library, right-click the game → **Manage** → **Browse local files**. Open the `Mods` folder in the game installation directory, or create it if missing. Copy both downloaded DLLs into it. Their final locations must be `game installation directory\Mods\CrucibleUnlock.dll` and `game installation directory\Mods\NRFWBowgunAudioSync.dll`
+2. Open `game installation directory\UserData\MelonPreferences.cfg` in Notepad. If the file or folder is missing, create it in the game installation directory. Turn on Windows **File name extensions** and make sure the file is not named `MelonPreferences.cfg.txt`
+3. Search for `[CrucibleUnlock]`. If that section exists, change its values; otherwise, add the block below to the end of the file. Keep other mods' settings and do not create a second `[CrucibleUnlock]` section
 
 ```ini
 [CrucibleUnlock]
@@ -34,11 +33,11 @@ guard_broken_warrick_music = true
 repair_warrick_phase2_target = true
 ```
 
-Save and close the configuration file.
+Save and close the configuration file. For an already equipped Reinforced Bowgun, fire with the current block binding (Xbox LB or keyboard/mouse block). Keep `bowgun_weapon_class = 30` if you previously changed it. PS controller models have not received a specific hardware test.
 
 **Or use the ready-made configuration file.** Which case are you in?
 
-- **Fresh install** — you do not have `UserData\MelonPreferences.cfg` yet: download [`MelonPreferences.cfg`](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/MelonPreferences.cfg) and drop it into `game installation directory\UserData\`. You can skip the manual editing above; MelonLoader adds the remaining options by itself on first launch.
+- **Fresh install** — you do not have `UserData\MelonPreferences.cfg` yet: download [`MelonPreferences.cfg`](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/MelonPreferences.cfg) and drop it into `game installation directory\UserData\`. You can skip the manual editing above; MelonLoader adds the remaining options by itself on first launch.
 - **You already use other mods** — the file exists: **do not overwrite it.** Every mod keeps its settings in that same file, so replacing it also discards theirs. Merge only the `[CrucibleUnlock]` block above into your own file, and back it up first if you want a safety net.
 
 **Done. Launch the game yourself through Steam, then go to the second blood bowl in the Crucible hub to play the Second Crucible.**

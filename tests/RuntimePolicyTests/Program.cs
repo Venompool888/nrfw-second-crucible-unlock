@@ -28,6 +28,7 @@ internal static class Program
 
     private static void Main()
     {
+        BowgunInputPolicyTests.Run();
         Check(BrokenWarrickMusicPolicy.ShouldSkip(KnownBroken()), "confirmed GUID with known broken structure");
         var byPath = KnownBroken(); byPath.GuidMatches = false; byPath.Scene = BrokenWarrickMusicPolicy.ScenePath;
         Check(BrokenWarrickMusicPolicy.ShouldSkip(byPath), "exact asset scene path with same broken structure");
@@ -57,5 +58,8 @@ internal static class Program
         RitualViewPolicyTests.Run();
         RoomReusePolicyTests.Run();
         RitualBloodRouteDataTests.Run();
+        BossTraceDropTests.Run();
+        BrokenVowBossPolicyTests.Run();
+        EchoCapPolicyTests.Run();
     }
 }

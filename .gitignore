@@ -30,3 +30,8 @@ MelonPreferences.cfg
 Player.log
 MelonLoader.log
 DataStore/
+
+# Verified 0.9.16 core and 0.3.3 audio/input downloads
+!download/0.9.16/CrucibleUnlock.dll
+!download/0.9.16/NRFWBowgunAudioSync.dll
+!download/0.9.16/MelonPreferences.cfg

@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Text.Json;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(CrucibleUnlock.ModMain), "Crucible Unlock", "0.9.5-husk-hud-candidate", "NRFW research", "")]
+[assembly: MelonInfo(typeof(CrucibleUnlock.ModMain), "Crucible Unlock", "0.9.16-bowgun-view-repair-r2", "NRFW research", "")]
 [assembly: MelonGame("Moon Studios", "NoRestForTheWicked")]
 [assembly: MelonAdditionalDependencies("0Harmony")]
 
@@ -95,6 +95,7 @@ namespace CrucibleUnlock
         private MelonPreferences_Entry<bool> _repairBossRushProgression, _repairRitualAnimator;
         private MelonPreferences_Entry<int> _bossTraceDropAmount;
         private MelonPreferences_Entry<string> _motionTraceDirectory;
+        private MelonPreferences_Entry<int> _bowgunWeaponClass;
         private MotionTraceSink _motionSink;
         private bool _motionActive;
         private long _lastMotionHealth;
@@ -124,9 +125,11 @@ namespace CrucibleUnlock
                 "首 Boss 位移日志", "主线程轮询隐藏首 Warrick 的显示位置、模型偏移与动作，不添加位置同步钩子，后台写入独立 JSONL");
             _motionTraceDirectory = category.CreateEntry("motion_trace_directory", Path.Combine(_baseDirectory, "motion-logs"),
                 "位移日志目录", "每次启动创建独立文件，不覆盖旧日志");
+            _bowgunWeaponClass = category.CreateEntry("bowgun_weapon_class", 30,
+                "弩枪武器类别（动画）", "写入强化弩枪 WeaponStaticData.Class（原生偏移 0x128）：30=Crossbow、21=Greatbow、20=Bow、0=不写；重启生效");
 
             LoggerInstance.Msg("=====================================================");
-            LoggerInstance.Msg("Crucible Unlock 0.9.5-husk-hud-candidate 已加载");
+            LoggerInstance.Msg("Crucible Unlock 0.9.16-bowgun-view-repair-r2 已加载");
             LoggerInstance.Msg($"MelonLoader: {typeof(MelonMod).Assembly.GetName().Version}");
             LoggerInstance.Msg($"CLR: {Environment.Version}  64bit={Environment.Is64BitProcess}");
             LoggerInstance.Msg($"mode = {_mode.Value}   目录 = {_baseDirectory}");
@@ -135,6 +138,7 @@ namespace CrucibleUnlock
             LoggerInstance.Msg($"repair_warrick_phase2_target = {_repairWarrickPhase2Target.Value}");
             LoggerInstance.Msg($"repair_bossrush_progression = {_repairBossRushProgression.Value}; repair_ritual_animator = {_repairRitualAnimator.Value}");
             LoggerInstance.Msg($"boss_trace_drop_amount = {_bossTraceDropAmount.Value}");
+            LoggerInstance.Msg($"bowgun_weapon_class = {_bowgunWeaponClass.Value}（30=Crossbow、21=Greatbow、20=Bow、0=不写）");
             LoggerInstance.Msg($"目标：quest step GUID {StepGuid} / PrimeState GUID {PrimeStateGuid}");
             LoggerInstance.Msg("=====================================================");
         }
@@ -181,6 +185,8 @@ namespace CrucibleUnlock
                     BossTracePickupDiagnostics.Install();
                     HuskBossNameRepair.Install();
                     EchoCapRepair.Install();
+                    BowgunInputRepair.Configure(_bowgunWeaponClass.Value);
+                    BowgunInputRepair.Install();
                     if (_repairRitualAnimator.Value)
                     {
                         RitualAnimatorRepair.Install();
@@ -207,6 +213,7 @@ namespace CrucibleUnlock
 
         public override void OnUpdate()
         {
+            BowgunInputRepair.UpdateLocalHero();
             TrialRepairLog.Flush(message => LoggerInstance.Msg(message));
             if (_runtimeActive) RuntimeUnlock.Flush();
             if (_motionSink != null && Stopwatch.GetTimestamp() - _lastMotionHealth >= 5L * Stopwatch.Frequency)

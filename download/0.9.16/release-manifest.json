@@ -1,0 +1,30 @@
+{
+  "version": "0.9.16",
+  "audio_input_version": "0.3.3",
+  "supported_steam_build": 22928553,
+  "accepted_development_main": "94aa2980bf954b5540a23e1586501d14f45c19fc",
+  "files": {
+    "CrucibleUnlock.dll": "a7bde226634ccea7a88f88b8def97200c77c4486fb1fa8c3d9739ff83737ad50",
+    "NRFWBowgunAudioSync.dll": "e861d4babf57da77259bb2dffca50bb51257c7d8c3adb6d8eb0984d5e333d7c7"
+  },
+  "runtime_test": {
+    "fired": 24,
+    "keyboard_period_shots": 18,
+    "gamepad_period_shots": 6,
+    "independent_same_frame_audio_matches": 16,
+    "input_extension_errors": 0,
+    "normal_exit": true
+  },
+  "offline_development_gates": {
+    "audio_policy_checks": 77,
+    "input_metadata_checks": 12,
+    "native_asset_checks": 19,
+    "failures": 0
+  },
+  "limits": [
+    "PS controller model not verified",
+    "Audible onset not measured",
+    "No explicit pre-release interruption sample",
+    "Two cleanup paths lack per-shot CLEANED logging"
+  ]
+}
