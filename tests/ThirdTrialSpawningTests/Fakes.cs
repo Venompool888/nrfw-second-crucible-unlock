@@ -62,7 +62,21 @@ namespace Il2CppQuantum
         public RuntimeStreamingNode TryGetIntegrationNodeById(Frame f,int id) => Nodes.GetValueOrDefault(id);
     }
     struct FakeBool { public bool Value; public static explicit operator bool(FakeBool b)=>b.Value; }
-    class NuggetPointer { public FakeBool Ptr=new(){Value=true}; public List<AssetRefNuggetData> Values=new(); }
+    class NuggetPointer
+    {
+        public FakeBool Ptr=new(){Value=true}; public List<AssetRefNuggetData> Values=new();
+        public static int EqualityCalls;
+        public static bool operator ==(NuggetPointer left,NuggetPointer right)
+        {
+            EqualityCalls++;
+            if(ReferenceEquals(left,null)||ReferenceEquals(right,null))
+                throw new NullReferenceException("Il2CppObjectBaseToPtrNotNull from QListPtr.op_Equality: null operand");
+            return ReferenceEquals(left,right);
+        }
+        public static bool operator !=(NuggetPointer left,NuggetPointer right)=>!(left==right);
+        public override bool Equals(object value)=>ReferenceEquals(this,value);
+        public override int GetHashCode()=>base.GetHashCode();
+    }
     struct AssetRefNuggetData { public AssetGuid Id; }
     class RuntimeEntry { public AssetRefNuggetData Chunk; public NuggetPointer Nuggets=new(); }
     class Frame

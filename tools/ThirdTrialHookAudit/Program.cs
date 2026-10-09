@@ -82,7 +82,11 @@ foreach(string component in new[]{"IdentityComponent","IntegrationGroupComponent
 }
 if(spawnCalls.Contains(Q+"DynamicSpawnerComponent..ctor") || spawnCalls.Contains(Q+"DynamicNpcSpawnerComponent..ctor"))
  throw new Exception("Spawner wraps raw component memory as a boxed IL2CPP object.");
+if(Calls(PluginMethod("CrucibleUnlock.ThirdTrialSpawning","GeneratedEntryMatches"))
+ .Any(c=>c.Contains("QListPtr") && (c.EndsWith(".op_Equality") || c.EndsWith(".op_Inequality"))))
+ throw new Exception("Generated entry null guard invokes native QListPtr equality with a null object.");
 Console.WriteLine("PASS: spawner reads four component pointers through official EntityRefExtensions.Get; no boxed Frame.Get component reads or raw-pointer object wrappers.");
+Console.WriteLine("PASS: generated entry null guard does not call native QListPtr equality.");
 Console.WriteLine("PASS: 8 third-trial callbacks on 7 native targets and required embedded manifests/blood resources; PE metadata only.");
 
 MethodDefinitionHandle PluginMethod(string type, string method) {

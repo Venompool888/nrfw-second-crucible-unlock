@@ -9,7 +9,7 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
-    <Version>0.9.16-third-trial-candidate-r7</Version>
+    <Version>0.9.16-third-trial-candidate-r8</Version>
     <AssemblyName>CrucibleUnlock</AssemblyName>
     <RootNamespace>CrucibleUnlock</RootNamespace>
     <LangVersion>latest</LangVersion>

@@ -134,6 +134,16 @@ static class Program
         var nullEntry=new Fixture();nullEntry.Frame.Playlist[0]=null;var nullEntryCall=nullEntry.Call();
         Check(!nullEntryCall.Allow&&nullEntryCall.Reasons.Any(r=>r.Contains("phase=generated-entry")&&r.Contains("BeforeSpawn")),
             "Null native runtime-entry projection preserves phase and full stack rather than generic NRE message");
+        var nullWrapper=new Fixture();nullWrapper.Frame.Playlist[0].Nuggets=null;var nullWrapperCall=nullWrapper.Call();
+        Check(!nullWrapperCall.Allow&&nullWrapperCall.Result==0&&nullWrapperCall.Reasons.Any(r=>r.Contains("generatedEntry=False"))&&
+            !nullWrapperCall.Reasons.Any(r=>r.Contains("NullReferenceException")),"Null QListPtr wrapper is rejected by managed reference check without overloaded equality");
+        var invalidPtr=new Fixture();invalidPtr.Frame.Playlist[0].Nuggets.Ptr=new(){Value=false};var invalidPtrCall=invalidPtr.Call();
+        Check(!invalidPtrCall.Allow&&invalidPtrCall.Result==0&&invalidPtrCall.Reasons.Any(r=>r.Contains("generatedEntry=False"))&&
+            !invalidPtrCall.Reasons.Any(r=>r.Contains("NullReferenceException")),"Nonnull QListPtr with invalid native Ptr remains fail closed without null equality");
+        var validPtr=new Fixture();var validPtrCall=validPtr.Call();
+        Check(validPtrCall.Allow&&validPtrCall.Npc==ThirdTrialRuntime.Replacement(validPtr.Stage.ProfileKey)&&validPtrCall.Reasons.Length==0,
+            "Valid QListPtr and complete Nugget multiset permit NPC replacement");
+        Check(NuggetPointer.EqualityCalls==0,"Production never calls QListPtr overloaded equality for managed null detection");
         foreach(string pointer in new[]{"identity","newGroup","sourceGroup","sourceSpawner"})
         {
             var f=new Fixture();
@@ -162,7 +172,7 @@ static class Program
         string source=args.Length>0?args[0]:"src/CrucibleUnlock/ThirdTrialSpawning.cs";
         var report=new{source=Path.GetFullPath(source),source_sha256=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(source))).ToLowerInvariant(),actual_source_compiled=true,
             managed_fakes_only=true,checks,passed=Failures.Count==0,failures=Failures,
-            limitation="Real blittable buffers model native component sizes/offsets; unsupported Frame.Get specializations throw. Does not execute official native pointer methods or prove live R7 spawn/argument writeback; no game DLLs."};
+            limitation="Real blittable buffers model native components; fake QListPtr equality throws on null operands like observed wrapper. Does not execute game pointer/equality methods or prove live R8 spawn/argument writeback; no game DLLs."};
         if(args.Length>1)File.WriteAllText(args[1],JsonSerializer.Serialize(report,new JsonSerializerOptions{WriteIndented=true}));
         foreach(var failure in Failures)Console.WriteLine("FAIL: "+failure);
         Console.WriteLine($"Actual ThirdTrialSpawning tests: {checks} checks; {Failures.Count} failures; no game DLLs.");

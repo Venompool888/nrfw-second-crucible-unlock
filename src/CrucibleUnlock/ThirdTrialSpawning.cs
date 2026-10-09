@@ -267,7 +267,7 @@ namespace CrucibleUnlock
                 if (entry.Chunk.Id.Value != stage.ChunkGuid) continue;
                 ++matches;
                 var pointer = entry.Nuggets;
-                if (pointer == null || !(bool)pointer.Ptr) return false;
+                if (ReferenceEquals(pointer, null) || !(bool)pointer.Ptr) return false;
                 var nuggets = frame.ResolveList(pointer);
                 if (nuggets == null || nuggets.Count != stage.EntryNuggetGuids.Length) return false;
                 var actual = new long[nuggets.Count];
