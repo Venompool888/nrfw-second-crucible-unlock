@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Il2CppPhoton.Deterministic;
 using Il2CppQuantum;
 using Il2CppQuantum.StreamingGraph;
@@ -15,6 +16,9 @@ namespace CrucibleUnlock
         private static PatchOwner _harmony;
         private static ThirdTrialCatalog _catalog;
         private static volatile bool _enabled;
+        private static int _reportedProfiles;
+        private static int _reportedResults;
+        private static int _reportedLogError;
 
         internal static void Install(Action<string> log, Action<string> error)
         {
@@ -30,9 +34,12 @@ namespace CrucibleUnlock
                 TrialRepairLog.Patch(harmony, typeof(DynamicNpcSpawnerData), "Spawn",
                     new[] { typeof(Frame), typeof(EntityRef), typeof(AssetRefNpcData), typeof(FPVector3),
                         typeof(FP), typeof(EnemyDifficulty), typeof(long), typeof(string) },
-                    typeof(ThirdTrialSpawning), prefix: nameof(BeforeSpawn), returnType: typeof(EntityRef));
+                    typeof(ThirdTrialSpawning), prefix: nameof(BeforeSpawn), postfix: nameof(AfterSpawn), returnType: typeof(EntityRef));
                 _catalog = catalog;
                 _harmony = harmony;
+                _reportedProfiles = 0;
+                _reportedResults = 0;
+                _reportedLogError = 0;
                 _enabled = true;
                 log("[third-spawn] native DynamicNpcSpawnerData.Spawn hook installed; 10 arena layers scoped");
             }
@@ -58,14 +65,33 @@ namespace CrucibleUnlock
                 privateSource = InfiniteDungeonAPI.GetSourcePlaylist(__0).Id.Value == ThirdTrialPolicy.PlaylistGuid;
                 if (!privateSource) return true;
 
-                // Every normal spawn in this source must carry an integration group.
-                // A missing group cannot establish safe ownership, so fail closed.
-                if (!__0.Has<IntegrationGroupComponent>(__1) || !__0.Has<DynamicSpawnerComponent>(__1))
-                    return Block(ref __result, "missing spawner or integration component");
+                // Native Create returns a NEW NPC spawner here. Its identity scope
+                // points at the content source, and its integration group is copied
+                // from that source before Spawn. SpawnerData on the new component
+                // is populated only after Spawn returns, so scope comes from origin.
+                bool hasNpcSpawner = __0.Has<DynamicNpcSpawnerComponent>(__1);
+                bool hasGroup = __0.Has<IntegrationGroupComponent>(__1);
+                bool hasIdentity = __0.Has<IdentityComponent>(__1);
+                if (!hasNpcSpawner || !hasGroup || !hasIdentity)
+                    return Block(ref __result, "new NPC spawner components missing; npc=" + hasNpcSpawner +
+                        "; integration=" + hasGroup + "; identity=" + hasIdentity);
+                var origin = __0.Get<IdentityComponent>(__1).Scope;
+                if (origin.Raw == 0 || origin.Raw == __1.Raw)
+                    return Block(ref __result, "new NPC spawner identity has invalid source scope");
+                bool hasSourceSpawner = __0.Has<DynamicSpawnerComponent>(origin);
+                bool hasSourceGroup = __0.Has<IntegrationGroupComponent>(origin);
+                if (!hasSourceSpawner || !hasSourceGroup)
+                    return Block(ref __result, "source spawner components missing; dynamic=" + hasSourceSpawner +
+                        "; integration=" + hasSourceGroup);
                 var group = __0.Get<IntegrationGroupComponent>(__1);
-                var spawner = __0.Get<DynamicSpawnerComponent>(__1);
+                var sourceGroup = __0.Get<IntegrationGroupComponent>(origin);
+                var spawner = __0.Get<DynamicSpawnerComponent>(origin);
                 var owner = group.StreamingNodeDataIndex.Get(__0);
-                if (owner == null) return Block(ref __result, "integration streaming node missing");
+                var sourceOwner = sourceGroup.StreamingNodeDataIndex.Get(__0);
+                if (owner == null || sourceOwner == null) return Block(ref __result, "integration streaming node missing");
+                if (group.IntegrationId != sourceGroup.IntegrationId || owner.Id.Value != sourceOwner.Id.Value ||
+                    owner.Entity.Raw != sourceOwner.Entity.Raw)
+                    return Block(ref __result, "new/source spawner integration ownership mismatch");
 
                 // RuntimeStreamingNodeRef is the source of ownership even while the
                 // next room is preloaded and GetCurrentFloor still names this room.
@@ -79,8 +105,9 @@ namespace CrucibleUnlock
                 }
                 if (chunk == null) return Block(ref __result, "spawner chunk ancestry missing");
                 ThirdTrialStage stage = null;
-                foreach (var candidate in _catalog.Stages)
-                    if (candidate.ChunkGuid == chunk.Id.Value) { stage = candidate; break; }
+                int stageIndex = -1;
+                for (int i = 0; i < _catalog.Stages.Length; i++)
+                    if (_catalog.Stages[i].ChunkGuid == chunk.Id.Value) { stage = _catalog.Stages[i]; stageIndex = i; break; }
                 if (stage == null) return true; // Third-trial reward / entrance content.
                 // The group may point at a parent node; where nugget/bucket nodes
                 // occur in its ancestry, require the manifest identities too.
@@ -114,6 +141,16 @@ namespace CrucibleUnlock
                     !ThirdTrialRuntime.TryGetNpc(__0, stage.ProfileKey, out var replacement))
                     return Block(ref __result, "restored NPC not ready for " + stage.ProfileKey);
                 __2 = replacement;
+                try
+                {
+                    bool verified = __0.IsVerified;
+                    int mask = 1 << (stageIndex + (verified ? 10 : 0));
+                    if ((Interlocked.Or(ref _reportedProfiles, mask) & mask) == 0)
+                        TrialRepairLog.Write("[third-spawn] REPLACED source=" + origin.Raw + "; new=" + __1.Raw +
+                            "; spawner=" + spawnerGuid + "; profile=" + stage.ProfileKey + "; NPC=" + replacement.Id.Value +
+                            "; verified=" + verified);
+                }
+                catch (Exception error) { ReportLogError("replacement", error); }
                 return true;
             }
             catch (Exception exception)
@@ -121,6 +158,35 @@ namespace CrucibleUnlock
                 if (!privateSource) return true;
                 return Block(ref __result, "native spawn scope error: " + exception.GetType().Name + ": " + exception.Message);
             }
+        }
+
+        private static void AfterSpawn(Frame __0, EntityRef __1, AssetRefNpcData __2, ref EntityRef __result)
+        {
+            if (!_enabled || __0 == null) return;
+            try
+            {
+                if (InfiniteDungeonAPI.GetSourcePlaylist(__0).Id.Value != ThirdTrialPolicy.PlaylistGuid) return;
+                var profiles = EnemyRestorationRuntime.Catalog?.Profiles;
+                if (profiles == null) return;
+                int index = -1;
+                for (int i = 0; i < profiles.Length; i++)
+                    if (profiles[i].NpcGuid == __2.Id.Value) { index = i; break; }
+                if (index < 0 || !__0.Has<DynamicNpcSpawnerComponent>(__1)) return;
+                bool verified = __0.IsVerified;
+                int mask = 1 << (index + (verified ? 10 : 0));
+                if ((Interlocked.Or(ref _reportedResults, mask) & mask) != 0) return;
+                long storedNpc = __0.Get<DynamicNpcSpawnerComponent>(__1).NpcData.Id.Value;
+                TrialRepairLog.Write("[third-spawn] RESULT expectedNpc=" + __2.Id.Value + "; storedNpc=" + storedNpc +
+                    "; entity=" + __result.Raw + "; verified=" + verified);
+            }
+            catch (Exception error) { ReportLogError("result", error); }
+        }
+
+        private static void ReportLogError(string stage, Exception error)
+        {
+            if (Interlocked.Exchange(ref _reportedLogError, 1) != 0) return;
+            try { TrialRepairLog.Write("[third-spawn] LOGERROR " + stage + ": " + error.GetType().Name + ": " + error.Message); }
+            catch { } // Diagnostics never change the native result or runtime control.
         }
 
         private static bool GeneratedEntryMatches(Frame frame, ThirdTrialStage stage)

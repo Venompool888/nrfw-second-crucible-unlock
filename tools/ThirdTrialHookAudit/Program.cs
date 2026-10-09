@@ -12,7 +12,8 @@ var hooks=new[] {
  new Spec("Il2Cppmoon.quantum.forsaken",Q+"QuantumConditionQuestStepState","ConditionPassedInternal","System.Boolean",new[]{Q+"Frame",Q+"EntityRef"},"ThirdTrialEntry","ConditionPrefix",true),
  new Spec("Il2Cppmoon.quantum.forsaken",Q+"InfiniteDungeonDirector","SelectNextPlaylist",Q+"InfiniteDungeonPlaylist",new[]{Q+"Frame"},"ThirdTrialEntry","AfterSelectNextPlaylist",false),
  new Spec("Il2Cppmoon.quantum.forsaken",Q+"InfiniteDungeonRoguelitePlaylistRuleDirector","UpdateActiveRun","Void",new[]{Q+"Frame"},"ThirdTrialRuntime","BeforeRuleUpdate",true),
- new Spec("Il2Cppmoon.quantum.forsaken",Q+"DynamicNpcSpawnerData","Spawn",Q+"EntityRef",new[]{Q+"Frame",Q+"EntityRef",Q+"AssetRefNpcData","Il2CppPhoton.Deterministic.FPVector3","Il2CppPhoton.Deterministic.FP",Q+"EnemyDifficulty","System.Int64","System.String"},"ThirdTrialSpawning","BeforeSpawn",true)
+ new Spec("Il2Cppmoon.quantum.forsaken",Q+"DynamicNpcSpawnerData","Spawn",Q+"EntityRef",new[]{Q+"Frame",Q+"EntityRef",Q+"AssetRefNpcData","Il2CppPhoton.Deterministic.FPVector3","Il2CppPhoton.Deterministic.FP",Q+"EnemyDifficulty","System.Int64","System.String"},"ThirdTrialSpawning","BeforeSpawn",true),
+ new Spec("Il2Cppmoon.quantum.forsaken",Q+"DynamicNpcSpawnerData","Spawn",Q+"EntityRef",new[]{Q+"Frame",Q+"EntityRef",Q+"AssetRefNpcData","Il2CppPhoton.Deterministic.FPVector3","Il2CppPhoton.Deterministic.FP",Q+"EnemyDifficulty","System.Int64","System.String"},"ThirdTrialSpawning","AfterSpawn",false)
 };
 using var pluginFile=File.OpenRead(args[1]);using var pluginPe=new PEReader(pluginFile);var plugin=pluginPe.GetMetadataReader();
 foreach(var hook in hooks) {
@@ -69,7 +70,7 @@ if (plugin.GetTypeDefinition(runtime).GetMethods().Any(m => plugin.GetString(plu
  throw new Exception("Unused resolver Update callback remains.");
 Console.WriteLine("PASS: loader OnUpdate calls current-view pump; pump reads Core.AssetCtx; unused resolver Update callback removed.");
 Console.WriteLine("PASS: canonical simulation views required by Unity; no second EntityViewData construction; snapshot published after full bootstrap; current manager read.");
-Console.WriteLine("PASS: 7 third-trial hook signatures/callbacks and required embedded manifests/blood resources; PE metadata only.");
+Console.WriteLine("PASS: 8 third-trial callbacks on 7 native targets and required embedded manifests/blood resources; PE metadata only.");
 
 MethodDefinitionHandle PluginMethod(string type, string method) {
  var t=plugin.TypeDefinitions.Single(t=>provider.GetTypeFromDefinition(plugin,t,0)==type);

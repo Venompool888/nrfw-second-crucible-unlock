@@ -1,5 +1,7 @@
 # 第三试炼恢复敌人候选
 
+当前准备R6：R5实机第三献祭、路线和模型/战斗缓存已通过，刷怪在首回调因误把新NPC spawner当原始出生点而封闭。R6保持原8byte Spawn接口，通过Identity.Scope回源并交叉核对两份IntegrationGroup，再沿原白名单/房间归属改NPC参数；postfix有限记录原生保存的NPCref及返回entity，预测/确认帧分别记录，诊断不改变生成或控制。原生时序见 [R5刷怪来源证据](../../artifacts/third-launch/r5-empty-room-native-review.md)。真实源码刷怪回归48项通过（冻结R5同harness50项/37失败），其它Runtime87/Views101/ThirdRuntime423/storage154/entry33/presentation41和policy通过，7目标8callback及弩枪/JIT/unsafe/stub审计通过，Release0警告0错误。实际敌人、清层、奖励和重进须R6新会话用户验证。
+
 当前修复候选为R5，接续同一任务分支和9186fe3基线；后来正式main 7db4e4a尚未同步或合并。R4主线程视图注册成功后，进入世界在私有View GUID -611686018427387902发生foreign runtime cache collision，第三入口关闭；R4于18:11:27 UTC正常退出。
 
 R5代码提交4e29d9aa6b22a6fb7f4a12cb82f0e707d4e1071a；候选DLL SHA256 e98b83fa2193bb5d67f06994de474a57547cc8e0545b3ed36611f23526489518，zip SHA256 34ab0869f1986cc9b610b80c7035e0448f26221021db07d29215349dd2f1ce78。18:28:10 UTC已安装，18:28:30 UTC依原授权Steam启动，PID16916；启动/helper/build guard通过，等待用户本人进入世界和第三献祭。备份及直接恢复试玩前0.9.17的rollback位于artifacts/third-launch/installation-r5-20261009T182810267Z，详细本次运行以artifacts/third-launch/log-review-r5.md为准。

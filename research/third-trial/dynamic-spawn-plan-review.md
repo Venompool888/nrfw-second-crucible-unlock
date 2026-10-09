@@ -1,5 +1,11 @@
 # 精确方案补充审查：十个不同 Arena、Roguelite、动态 NPC 参数替换
 
+## R6更正：Spawn参数中的新实体与原始出生点
+
+R5实机第三献祭和路线已通，但刷怪回调把Spawn的EntityRef参数误当原始出生点，检查错误的DynamicSpawnerComponent，因而封闭NPC生成。原生完整时序见 [R5原生来源审查](../../artifacts/third-launch/r5-empty-room-native-review.md)。该参数实际是InstantiationAPI.Create刚创建的新NPC spawner，已有DynamicNpcSpawnerComponent、IdentityComponent与复制的IntegrationGroupComponent；其Identity.Scope才指向原始出生点实体。出生点GUID须读取该source的DynamicSpawnerComponent.DynamicSpawnerData，不能读新实体稍后才填的SpawnerData，不能把DynamicNpcSpawnerData资产Guid当出生点Guid。
+
+R6保留原8byte Spawn hook，沿Identity.Scope回源，交叉核对新/source的IntegrationId与owner节点Id/Entity，再应用原chunk/bucket/nugget、integration map、生成entry及出生点白名单。仅改NpcDataRef，官方位置/旋转/难度/生命周期保持。下文旧建议中的“spawner”一词应区分这两个实体；原直接在Spawn参数上要求generic DynamicSpawnerComponent的理解已经由原生证据纠正。修复后实际原生返回和房内敌人仍须新会话用户测试。
+
 2026-10-10。用户确认每房一种恢复怪，十个普通 Arena 战斗房，沿用第二试炼的逐房/奖励设置，第三入口。这个方案取代前文 BossC 直接挂普通内容的候选：不同普通 Arena + 原生 Roguelite 清层/scaling 避免了重复 BossC bucket切换和当前层绑定缺失两项风险。该结论仍要求最终选出的十个 chunk Guid 在生成后的实际 playlist 中唯一，包含的 ordinary Nugget 和场景位置相符。
 
 ## DynamicNpcSpawnerData.Spawn 的实际 lookup
