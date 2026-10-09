@@ -22,9 +22,10 @@ RunSdk @('build',(Join-Path $base 'src/CrucibleUnlock/CrucibleUnlock.csproj'),'-
 RunSdk @('build',(Join-Path $base 'src/BowgunRepair/BowgunRepair.csproj'),'-c','Release','-v','minimal')
 RunSdk @('run','--project',(Join-Path $base 'tests/RuntimePolicyTests/RuntimePolicyTests.csproj'),'-c','Release')
 RunSdk @('run','--project',(Join-Path $base 'tests/BowgunRepairTests/BowgunRepairTests.csproj'),'-c','Release')
+RunSdk @('run','--project',(Join-Path $base 'tests/PlayerConfigurationTests/PlayerConfigurationTests.csproj'),'-c','Release')
 $core = Join-Path $base 'src/CrucibleUnlock/bin/Release/CrucibleUnlock.dll'
 $audio = Join-Path $base 'src/BowgunRepair/bin/Release/NRFWBowgunAudioSync.dll'
 RunSdk @('run','--project',(Join-Path $base 'tools/BowgunHookAudit/BowgunHookAudit.csproj'),'-c','Release','--',(Join-Path $base 'vendor/generated'),$core)
 RunSdk @('run','--project',(Join-Path $base 'tools/BowgunInputMetadataGate/BowgunInputMetadataGate.csproj'),'-c','Release','--',$core,$audio)
 & (Join-Path $base 'package-local.ps1') -DllPath $core -AudioDllPath $audio
-'PASS: public source builds, policy suites, hook/thread contracts and exact release DLL hashes.'
+'PASS: public source builds, policy suites, player entry-point configuration, hook/thread contracts and exact release DLL hashes.'

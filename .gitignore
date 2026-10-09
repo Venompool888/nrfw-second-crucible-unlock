@@ -35,3 +35,8 @@ DataStore/
 !download/0.9.16/CrucibleUnlock.dll
 !download/0.9.16/NRFWBowgunAudioSync.dll
 !download/0.9.16/MelonPreferences.cfg
+
+# 0.9.17 prerelease candidate package
+!download/0.9.17/CrucibleUnlock.dll
+!download/0.9.17/NRFWBowgunAudioSync.dll
+!download/0.9.17/MelonPreferences.cfg

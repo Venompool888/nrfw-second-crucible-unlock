@@ -1,5 +1,13 @@
 # Version history
 
+## 0.9.17 prerelease candidate — 2026-10-10
+
+- Simplified first-run setup: the core runtime mode and accepted repairs are enabled by default; players do not need to create a preferences file or set repair switches.
+- Exposes only the optional `boss_trace_drop_amount` setting (0–1000, default 300; 0 disables the target Boss trace quantity). Legacy preference keys remain in existing shared files but are ignored.
+- Sets bowgun weapon class 30 internally. The separate bowgun audio/input dependency remains 0.3.3.
+- Offline verification only: managed player-entry tests and release build/hash checks. This candidate has **not** been tested in-game. `0.9.16` remains the latest stable release and GitHub latest.
+- This is a GitHub prerelease candidate, not a replacement for the tested 0.9.16 release.
+
 ## 0.9.16 + Bowgun Audio Sync 0.3.3 — 2026-10-10
 
 - Restored the equipped Reinforced Bowgun's firing action, animation dependencies and scoped block-action input.

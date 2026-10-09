@@ -9,7 +9,7 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
-    <Version>0.9.16-bowgun-view-repair-r2</Version>
+    <Version>0.9.17-player-defaults</Version>
     <AssemblyName>CrucibleUnlock</AssemblyName>
     <RootNamespace>CrucibleUnlock</RootNamespace>
     <LangVersion>latest</LangVersion>

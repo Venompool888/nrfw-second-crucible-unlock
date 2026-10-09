@@ -4,7 +4,7 @@
 
 For Windows Steam players. Have the official game, a browser, and File Explorer ready.
 
-For: **Steam public Build 22928553 · Mod 0.9.16**
+For: **Steam public Build 22928553 · Mod 0.9.17 prerelease candidate**. This candidate has offline verification only; it has not been play-tested. Version 0.9.16 remains the latest stable release.
 
 ## 1 · Download MelonLoader
 
@@ -12,35 +12,21 @@ Download the [official MelonLoader 0.7.3 installer](https://github.com/LavaGang/
 
 ## 2 · Install the loader
 
-Open the installer you just downloaded. It usually lists the Steam games detected on your computer: find **No Rest for the Wicked**, select **0.7.3**, and click **Install**.
+Open the installer. Find **No Rest for the Wicked**, select **0.7.3**, and click **Install**. If the game is missing, use **Add Game Manually** and select `NoRestForTheWicked.exe` in the game installation directory.
 
-If the game is missing from the list, click **Add Game Manually**, select `NoRestForTheWicked.exe` in the game installation directory, and install.
+## 3 · Download the two mod DLLs
 
-## 3 · Download the mod
+Download [CrucibleUnlock.dll 0.9.17](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/CrucibleUnlock.dll) and [NRFWBowgunAudioSync.dll 0.3.3](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/NRFWBowgunAudioSync.dll). No extraction is needed. The audio/input component remains a separate dependency for the full bowgun input and sound behavior.
 
-Download [CrucibleUnlock.dll 0.9.16 directly](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/CrucibleUnlock.dll) and [NRFWBowgunAudioSync.dll 0.3.3](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/NRFWBowgunAudioSync.dll) for bowgun keyboard/mouse input and sound. No extraction is needed.
+## 4 · Place both DLLs in Mods
 
-## 4 · Place both DLLs and set the configuration
+In Steam, right-click the game → **Manage** → **Browse local files**. Open the `Mods` folder or create it if missing, then copy both DLLs into it. Their final locations must be `game installation directory\Mods\CrucibleUnlock.dll` and `game installation directory\Mods\NRFWBowgunAudioSync.dll`.
 
-1. In your Steam library, right-click the game → **Manage** → **Browse local files**. Open the `Mods` folder in the game installation directory, or create it if missing. Copy both downloaded DLLs into it. Their final locations must be `game installation directory\Mods\CrucibleUnlock.dll` and `game installation directory\Mods\NRFWBowgunAudioSync.dll`
-2. Open `game installation directory\UserData\MelonPreferences.cfg` in Notepad. If the file or folder is missing, create it in the game installation directory. Turn on Windows **File name extensions** and make sure the file is not named `MelonPreferences.cfg.txt`
-3. Search for `[CrucibleUnlock]`. If that section exists, change its values; otherwise, add the block below to the end of the file. Keep other mods' settings and do not create a second `[CrucibleUnlock]` section
+The loader creates `UserData\MelonPreferences.cfg` on first launch. The mod enables its accepted runtime behavior and repairs by default, so a fresh install needs no configuration edits. To change Boss trace quantity, edit only `boss_trace_drop_amount` in the existing `[CrucibleUnlock]` section. It accepts 0–1000, defaults to 300, and 0 means no target Boss traces drop. Edit while the game is closed. Preserve other mods' sections. Legacy `mode`, repair toggles, and `bowgun_weapon_class` are ignored; bowgun class 30 is built in. See [the full setting notes](src/CrucibleUnlock/PLAYER-CONFIG-0.9.17.md).
 
-```ini
-[CrucibleUnlock]
-mode = "runtime-unlock"
-guard_broken_warrick_music = true
-repair_warrick_phase2_target = true
-```
+An optional [`MelonPreferences.cfg` example](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/MelonPreferences.cfg) contains only the Crucible Unlock setting. It is not required; never replace an existing shared preferences file with it.
 
-Save and close the configuration file. For an already equipped Reinforced Bowgun, fire with the current block binding (Xbox LB or keyboard/mouse block). Keep `bowgun_weapon_class = 30` if you previously changed it. PS controller models have not received a specific hardware test.
-
-**Or use the ready-made configuration file.** Which case are you in?
-
-- **Fresh install** — you do not have `UserData\MelonPreferences.cfg` yet: download [`MelonPreferences.cfg`](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/MelonPreferences.cfg) and drop it into `game installation directory\UserData\`. You can skip the manual editing above; MelonLoader adds the remaining options by itself on first launch.
-- **You already use other mods** — the file exists: **do not overwrite it.** Every mod keeps its settings in that same file, so replacing it also discards theirs. Merge only the `[CrucibleUnlock]` block above into your own file, and back it up first if you want a safety net.
-
-**Done. Launch the game yourself through Steam, then go to the second blood bowl in the Crucible hub to play the Second Crucible.**
+**Done. Launch the game yourself through Steam, then go to the second blood bowl in the Crucible hub to play the Second Crucible.** This 0.9.17 candidate has not been play-tested; use the 0.9.16 stable release if you require a tested version.
 
 If your game is not Build 22928553, or the mod does not work after installation, contact the author.
 
