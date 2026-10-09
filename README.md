@@ -9,7 +9,7 @@ Unlock the **Second Crucible**, with encounter fixes and multiplayer support.
 
 ![Second Crucible: unlock and encounter fixes, Build 22928553](media/header.png)
 
-**[Download 0.9.17 prerelease core](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/CrucibleUnlock.dll)** · **[Download bowgun audio/input 0.3.3](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/NRFWBowgunAudioSync.dll)** · **[Screenshot tutorial](https://github.com/Venompool888/nrfw-second-crucible-unlock/blob/v0.9.17/docs/en.html)** · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [Four-step installation](INSTALL-QUICK.md)
+**[Download 0.9.17 prerelease core](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/CrucibleUnlock.dll)** · **[Download bowgun audio/input 0.3.3](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/NRFWBowgunAudioSync.dll)** · [0.9.17 quick install](INSTALL-QUICK.md) · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108)
 
 Latest stable release: **`0.9.16`** · Candidate prerelease: **`0.9.17`** (offline-verified; not play-tested) · Supported game: **Steam public Build 22928553** · Unofficial community mod
 
@@ -50,7 +50,7 @@ For the 0.9.17 prerelease, download MelonLoader 0.7.3 and both DLLs, then place 
 [![简体中文快速安装](media/install-quick-zh-CN.svg)](INSTALL-QUICK.zh-CN.md)
 [![English Quick Install](media/install-quick-en.svg)](INSTALL-QUICK.md)
 
-**[Screenshot installation guide](https://github.com/Venompool888/nrfw-second-crucible-unlock/blob/v0.9.17/docs/en.html)** · [中文图文教程](https://venompool888.github.io/nrfw-second-crucible-unlock/)
+**[Screenshot guide (0.9.16 stable)](https://venompool888.github.io/nrfw-second-crucible-unlock/en.html)** · [中文截图教程（0.9.16 稳定版）](https://venompool888.github.io/nrfw-second-crucible-unlock/)
 
 ## Compatibility and safety
 

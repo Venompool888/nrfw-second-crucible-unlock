@@ -9,7 +9,7 @@
 
 ![第二试炼：解锁与遭遇战修复，Build 22928553](media/header.png)
 
-**[下载 0.9.17 预发布核心 DLL](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/CrucibleUnlock.dll)** · **[下载弩箭音效／输入组件（0.3.3）](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/NRFWBowgunAudioSync.dll)** · **[图文安装教程](https://github.com/Venompool888/nrfw-second-crucible-unlock/blob/v0.9.17/docs/index.html)** · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [四步安装](INSTALL-QUICK.zh-CN.md)
+**[下载 0.9.17 预发布核心 DLL](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/CrucibleUnlock.dll)** · **[下载弩箭音效／输入组件（0.3.3）](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/NRFWBowgunAudioSync.dll)** · [0.9.17 快速安装](INSTALL-QUICK.zh-CN.md) · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108)
 
 最新稳定版：**`0.9.16`** · 候选预发布版：**`0.9.17`**（仅离线核验，尚未实机测试）· 支持 **Steam public Build 22928553** · 非官方社区 Mod
 
@@ -50,7 +50,7 @@
 [![简体中文快速安装](media/install-quick-zh-CN.svg)](INSTALL-QUICK.zh-CN.md)
 [![English Quick Install](media/install-quick-en.svg)](INSTALL-QUICK.md)
 
-**[图文安装教程（截图版）](https://github.com/Venompool888/nrfw-second-crucible-unlock/blob/v0.9.17/docs/index.html)** · [English screenshot guide](https://github.com/Venompool888/nrfw-second-crucible-unlock/blob/v0.9.17/docs/index.htmlen.html)
+**[截图教程（0.9.16 稳定版）](https://venompool888.github.io/nrfw-second-crucible-unlock/)** · [English screenshot guide (0.9.16 stable)](https://venompool888.github.io/nrfw-second-crucible-unlock/en.html)
 
 ## 兼容性与安全说明
 
