@@ -17,15 +17,20 @@
       "enemy_faction": 32768,
       "view_template_guid": 119240058291119044,
       "prefab_guid": {
-        "m_data1": 14156080800262263471,
-        "m_data2": 1119901718410790649
+        "m_data1": 15714284881407679963,
+        "m_data2": 17268177040639563928
       },
-      "prefab_name": "inquisitorHalberdViewVariant",
-      "presentation_note": "出货登记的战斗变体候选，完整表现依赖未核验",
+      "prefab_name": "humanoidEnemyViewBase",
+      "presentation_note": "出货 HumanoidEnemyView 实体根；衣装沿用官方角色模板，武器由NPC Controller驱动，恢复外观实机待验证",
       "blocked_actions": [],
       "blocked_action_names": [],
       "host_template_guid": 1508770382251668049,
-      "controller_template_guid": 3735771363204133609
+      "controller_template_guid": 3735771363204133609,
+      "previous_r8_prefab_guid": {
+        "m_data1": 14156080800262263471,
+        "m_data2": 1119901718410790649
+      },
+      "previous_r8_prefab_name": "inquisitorHalberdViewVariant"
     },
     {
       "key": "inquisitor_greatsword",
@@ -40,11 +45,11 @@
       "enemy_faction": 32768,
       "view_template_guid": 3052168366862240214,
       "prefab_guid": {
-        "m_data1": 3604076792201739024,
-        "m_data2": 16914558142762584267
+        "m_data1": 11008008998908596235,
+        "m_data2": 17623057921651270824
       },
-      "prefab_name": "inquisitorGreatSwordViewVariant",
-      "presentation_note": "出货登记的战斗变体候选，完整表现依赖未核验",
+      "prefab_name": "humanoidEnemyViewBaseGreatSword",
+      "presentation_note": "出货 HumanoidEnemyView 实体根；衣装沿用官方角色模板，武器由NPC Controller驱动，恢复外观实机待验证",
       "blocked_actions": [
         4001970432849020003
       ],
@@ -52,7 +57,12 @@
         "enemyGreatSwordMultiHitJump"
       ],
       "host_template_guid": 1768802788238584886,
-      "controller_template_guid": 1380339138267220584
+      "controller_template_guid": 1380339138267220584,
+      "previous_r8_prefab_guid": {
+        "m_data1": 3604076792201739024,
+        "m_data2": 16914558142762584267
+      },
+      "previous_r8_prefab_name": "inquisitorGreatSwordViewVariant"
     },
     {
       "key": "inquisitor_bruiser",
@@ -67,15 +77,20 @@
       "enemy_faction": 32768,
       "view_template_guid": 2075775989851067815,
       "prefab_guid": {
-        "m_data1": 11535083439788598581,
-        "m_data2": 10254917470496122152
+        "m_data1": 10012634928829641169,
+        "m_data2": 2763112153280858104
       },
-      "prefab_name": "inquisitorBruiserGreatHammerViewVariant",
-      "presentation_note": "出货登记的战斗变体候选，完整表现依赖未核验",
+      "prefab_name": "bruiserViewBase",
+      "presentation_note": "出货 HumanoidEnemyView 实体根；衣装沿用官方角色模板，武器由NPC Controller驱动，恢复外观实机待验证",
       "blocked_actions": [],
       "blocked_action_names": [],
       "host_template_guid": 3379152539033500564,
-      "controller_template_guid": 389127558213461443
+      "controller_template_guid": 389127558213461443,
+      "previous_r8_prefab_guid": {
+        "m_data1": 11535083439788598581,
+        "m_data2": 10254917470496122152
+      },
+      "previous_r8_prefab_name": "inquisitorBruiserGreatHammerViewVariant"
     },
     {
       "key": "keeper_greatsword",
@@ -90,15 +105,20 @@
       "enemy_faction": 0,
       "view_template_guid": 3052168366862240214,
       "prefab_guid": {
-        "m_data1": 1753237706385416658,
-        "m_data2": 378917256406329946
+        "m_data1": 11008008998908596235,
+        "m_data2": 17623057921651270824
       },
-      "prefab_name": "humanoidEnemyKeeperGreatSwordViewVariant",
-      "presentation_note": "出货登记的战斗变体候选，完整表现依赖未核验",
+      "prefab_name": "humanoidEnemyViewBaseGreatSword",
+      "presentation_note": "出货 HumanoidEnemyView 实体根；衣装沿用官方角色模板，武器由NPC Controller驱动，恢复外观实机待验证",
       "blocked_actions": [],
       "blocked_action_names": [],
       "host_template_guid": 1768802788238584886,
-      "controller_template_guid": 1380339138267220584
+      "controller_template_guid": 1380339138267220584,
+      "previous_r8_prefab_guid": {
+        "m_data1": 1753237706385416658,
+        "m_data2": 378917256406329946
+      },
+      "previous_r8_prefab_name": "humanoidEnemyKeeperGreatSwordViewVariant"
     },
     {
       "key": "keeper_sword_shield_left",
@@ -113,15 +133,20 @@
       "enemy_faction": 0,
       "view_template_guid": 3641444237456556696,
       "prefab_guid": {
-        "m_data1": 12777884196375134293,
-        "m_data2": 1461022021475568888
+        "m_data1": 15714284881407679963,
+        "m_data2": 17268177040639563928
       },
-      "prefab_name": "keeperSwordShieldLeftView",
-      "presentation_note": "场景 NPC 左右视图候选，战斗骨架／挂点未核验",
+      "prefab_name": "humanoidEnemyViewBase",
+      "presentation_note": "出货 HumanoidEnemyView 实体根；衣装沿用官方角色模板，武器由NPC Controller驱动，恢复外观实机待验证",
       "blocked_actions": [],
       "blocked_action_names": [],
       "host_template_guid": 1508770382251668049,
-      "controller_template_guid": 3940725573447116692
+      "controller_template_guid": 3940725573447116692,
+      "previous_r8_prefab_guid": {
+        "m_data1": 12777884196375134293,
+        "m_data2": 1461022021475568888
+      },
+      "previous_r8_prefab_name": "keeperSwordShieldLeftView"
     },
     {
       "key": "keeper_sword_shield_right",
@@ -136,15 +161,20 @@
       "enemy_faction": 0,
       "view_template_guid": 3641444237456556696,
       "prefab_guid": {
-        "m_data1": 1244142764045621440,
-        "m_data2": 9969492646731778954
+        "m_data1": 15714284881407679963,
+        "m_data2": 17268177040639563928
       },
-      "prefab_name": "keeperSwordShieldRightView",
-      "presentation_note": "场景 NPC 左右视图候选，战斗骨架／挂点未核验",
+      "prefab_name": "humanoidEnemyViewBase",
+      "presentation_note": "出货 HumanoidEnemyView 实体根；衣装沿用官方角色模板，武器由NPC Controller驱动，恢复外观实机待验证",
       "blocked_actions": [],
       "blocked_action_names": [],
       "host_template_guid": 1508770382251668049,
-      "controller_template_guid": 3940725573447116692
+      "controller_template_guid": 3940725573447116692,
+      "previous_r8_prefab_guid": {
+        "m_data1": 1244142764045621440,
+        "m_data2": 9969492646731778954
+      },
+      "previous_r8_prefab_name": "keeperSwordShieldRightView"
     },
     {
       "key": "dead_tide_curved_sword",
@@ -159,15 +189,20 @@
       "enemy_faction": 16384,
       "view_template_guid": 4069788601314390549,
       "prefab_guid": {
-        "m_data1": 10697374761228955416,
-        "m_data2": 4263593708176099962
+        "m_data1": 15714284881407679963,
+        "m_data2": 17268177040639563928
       },
-      "prefab_name": "deadTideCurvedSwordViewVariant",
-      "presentation_note": "出货登记的战斗变体候选，完整表现依赖未核验",
+      "prefab_name": "humanoidEnemyViewBase",
+      "presentation_note": "出货 HumanoidEnemyView 实体根；衣装沿用官方角色模板，武器由NPC Controller驱动，恢复外观实机待验证",
       "blocked_actions": [],
       "blocked_action_names": [],
       "host_template_guid": 1508770382251668049,
-      "controller_template_guid": 601919730306003133
+      "controller_template_guid": 601919730306003133,
+      "previous_r8_prefab_guid": {
+        "m_data1": 10697374761228955416,
+        "m_data2": 4263593708176099962
+      },
+      "previous_r8_prefab_name": "deadTideCurvedSwordViewVariant"
     },
     {
       "key": "dead_tide_great_curved_sword",
@@ -182,15 +217,20 @@
       "enemy_faction": 16384,
       "view_template_guid": 3052168366862240214,
       "prefab_guid": {
-        "m_data1": 8999450484513047019,
-        "m_data2": 2049942093721139898
+        "m_data1": 11008008998908596235,
+        "m_data2": 17623057921651270824
       },
-      "prefab_name": "deadTideGreatCurvedSwordViewVariant",
-      "presentation_note": "出货登记的战斗变体候选，完整表现依赖未核验",
+      "prefab_name": "humanoidEnemyViewBaseGreatSword",
+      "presentation_note": "出货 HumanoidEnemyView 实体根；衣装沿用官方角色模板，武器由NPC Controller驱动，恢复外观实机待验证",
       "blocked_actions": [],
       "blocked_action_names": [],
       "host_template_guid": 1768802788238584886,
-      "controller_template_guid": 1380339138267220584
+      "controller_template_guid": 1380339138267220584,
+      "previous_r8_prefab_guid": {
+        "m_data1": 8999450484513047019,
+        "m_data2": 2049942093721139898
+      },
+      "previous_r8_prefab_name": "deadTideGreatCurvedSwordViewVariant"
     },
     {
       "key": "dead_tide_crossbow",
@@ -205,11 +245,11 @@
       "enemy_faction": 16384,
       "view_template_guid": 4215792579854712723,
       "prefab_guid": {
-        "m_data1": 10305634292950539390,
-        "m_data2": 8207634846423283563
+        "m_data1": 4702930141996401784,
+        "m_data2": 11352759655438523896
       },
-      "prefab_name": "deadTideCrossbowViewVariant",
-      "presentation_note": "出货登记的战斗变体候选，完整表现依赖未核验",
+      "prefab_name": "humanoidEnemyViewBaseRanged",
+      "presentation_note": "出货 HumanoidEnemyView 实体根；衣装沿用官方角色模板，武器由NPC Controller驱动，恢复外观实机待验证",
       "blocked_actions": [
         2189899596957199823
       ],
@@ -217,7 +257,12 @@
         "enemyCrossbowDodgeAndBombData"
       ],
       "host_template_guid": 1508770382251668049,
-      "controller_template_guid": 1879094964923569590
+      "controller_template_guid": 1879094964923569590,
+      "previous_r8_prefab_guid": {
+        "m_data1": 10305634292950539390,
+        "m_data2": 8207634846423283563
+      },
+      "previous_r8_prefab_name": "deadTideCrossbowViewVariant"
     },
     {
       "key": "dead_tide_bruiser",
@@ -232,11 +277,11 @@
       "enemy_faction": 16384,
       "view_template_guid": 2982238890988587382,
       "prefab_guid": {
-        "m_data1": 1230812065503293340,
-        "m_data2": 6515899690775579354
+        "m_data1": 4662372578990294203,
+        "m_data2": 8860761966306118266
       },
-      "prefab_name": "deadTideBruiserGreatAxeAViewVariant",
-      "presentation_note": "出货登记的战斗变体候选，完整表现依赖未核验",
+      "prefab_name": "risenBruiserVariantBase",
+      "presentation_note": "出货 HumanoidEnemyView 实体根；衣装沿用官方角色模板，武器由NPC Controller驱动，恢复外观实机待验证",
       "blocked_actions": [
         3305329071095191471
       ],
@@ -244,7 +289,12 @@
         "deadTideBruiserCrabSpawnData"
       ],
       "host_template_guid": 2214643304075707209,
-      "controller_template_guid": 1847907633820291651
+      "controller_template_guid": 1847907633820291651,
+      "previous_r8_prefab_guid": {
+        "m_data1": 1230812065503293340,
+        "m_data2": 6515899690775579354
+      },
+      "previous_r8_prefab_name": "deadTideBruiserGreatAxeAViewVariant"
     }
   ]
 }

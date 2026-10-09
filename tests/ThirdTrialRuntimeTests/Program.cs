@@ -115,7 +115,7 @@ static class Program
         var events=f.Frame.InstanceDataStorage.Events;
         Check(events.IndexOf("official-content-complete")<events.IndexOf("assets")&&events.Count(x=>x=="tree")==10&&events.Count(x=>x=="block")==10,"native content then asset graph before private storage");
         Check(events.IndexOf("block")>events.LastIndexOf("tree")&&events.IndexOf("playlist")>events.LastIndexOf("block"),"Trees then all blocks then playlist order");
-        Check(events.Skip(events.IndexOf("official-content-complete")+1).TakeWhile(x=>x!="block").Count(x=>x=="dependency")==40,"all forty private dependencies before blocks; official Team reused");
+        Check(events.Skip(events.IndexOf("official-content-complete")+1).TakeWhile(x=>x!="block").Count(x=>x=="dependency")==50,"all fifty private typed dependencies before blocks; official Team reused");
         int writes=f.Frame.InstanceDataStorage.Writes,adds=f.Frame.PlaylistAdds,trees=f.Frame.TreeBuilds,blocks=f.Frame.BlockBuilds;f.Init();
         Check(f.Frame.InstanceDataStorage.Writes==writes&&f.Frame.PlaylistAdds==adds&&f.Frame.TreeBuilds==trees&&f.Frame.BlockBuilds==blocks&&ThirdTrialRuntime.IsFrameReady(f.Frame),"repeat OnInit no duplicate writes");
         Check(EnemyRestorationRuntime.Publications==1,"repeat complete bootstrap does not duplicate published snapshot");

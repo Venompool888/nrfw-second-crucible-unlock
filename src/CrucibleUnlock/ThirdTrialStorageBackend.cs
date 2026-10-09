@@ -61,6 +61,9 @@ namespace CrucibleUnlock
             Check(p.NpcGuid,npc,Npc(p.NpcGuid));
             Check(p.HostGuid,Asset<EntityData>(p.HostGuid),Host(p.HostGuid));
             Check(p.ControllerGuid,Asset<ControllerData>(p.ControllerGuid),Controller(p.ControllerGuid));
+            // ControllerData also derives EntityData. Native Create instantiates
+            // the controller separately and resolves its GUID in that base slot.
+            Check(p.ControllerGuid,Asset<EntityData>(p.ControllerGuid),Host(p.ControllerGuid));
             var view=Asset<EntityViewData>(p.ViewGuid);
             var cachedView=View(p.ViewGuid);
             if(cachedView!=null && cachedView.Pointer!=view.Pointer)
@@ -111,6 +114,7 @@ namespace CrucibleUnlock
             Ensure(p.ViewGuid,Asset<EntityViewData>(p.ViewGuid),View,x=>_storage.Add(x));
             Ensure(p.HostGuid,Asset<EntityData>(p.HostGuid),Host,x=>_storage.Add(x));
             Ensure(p.ControllerGuid,Asset<ControllerData>(p.ControllerGuid),Controller,x=>_storage.Add(x));
+            Ensure(p.ControllerGuid,Asset<EntityData>(p.ControllerGuid),Host,x=>_storage.Add(x));
             Ensure(p.NpcGuid,Asset<NpcData>(p.NpcGuid),Npc,x=>_storage.Add(x));
             var r=_raw[p.NpcGuid];
             if(r.TeamData.Id.Value!=0) Ensure(r.TeamData.Id.Value,Asset<TeamData>(r.TeamData.Id.Value),Team,x=>_storage.Add(x));
@@ -166,6 +170,7 @@ namespace CrucibleUnlock
         public bool IsReady(EnemyRestorationProfile p)
         {
             return _owned.Blocks.TryGetValue(p.NpcGuid,out var block) && Block(p.NpcGuid)?.Pointer==block.Pointer && Matches(p,block) &&
+                Host(p.ControllerGuid)?.Pointer==Asset<ControllerData>(p.ControllerGuid).Pointer &&
                 _owned.Trees.TryGetValue(p.ControllerGuid,out var tree) && Tree(p.ControllerGuid)?.Pointer==tree.Pointer;
         }
     }

@@ -9,7 +9,7 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
-    <Version>0.9.16-third-trial-candidate-r8</Version>
+    <Version>0.9.16-third-trial-candidate-r9</Version>
     <AssemblyName>CrucibleUnlock</AssemblyName>
     <RootNamespace>CrucibleUnlock</RootNamespace>
     <LangVersion>latest</LangVersion>
@@ -23,6 +23,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="Unity.ResourceManager"><HintPath>..\..\vendor\generated\Unity.ResourceManager.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Unity.TextMeshPro"><HintPath>..\..\vendor\generated\Unity.TextMeshPro.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.UI"><HintPath>..\..\vendor\generated\UnityEngine.UI.dll</HintPath><Private>false</Private></Reference>
     <EmbeddedResource Include="Assets\SecondBowlBlood\*" LogicalName="NRFW.SecondBowlBlood.%(Filename)%(Extension)" />

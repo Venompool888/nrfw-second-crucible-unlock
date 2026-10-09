@@ -1,18 +1,22 @@
 using System;
 using System.Collections.Generic;
 using Il2Cpp;
+using Il2CppInterop.Runtime;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using Il2CppMoon;
+using Il2CppMoon.Forsaken;
 using Il2CppMoon.Playmode;
 using Il2CppMoon.Pooling;
 using Il2CppQuantum;
 using UnityEngine;
+using EntityView = Il2CppMoon.Forsaken.EntityView;
 
 namespace CrucibleUnlock
 {
     // Called only by the loader's main-thread pump of the current Core.AssetCtx.
-    // These wrappers refer to shipped pooled prefabs; no prefab, costume, NPC or
-    // source asset is cloned or modified. Ownership is established by pointers,
+    // These wrappers refer to shipped pooled prefabs. Extra source asset load
+    // references keep roots alive; no prefab, costume or NPC is cloned or modified.
+    // Ownership is established by pointers,
     // never merely by matching a GUID/path supplied by another mod.
     internal static class EnemyRestorationViews
     {
@@ -25,6 +29,8 @@ namespace CrucibleUnlock
             public EnemyRestorationProfile Profile;
             public EntityViewData Data;
             public EntityViewDataAsset Wrapper;
+            public EntityViewDataAsset Source;
+            public GameObject Root;
             public int ListIndex;
         }
 
@@ -35,7 +41,18 @@ namespace CrucibleUnlock
             public RuntimeAssetResolutionContext Context;
             public List<Entry> Entries;
             public IntPtr AssetsPointer, WrappersPointer, ListPointer;
+            public IntPtr PoolPointer;
         }
+
+        private sealed class RootLoad
+        {
+            public RuntimeAssetResolutionContext Context;
+            public PoolingSystem Pool;
+            public Func<GameObject> ReadRoot;
+        }
+        // Own only extra Addressables references, never pooled clones. Keeping the
+        // read-only source root loaded allows repeated readiness verification.
+        private static readonly Dictionary<string, RootLoad> RootLoads = new Dictionary<string, RootLoad>();
 
         private static readonly Dictionary<IntPtr, OwnedContext> Owned = new Dictionary<IntPtr, OwnedContext>();
 
@@ -79,6 +96,10 @@ namespace CrucibleUnlock
                     throw new InvalidOperationException("Official pooled prefab LUT wrapper type/GUID mismatch.");
             }
             var profiles = catalog.Profiles;
+            var sources = new EntityViewDataAsset[profiles.Length];
+            var roots = new GameObject[profiles.Length];
+            var pool = PoolingSystem.Active;
+            if (pool == null || pool.m_prefabs == null) return false;
             var guids = new HashSet<long>();
             var paths = new HashSet<string>(StringComparer.Ordinal);
             foreach (var p in profiles)
@@ -88,6 +109,22 @@ namespace CrucibleUnlock
                     !guids.Add(p.ViewGuid) || !paths.Add(p.Path("view")))
                     throw new InvalidOperationException("Invalid or duplicated enemy view binding.");
                 VerifyPrefab(lut, p);
+                if (p.ViewTemplateGuid <= 0)
+                    throw new InvalidOperationException("Enemy native view template is missing: " + p.Key);
+                // Native non-generic load path; do not depend on an unverified
+                // closed TryFindWrapper<EntityViewDataAsset> AOT MethodSpec.
+                if (!ctx.TryFindWrapperImpl(new AssetGuid { Value = p.ViewTemplateGuid }, out var sourceBase, true))
+                    return false;
+                var source = sourceBase?.TryCast<EntityViewDataAsset>();
+                if (source == null || source.AssetGuid.Value != p.ViewTemplateGuid || source.ViewConfigs == null)
+                    throw new InvalidOperationException("Enemy native view wrapper mismatch: " + p.Key);
+                var nativeGuid = source.ViewPrefabRef.Guid;
+                if (nativeGuid.m_data1 != p.PrefabGuid.Data1 || nativeGuid.m_data2 != p.PrefabGuid.Data2)
+                    throw new InvalidOperationException("Enemy native view root GUID mismatch: " + p.Key);
+                if (!TryReadRoot(ctx, pool, source.ViewPrefabRef, out var root)) return false;
+                VerifyRoot(root, p.Key);
+                sources[p.Index] = source;
+                roots[p.Index] = root;
                 var guid = Guid(p);
                 if (ctx.m_assetByGuid.ContainsKey(guid) || ctx.m_loadedWrappers.ContainsKey(guid) ||
                     (ctx.m_wrappersBeingLoaded != null && ctx.m_wrappersBeingLoaded.ContainsKey(guid)))
@@ -113,9 +150,10 @@ namespace CrucibleUnlock
                     var snapshot = new EnemyRestorationProfile
                     {
                         Key = p.Key, Index = p.Index, PrefabName = p.PrefabName,
+                        ViewTemplateGuid = p.ViewTemplateGuid,
                         PrefabGuid = new EnemyRestorationPrefabGuid { Data1 = p.PrefabGuid.Data1, Data2 = p.PrefabGuid.Data2 }
                     };
-                    var entry = new Entry { Profile = snapshot, Data = views[i], ListIndex = -1 };
+                    var entry = new Entry { Profile = snapshot, Data = views[i], Source = sources[i], Root = roots[i], ListIndex = -1 };
                     // Track the wrapper immediately so later configuration failure
                     // destroys only this attempt's ScriptableObject.
                     entries.Add(entry);
@@ -124,12 +162,11 @@ namespace CrucibleUnlock
                     entry.Wrapper.name = p.Path("view");
                     entry.Wrapper.hideFlags = HideFlags.DontSave;
                     entry.Wrapper.AssetGuid = Guid(p);
-                    entry.Wrapper.ViewPrefabRef = new PooledPrefabRef
-                    {
-                        Guid = new SerializableGuid { m_data1 = p.PrefabGuid.Data1, m_data2 = p.PrefabGuid.Data2 }
-                    };
-                    entry.Wrapper.ViewConfigs = new Il2CppReferenceArray<IEntityViewSettings>(0);
-                    entry.Wrapper.ViewConfigsRef = new GuidRef<EntityViewSettingsViewData>();
+                    // Official settings are read-only shared references. Preserve
+                    // native costume and view configuration instead of dropping it.
+                    entry.Wrapper.ViewPrefabRef = entry.Source.ViewPrefabRef;
+                    entry.Wrapper.ViewConfigs = entry.Source.ViewConfigs;
+                    entry.Wrapper.ViewConfigsRef = entry.Source.ViewConfigsRef;
                     ValidateEntry(entry);
                 }
 
@@ -148,7 +185,7 @@ namespace CrucibleUnlock
                 {
                     Context = ctx, Entries = entries,
                     AssetsPointer = ctx.m_assetByGuid.Pointer, WrappersPointer = ctx.m_loadedWrappers.Pointer,
-                    ListPointer = ctx.m_allAssets.Pointer
+                    ListPointer = ctx.m_allAssets.Pointer, PoolPointer = pool.Pointer
                 };
                 ValidateOwned(ctx, catalog, views, context);
                 // Get(ctx) dispatches IAssetResolutionContext.FindAsset; AssetObject
@@ -176,6 +213,49 @@ namespace CrucibleUnlock
         }
 
         private static AssetGuid Guid(EnemyRestorationProfile p) => new AssetGuid { Value = p.ViewGuid };
+
+        private static bool TryReadRoot(RuntimeAssetResolutionContext ctx, PoolingSystem pool, PooledPrefabRef prefab, out GameObject root)
+        {
+            root = null;
+            if (!pool.TryResolvePrefab(prefab, out var index) || index < 0 || index >= pool.m_prefabs.Length)
+                throw new InvalidOperationException("Native enemy view root is absent from current pool.");
+            var native = pool.m_prefabs[index];
+            root = native.RootInstance;
+            if (root != null) VerifyRoot(root, "pool-index=" + index);
+            // Retain an independent asset load even when the pool is already
+            // warm: its RootInstance may be pruned during normal gameplay.
+            if (string.IsNullOrWhiteSpace(native.LoadKey))
+                throw new InvalidOperationException("Native enemy view root has no load key.");
+            var key = ctx.Pointer.ToString() + ":" + pool.Pointer.ToString() + ":" + index;
+            if (!RootLoads.TryGetValue(key, out var load))
+            {
+                var op = pool.LoadOpCreate(native.LoadKey);
+                load = new RootLoad { Context = ctx, Pool = pool,
+                    // LoadOpResult activates/reparents/clones source objects. Use
+                    // only the asset-operation result, without that callback.
+                    ReadRoot = () => {
+                        if (!pool.LoadOpDone(op)) return null;
+                        var result = op.Result;
+                        if (result == null) throw new InvalidOperationException("Native enemy source root load failed: " + native.LoadKey);
+                        return result;
+                    } };
+                RootLoads.Add(key, load);
+            }
+            if (load.Context.Pointer != ctx.Pointer || load.Pool.Pointer != pool.Pointer)
+                throw new InvalidOperationException("Enemy root load ownership changed.");
+            root = load.ReadRoot();
+            return root != null;
+        }
+
+        private static void VerifyRoot(GameObject root, string key)
+        {
+            // The native manager uses the root component, not a descendant.
+            // Non-generic Unity API avoids requiring an unshipped AOT method.
+            var entity = root.GetComponent(Il2CppType.Of<EntityView>())?.TryCast<EntityView>();
+            var humanoid = root.GetComponent(Il2CppType.Of<HumanoidEnemyView>())?.TryCast<HumanoidEnemyView>();
+            if (entity == null || humanoid == null)
+                throw new InvalidOperationException("Enemy pooled root lacks EntityView/HumanoidEnemyView: " + key + " root=" + root.name);
+        }
 
         private static void RequireCaches(RuntimeAssetResolutionContext ctx)
         {
@@ -209,11 +289,15 @@ namespace CrucibleUnlock
                 throw new InvalidOperationException("Enemy view object is unavailable: " + p.Path("view"));
             var prefab = w.ViewPrefabRef.Guid;
             var settings = w.ViewConfigsRef;
+            var sourceSettings = entry.Source.ViewConfigsRef;
+            VerifyRoot(entry.Root, p.Key);
             if (entry.Data.Guid.Value != p.ViewGuid ||
                 entry.Data.Path != p.Path("view") || w.AssetGuid.Value != p.ViewGuid ||
                 prefab.m_data1 != p.PrefabGuid.Data1 || prefab.m_data2 != p.PrefabGuid.Data2 ||
-                w.ViewConfigs == null || w.ViewConfigs.Length != 0 || settings.Id != 0 ||
-                settings.Namespace.m_data1 != 0 || settings.Namespace.m_data2 != 0)
+                entry.Source.AssetGuid.Value != p.ViewTemplateGuid ||
+                entry.Source.ViewPrefabRef.Guid.m_data1 != prefab.m_data1 || entry.Source.ViewPrefabRef.Guid.m_data2 != prefab.m_data2 ||
+                w.ViewConfigs == null || w.ViewConfigs.Pointer != entry.Source.ViewConfigs.Pointer || settings.Id != sourceSettings.Id ||
+                settings.Namespace.m_data1 != sourceSettings.Namespace.m_data1 || settings.Namespace.m_data2 != sourceSettings.Namespace.m_data2)
                 throw new InvalidOperationException("Enemy view configuration changed: " + p.Path("view"));
         }
 
@@ -224,16 +308,21 @@ namespace CrucibleUnlock
                 ctx.m_loadedWrappers.Pointer != owned.WrappersPointer || ctx.m_allAssets.Pointer != owned.ListPointer ||
                 owned.Entries.Count != catalog.Profiles.Length)
                 throw new InvalidOperationException("Enemy view context/catalog changed after registration.");
+            if (PoolingSystem.Active == null || PoolingSystem.Active.Pointer != owned.PoolPointer)
+                throw new InvalidOperationException("Enemy view current pool changed after registration.");
             for (int i = 0; i < owned.Entries.Count; ++i)
             {
                 var entry = owned.Entries[i];
                 var p = catalog.Profiles[i];
                 if (p == null || p.PrefabGuid == null || p.ViewGuid != entry.Profile.ViewGuid || p.Key != entry.Profile.Key ||
-                    p.PrefabName != entry.Profile.PrefabName || canonicalViews[i].Pointer != entry.Data.Pointer ||
+                    p.PrefabName != entry.Profile.PrefabName || p.ViewTemplateGuid != entry.Profile.ViewTemplateGuid || canonicalViews[i].Pointer != entry.Data.Pointer ||
                     p.PrefabGuid.Data1 != entry.Profile.PrefabGuid.Data1 ||
                     p.PrefabGuid.Data2 != entry.Profile.PrefabGuid.Data2)
                     throw new InvalidOperationException("Enemy view catalog changed after registration.");
                 ValidateEntry(entry);
+                if (!TryReadRoot(ctx, PoolingSystem.Active, entry.Wrapper.ViewPrefabRef, out var loadedRoot) ||
+                    loadedRoot.Pointer != entry.Root.Pointer)
+                    throw new InvalidOperationException("Enemy source root ownership was lost: " + p.Key);
                 var guid = Guid(entry.Profile);
                 if (!ctx.m_assetByGuid.TryGetValue(guid, out var data) || data == null || data.Pointer != entry.Data.Pointer ||
                     !ctx.m_loadedWrappers.TryGetValue(guid, out var wrapper) || wrapper == null || wrapper.Pointer != entry.Wrapper.Pointer ||

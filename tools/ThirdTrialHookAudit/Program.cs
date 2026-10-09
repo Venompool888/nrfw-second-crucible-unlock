@@ -56,6 +56,12 @@ if (!Calls(pump).Contains("Il2CppMoon.Forsaken.Core.get_ResourceManager"))
 var viewEnsure=PluginMethod("CrucibleUnlock.EnemyRestorationViews", "Ensure");
 if(Calls(viewEnsure).Contains("Il2CppQuantum.EntityViewData..ctor"))
  throw new Exception("Unity view registration constructs a second simulation data object.");
+var rootChecks=Calls(PluginMethod("CrucibleUnlock.EnemyRestorationViews","VerifyRoot"));
+if(!rootChecks.Contains("UnityEngine.GameObject.GetComponent") ||
+ !rootChecks.Any(c=>c.EndsWith(".TryCast<Il2CppMoon.Forsaken.EntityView>")) ||
+ !rootChecks.Any(c=>c.EndsWith(".TryCast<Il2CppMoon.Forsaken.HumanoidEnemyView>")))
+ throw new Exception("Enemy prefab root lacks native EntityView and HumanoidEnemyView component validation.");
+Console.WriteLine("PASS: enemy prefab roots validate native EntityView and HumanoidEnemyView through non-generic Unity GetComponent.");
 var viewSignature=plugin.GetMethodDefinition(viewEnsure).DecodeSignature(provider,(object)null);
 if(!viewSignature.ParameterTypes.SequenceEqual(new[]{"Il2Cpp.RuntimeAssetResolutionContext","CrucibleUnlock.EnemyRestorationCatalog",Q+"EntityViewData[]"}))
  throw new Exception("Unity view registration does not require the canonical simulation views.");

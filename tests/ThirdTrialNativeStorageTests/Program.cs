@@ -78,8 +78,19 @@ static class Program
             "canonical view is preserved without a duplicate append");
         var f=new Fixture();f.Ensure();Check(f.Failure==null&&f.EntranceReady,"complete real backend graph ready: "+f.Failure);
         var storage=f.Frame.InstanceDataStorage;
-        Check(storage.m_storageNpcData.m_storage.Count==10&&storage.m_storageEntityData.m_storage.Count==10&&
-            storage.m_storageControllerData.m_storage.Count==10&&storage.m_storageEntityViewData.m_storage.Count==10,"forty private dependencies");
+        foreach(var profile in f.Catalog.Profiles)
+        {
+            // Native Instantiate(frame, controllerData) resolves EntityDataId(controller.Guid).
+            // Removing the production controller-as-EntityData Ensure breaks this lookup,
+            // despite all specialized ControllerData/Tree/block readbacks succeeding.
+            var instantiatedController=RuntimeRef<EntityData>.From(f.Frame,profile.ControllerGuid).Get(f.Frame);
+            Check(instantiatedController.Pointer==f.Frame.Assets[profile.ControllerGuid].Pointer,
+                "native controller creation requires exact object in EntityData storage: "+profile.Key);
+            Check(storage.m_storageControllerData.m_storage[storage.m_storageControllerData.m_lookup[profile.ControllerGuid]-1].Pointer==instantiatedController.Pointer,
+                "controller and EntityData typed slots share the canonical pointer: "+profile.Key);
+        }
+        Check(storage.m_storageNpcData.m_storage.Count==10&&storage.m_storageEntityData.m_storage.Count==20&&
+            storage.m_storageControllerData.m_storage.Count==10&&storage.m_storageEntityViewData.m_storage.Count==10,"fifty private typed dependencies: ten hosts and ten controllers in EntityData");
         Check(storage.m_storageTeamData.m_storage.Count==1,"shared team deduplicated");
         Check(storage.m_storageTree.m_storage.Count==10&&storage.m_storageRuntimeNpcAttachments.m_storage.Count==10,"ten trees and ten blocks");
         Check(storage.m_storageTree.m_storage.Select(x=>x.Pointer).Distinct().Count()==10,"ten independent behavior trees");
@@ -106,6 +117,35 @@ static class Program
         f.Ensure();Check(f.EntranceReady&&f.Failure==null&&storage.Writes==writes,"repeat real backend no append");
         Check(f.Frame.TreeBuilds==trees&&f.Frame.BlockBuilds==blocks,"repeat no tree/block recreation");
         Throws(()=>storage.Add((NpcData)f.Frame.Assets[f.Catalog.Profiles[0].NpcGuid]),"fake native Add rejects duplicates");
+
+        var baseShared=new Fixture();
+        foreach(var profile in baseShared.Catalog.Profiles)
+            baseShared.Frame.InstanceDataStorage.Add((EntityData)baseShared.Frame.Assets[profile.ControllerGuid]);
+        baseShared.Ensure();
+        Check(baseShared.EntranceReady&&baseShared.Failure==null,"canonical pre-exported controller base slots accepted");
+        Check(baseShared.Frame.InstanceDataStorage.m_storageEntityData.m_storage.Count==20,
+            "canonical controller base slots adopted without duplicate append");
+        foreach(var profile in baseShared.Catalog.Profiles)
+        {
+            var slot=baseShared.Frame.InstanceDataStorage.m_storageEntityData;
+            int index=slot.m_lookup[profile.ControllerGuid];
+            slot.m_lookup.Remove(profile.ControllerGuid);
+            Check(!baseShared.Backend.IsReady(profile),"missing controller base slot invalidates readiness: "+profile.Key);
+            slot.m_lookup.Add(profile.ControllerGuid,index);
+            Check(baseShared.Backend.IsReady(profile),"exact controller base slot restores readiness: "+profile.Key);
+        }
+
+        foreach(var profile in f.Catalog.Profiles)
+        {
+            var foreignBase=new Fixture();
+            foreignBase.Frame.InstanceDataStorage.Add(new EntityData { Guid=new AssetGuid {Value=profile.ControllerGuid} });
+            int before=foreignBase.Frame.InstanceDataStorage.Writes;
+            foreignBase.CheckFailed("foreign controller base slot: "+profile.Key);
+            Check(foreignBase.Failure?.Message=="Foreign runtime cache collision: "+profile.ControllerGuid,
+                "exact controller base collision ID retained: "+profile.Key);
+            Check(foreignBase.Frame.InstanceDataStorage.Writes==before&&foreignBase.Frame.TreeBuilds==0&&foreignBase.Frame.BlockBuilds==0,
+                "foreign controller base slot rejected in whole-batch preflight: "+profile.Key);
+        }
 
         var optional=new Fixture(true);optional.Ensure();Check(optional.EntranceReady,"all optional raw dependencies ready");
         Check(optional.Frame.InstanceDataStorage.m_storageInteractionControllerData.m_storage.Count==10&&

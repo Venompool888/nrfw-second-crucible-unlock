@@ -30,7 +30,7 @@ namespace CrucibleUnlock
             {
                 var p = result.Profiles[i];
                 if (p == null || string.IsNullOrWhiteSpace(p.Key) || !keys.Add(p.Key) || p.NpcTemplateGuid <= 0 ||
-                    p.HostTemplateGuid <= 0 || p.ControllerTemplateGuid <= 0 || p.WeaponGuid <= 0 || p.PrefabGuid == null)
+                    p.HostTemplateGuid <= 0 || p.ControllerTemplateGuid <= 0 || p.ViewTemplateGuid <= 0 || p.WeaponGuid <= 0 || p.PrefabGuid == null)
                     throw new InvalidOperationException("Enemy restoration profile is invalid or duplicated.");
                 p.Index = i;
                 p.TeamGuid = result.TeamGuid;
@@ -60,6 +60,7 @@ namespace CrucibleUnlock
         [JsonPropertyName("character_type")] public int CharacterType { get; set; }
         [JsonPropertyName("enemy_faction")] public int EnemyFaction { get; set; }
         [JsonPropertyName("blocked_actions")] public long[] BlockedActions { get; set; }
+        [JsonPropertyName("view_template_guid")] public long ViewTemplateGuid { get; set; }
         [JsonPropertyName("prefab_guid")] public EnemyRestorationPrefabGuid PrefabGuid { get; set; }
         [JsonPropertyName("prefab_name")] public string PrefabName { get; set; }
         [JsonIgnore] public int Index { get; set; }

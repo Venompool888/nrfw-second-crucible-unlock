@@ -35,7 +35,7 @@ namespace Il2CppQuantum
     class InteractionControllerData:AssetObject { }
     class NpcSpawnerData:AssetObject { }
     class EnemyWeaponData:AssetObject { }
-    class ControllerData:AssetObject
+    class ControllerData:EntityData
     {
         public RuntimeRef<Tree> GetTreeRef(Frame f)=>RuntimeRef<Tree>.From(f,Guid.Value);
     }
@@ -145,6 +145,8 @@ namespace Il2CppQuantum
         public readonly NativeSlot<Tree> m_storageTree=new();
         public readonly NativeSlot<RuntimeNpcAttachments> m_storageRuntimeNpcAttachments=new();
         public int Writes;public long FailBlockAdd,FailTreeAdd;public bool AddBeforeThrow;
+        public void Add(EntityData value) { m_storageEntityData.Add(value.Guid.Value,value);Writes++;Events.Add("dependency"); }
+        public void Add(ControllerData value) { m_storageControllerData.Add(value.Guid.Value,value);Writes++;Events.Add("dependency"); }
         public NativeSlot<T> Slot<T>() where T:Il2CppObjectBase
         {
             object slot=typeof(T)==typeof(NpcData)?m_storageNpcData:typeof(T)==typeof(ControllerData)?m_storageControllerData:

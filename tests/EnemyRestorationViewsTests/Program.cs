@@ -8,6 +8,7 @@ using Il2CppMoon;
 using Il2CppMoon.Playmode;
 using Il2CppMoon.Pooling;
 using Il2CppQuantum;
+using Il2CppMoon.Forsaken;
 
 // Compile the production orchestration against pure managed fakes. No game or
 // Unity assembly is referenced, loaded or executed by this test executable.
@@ -29,8 +30,8 @@ internal static class Program
     {
         Profiles = new[]
         {
-            new EnemyRestorationProfile { Index = 0, Key = "a", PrefabName = "PrefabA", PrefabGuid = new EnemyRestorationPrefabGuid { Data1 = 10, Data2 = 11 } },
-            new EnemyRestorationProfile { Index = 1, Key = "b", PrefabName = "PrefabB", PrefabGuid = new EnemyRestorationPrefabGuid { Data1 = 20, Data2 = 21 } }
+            new EnemyRestorationProfile { Index = 0, Key = "a", ViewTemplateGuid = 501, PrefabName = "PrefabA", PrefabGuid = new EnemyRestorationPrefabGuid { Data1 = 10, Data2 = 11 } },
+            new EnemyRestorationProfile { Index = 1, Key = "b", ViewTemplateGuid = 502, PrefabName = "PrefabB", PrefabGuid = new EnemyRestorationPrefabGuid { Data1 = 20, Data2 = 21 } }
         }
     };
     private static RuntimeAssetResolutionContext Context()
@@ -46,6 +47,7 @@ internal static class Program
             },
             DebugNames = new[] { "PrefabA", "PrefabB" }
         };
+        SetupSources(ctx, Catalog());
         ctx.CanonicalViews = new EntityViewData[Catalog().Profiles.Length];
         for (int i = 0; i < ctx.CanonicalViews.Length; ++i)
         {
@@ -139,7 +141,7 @@ internal static class Program
         var prefabs = new RuntimePooledPrefab[10]; var names = new string[10];
         for (int i = 0; i < 10; ++i)
         {
-            var p = new EnemyRestorationProfile { Index = i, Key = "profile" + i, PrefabName = "Prefab" + i,
+            var p = new EnemyRestorationProfile { Index = i, Key = "profile" + i, ViewTemplateGuid = 501 + i, PrefabName = "Prefab" + i,
                 PrefabGuid = new EnemyRestorationPrefabGuid { Data1 = (ulong)(100 + i), Data2 = (ulong)(200 + i) } };
             catalog.Profiles[i] = p;
             var data = new EntityViewData { Guid = new AssetGuid { Value = p.ViewGuid }, Path = p.Path("view") };
@@ -149,6 +151,7 @@ internal static class Program
             names[i] = p.PrefabName;
         }
         InitializeQuantumAssetDatabase.GeneratedLut = new WorldLUTAsset { PooledPrefabs = prefabs, DebugNames = names };
+        SetupSources(ctx, catalog);
         created = EntityViewData.Created;
         Check(Ensure(ctx, catalog), "complete ten profile canonical graph ready");
         Check(ctx.m_assetByGuid.Count == 10 && ctx.m_loadedWrappers.Count == 10 && ctx.m_allAssets.Count == 10,
@@ -249,6 +252,71 @@ internal static class Program
         Check(ctx.m_loadedWrappers.Count == 1 && ctx.m_assetByGuid.Count == 0 && ctx.m_allAssets.Count == 0,
             "invalid primary LUT retains source caches");
     }
+    private static void SetupSources(RuntimeAssetResolutionContext ctx, EnemyRestorationCatalog catalog)
+    {
+        PoolingSystem.Active = new PoolingSystem();
+        ctx.Sources.Clear();
+        var prefabs = new List<PoolingSystem.PrefabData>();
+        foreach (var p in catalog.Profiles)
+        {
+            var root = new UnityEngine.GameObject { Component = new HumanoidEnemyView() };
+            prefabs.Add(new PoolingSystem.PrefabData { RootInstance = root, LoadKey = p.PrefabName });
+            var wrapper = new EntityViewDataAsset { AssetGuid = new AssetGuid { Value = p.ViewTemplateGuid },
+                ViewPrefabRef = new PooledPrefabRef { Guid = new SerializableGuid { m_data1 = p.PrefabGuid.Data1, m_data2 = p.PrefabGuid.Data2 } },
+                ViewConfigs = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<IEntityViewSettings>(1),
+                ViewConfigsRef = new GuidRef<EntityViewSettingsViewData>() };
+            ctx.Sources.Add(p.ViewTemplateGuid, wrapper);
+        }
+        PoolingSystem.Active.m_prefabs = prefabs.ToArray();
+    }
+    private static void RootChecks()
+    {
+        foreach (string kind in new[] { "weapon", "childonly", "questnpc" })
+        {
+            var ctx = Context(); var catalog = Catalog();
+            var root = PoolingSystem.Active.m_prefabs[0].RootInstance;
+            root.Component = kind == "questnpc" ? new EntityView() : new UnityEngine.Component();
+            root.Child = new HumanoidEnemyView();
+            Throws(() => Ensure(ctx, catalog), "missing legal HumanoidEnemyView root fails closed: " + kind);
+            Empty(ctx, "invalid root never publishes Unity views: " + kind);
+        }
+        var ready = Context(); var cat = Catalog();
+        var source = ready.Sources[cat.Profiles[0].ViewTemplateGuid];
+        Check(Ensure(ready, cat), "legal native root publishes readiness");
+        var own = (EntityViewDataAsset)ready.m_loadedWrappers[new AssetGuid { Value = cat.Profiles[0].ViewGuid }];
+        Check(ReferenceEquals(own.ViewConfigs, source.ViewConfigs), "official costume settings retained unchanged");
+        Check(own.ViewPrefabRef.Guid.m_data1 == source.ViewPrefabRef.Guid.m_data1, "official root copied without model surgery");
+        PoolingSystem.Active.m_prefabs[0].RootInstance.Component = new UnityEngine.Component();
+        Throws(() => Ensure(ready, cat), "repeat readiness checks real root component");
+        var waiting = Context(); cat = Catalog();
+        PoolingSystem.Active.m_prefabs[0].RootInstance = null;
+        PoolingSystem.Active.Done = false;
+        Check(!Ensure(waiting, cat), "unloaded native root remains waiting");
+        Empty(waiting, "waiting root creates no dynamic stores");
+        PoolingSystem.Active.Done = true;
+        Check(Ensure(waiting, cat), "official asset load completes without spawning");
+        Check(PoolingSystem.Active.Loads == 2, "one asynchronous source-root load per distinct pool root retained");
+        var wrong = Context(); cat = Catalog();
+        wrong.Sources[501].ViewPrefabRef = new PooledPrefabRef { Guid = new SerializableGuid { m_data1 = 30 } };
+        Throws(() => Ensure(wrong, cat), "template GUID root mismatch refused");
+        Empty(wrong, "wrong source root never registered");
+        var pending = Context(); cat = Catalog(); pending.Sources.Clear();
+        Check(!Ensure(pending, cat), "official wrapper delayed remains waiting");
+        Empty(pending, "delayed wrapper cannot open entrance");
+        var missingPool = Context(); cat = Catalog(); PoolingSystem.Active = null;
+        Check(!Ensure(missingPool, cat), "pool unavailable remains waiting");
+        Empty(missingPool, "missing pool cannot open entrance");
+        var failedLoad = Context(); cat = Catalog();
+        PoolingSystem.Active.FailResult = true;
+        Throws(() => Ensure(failedLoad, cat), "completed root asset load without result fails closed");
+        Empty(failedLoad, "failed source asset load never publishes Unity views");
+        var changedPool = Context(); cat = Catalog(); Check(Ensure(changedPool, cat), "pool ownership fixture ready");
+        PoolingSystem.Active = new PoolingSystem();
+        Throws(() => Ensure(changedPool, cat), "replacement pool cannot inherit previous readiness");
+        var changedSettings = Context(); cat = Catalog(); Check(Ensure(changedSettings, cat), "settings fixture ready");
+        changedSettings.Sources[501].ViewConfigs = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<IEntityViewSettings>(1);
+        Throws(() => Ensure(changedSettings, cat), "source settings pointer replacement fails closed");
+    }
     private static void Main()
     {
         var catalog = Catalog();
@@ -258,6 +326,7 @@ internal static class Program
         Check(!Ensure(ctx, catalog), "LUT wait returns false");
         Empty(ctx, "LUT wait leaves caches empty");
         Check(UnityEngine.ScriptableObject.Created == created, "LUT wait creates no wrapper");
+        RootChecks();
         CanonicalChecks();
         FallbackChecks();
 
@@ -269,7 +338,7 @@ internal static class Program
         Check(UnityEngine.ScriptableObject.Created == created && ctx.m_allAssets.Count == 2, "repeat creates/adds nothing");
         var first = ctx.m_loadedWrappers[new AssetGuid { Value = catalog.Profiles[0].ViewGuid }];
         var view = (EntityViewDataAsset)first;
-        Check(view.ViewPrefabRef.Guid.m_data1 == 10 && view.ViewConfigs.Length == 0 && view.ViewConfigsRef.Id == 0, "exact prefab/no donor settings");
+        Check(view.ViewPrefabRef.Guid.m_data1 == 10 && view.ViewConfigs.Length == 1 && view.ViewConfigsRef.Id == 0, "exact native root and official settings");
         catalog.Profiles[0].PrefabName = "Changed";
         Throws(() => Ensure(ctx, catalog), "changed mutable catalog refused");
         Check(ctx.m_loadedWrappers[new AssetGuid { Value = Catalog().Profiles[0].ViewGuid }].Pointer == first.Pointer, "mutation failure preserves original registration");
@@ -373,7 +442,7 @@ public sealed class FakeList<T> : FakeNative
 }
 namespace Il2CppInterop.Runtime.InteropTypes.Arrays
 {
-    public class Il2CppReferenceArray<T>
+    public class Il2CppReferenceArray<T> : FakeNative
     {
         public int Length;
         public Il2CppReferenceArray(int length) { Length = length; }
@@ -388,6 +457,12 @@ namespace UnityEngine
         public HideFlags hideFlags;
         public static int Destroyed;
         public static void Destroy(Object value) { ++Destroyed; }
+    }
+    public class Component : Object { }
+    public class GameObject : Object
+    {
+        public Component Component, Child;
+        public Component GetComponent(System.Type type) => type.IsInstanceOfType(Component) ? Component : null;
     }
     public class ScriptableObject : Object
     {
@@ -408,8 +483,21 @@ namespace Il2CppQuantum
     public interface IAssetResolutionContext { AssetObject FindAsset(AssetGuid guid); }
 }
 namespace Il2CppMoon { public struct SerializableGuid { public ulong m_data1, m_data2; } }
+namespace Il2CppInterop.Runtime { public static class Il2CppType { public static System.Type Of<T>() => typeof(T); } }
+namespace Il2CppMoon.Forsaken { public class EntityView : UnityEngine.Component { } public class HumanoidEnemyView : EntityView { } }
 namespace Il2CppMoon.Pooling
 {
+    public class PoolingSystem : FakeNative
+    {
+        public static PoolingSystem Active;
+        public class PrefabData { public UnityEngine.GameObject RootInstance; public string LoadKey; }
+        public class Op { private readonly UnityEngine.GameObject root = new UnityEngine.GameObject { Component = new HumanoidEnemyView() }; private readonly PoolingSystem pool; public Op(PoolingSystem p) { pool = p; } public UnityEngine.GameObject Result => pool.FailResult ? null : root; }
+        public PrefabData[] m_prefabs;
+        public bool Done = true, FailResult; public int Loads;
+        public bool TryResolvePrefab(PooledPrefabRef p, out int index) { index = p.Guid.m_data1 >= 100 ? (int)p.Guid.m_data1 - 100 : p.Guid.m_data1 == 10 ? 0 : 1; return index >= 0 && index < m_prefabs.Length; }
+        public Op LoadOpCreate(string key) { ++Loads; return new Op(this); }
+        public bool LoadOpDone(Op op) => Done;
+    }
     public struct PooledPrefabRef { public SerializableGuid Guid; }
     public struct RuntimePooledPrefab { public SerializableGuid PrefabGuid; }
 }
@@ -443,6 +531,9 @@ namespace Il2Cpp
         public FakeDictionary<AssetGuid, AssetBase> m_loadedWrappers = new FakeDictionary<AssetGuid, AssetBase>();
         public FakeDictionary<AssetGuid, object> m_wrappersBeingLoaded = new FakeDictionary<AssetGuid, object>();
         public FakeList<AssetObject> m_allAssets = new FakeList<AssetObject>();
+        public Dictionary<long, EntityViewDataAsset> Sources = new();
+        public bool TryFindWrapperImpl(AssetGuid guid, out AssetBase wrapper, bool triggerLoading)
+        { Sources.TryGetValue(guid.Value, out var source); wrapper = source; return wrapper != null; }
         public EntityViewData[] CanonicalViews;
         public Dictionary<long, EntityViewData> SimulationAssets = new();
         public Dictionary<long, EntityViewData> SimulationStorage = new();
