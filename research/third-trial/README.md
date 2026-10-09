@@ -29,7 +29,7 @@
 - 官方DynamicNpcSpawnerData.Spawn前缀只替ref AssetRefNpcData参数，保留位置/旋转/难度/巡逻/多人条件/miss和生命周期。scope检查私有source、实体所属chunk、原生integration ID→owner node映射、十房生成entry全Nuggets与121个GUID白名单；预加载按出生点所属房间选profile，预测与verified同规则。
 - 各Arena常驻基础层和所有固定辅助Nugget均逐项离线复解，排除原NPC/额外Spawner/BossGate/DirectorZone/WaveSpawner；不是只根据名字推测。
 - 第三盆克隆第一盆九轨时间线，重新绑定角色/两手VFX；血流以第三地面独立TRS和connector制作六张独立RGBA贴图，与第二资源/缓存隔离。
-- 入口要求当前Frame资产、runtime缓存和**当前global Unity resolver**全部就绪；旧context Update不能宣告新世界ready。失败保留第三Step false和原Horde选择null门控；若入口hook本身无法安装，明确报模块不可用。
+- 入口要求当前Frame资产、runtime缓存和**当前global Unity resolver**全部就绪；主线程泵先核对当前Core.AssetCtx身份，退休context不能宣告新世界ready。失败保留第三Step false和原Horde选择null门控；若入口hook本身无法安装，明确报模块不可用。
 - 若部分怪已生成后再失败，私有第三source暂停原Roguelite.UpdateActiveRun，不能因只杀已生成怪而错误清房。死亡/离开/复活仍在独立原director，guard不改这些接口；它不额外创造Arena传送出口。
 
 ## 证据与复现
@@ -73,3 +73,5 @@ R3已成功运行第二盆献祭，但第三入口仍不可用。17:49:07 UTC日
 官方QdbTask路径可以不写InitializeQuantumAssetDatabase.GeneratedLut。PoolingSystem.LoadPoolingData实际调用ViewFrame.LoadAssetWrapper<WorldLUTAsset>，精确GUID8265928748392077239（native MethodSpec673909/11610/13086）；R4在静态LUT空时只读当前ctx已加载的该wrapper，要求WorldLUTAsset类型及AssetGuid匹配，再沿用十个prefab GUID/DebugNames严格检查。未加载时重试，不主动加载或写官方LUT/池。
 
 新增真实EnemyRestorationRuntime编排测试：冻结R3 RED缺逐帧入口、Ensure调用0；R4 GREEN覆盖迟到LUT、当前ctx丢失/交换、十项回读、全局lookup失败及shutdown。真实Views测试冻结R3复现cached LUT无法恢复，R4通过52项，含无静态写入、严格GUID/名字校验、源pointer保留和失败回滚。PE审计新增ModMain.OnUpdate→PumpCurrentViews→Core.AssetCtx调用证据，第三hook现为7组；旧R3 JIT隔离继续保留。完整离线结果和最终DLL哈希见R4包verification.json；实际第三献祭及十房仍须用户游玩验证。
+
+R4代码提交7b7581f，DLL f423265a2f1f3c84245841a2ec444c16a67e890da0ce6ee7176a4108608bf502。本轮按已有明确授权备份、切换并于18:04:59 UTC通过Steam启动，PID49060；18:05:18.9917844 UTC实际VIEWS READY profiles=10，已证明主线程泵与官方缓存路径完成注册和global回读。第三献祭、刷怪及十房验收仍待用户。安装/回滚路径见artifacts/third-launch/current-installation.json，回滚保留试玩前原0.9.17-player-defaults和完整配置；原游戏文件、三个独立插件未改。正式main已另行更新至7db4e4a，本候选继续任务原基线9186fe3，未同步或合并新主线。
