@@ -1,5 +1,18 @@
 # Actual ThirdTrialSpawning regression
 
+R8 final results: **frozen R7 RED66 checks/33 failures, exit1; R8 GREEN66 checks/zero failures, exit0**. Reports/transcripts are `r7-equality-red.json/.txt` and `r8-equality-green.json/.txt`; preceding reports below remain historical. Root supplied a complete R7 stack locating NRE at GeneratedEntryMatches `QListPtr<T>.op_Equality` invoked by `pointer == null`.
+
+The fake NuggetPointer now faithfully rejects null operands in overloaded ==/!= with an Il2CppObjectBaseToPtrNotNull-shaped NRE. Even a nonnull pointer compared to CLR null must throw, so the frozen source fails all valid combat paths. The R8 production change is a single `ReferenceEquals(pointer,null)` comparison; native Ptr validity and the full selected Nugget multiset remain required. New assertions distinguish null wrapper, nonnull/invalid Ptr and valid/full content, and require zero overloaded equality calls. Prior raw component-buffer, scope, readiness and diagnostics checks remain.
+
+R8 exact commands:
+
+```powershell
+& ../crucible-mod/.dotnet/dotnet.exe run --project tests/ThirdTrialSpawningTests -c Release -p:SpawnSource=R7ThirdTrialSpawning.snapshot -- tests/ThirdTrialSpawningTests/R7ThirdTrialSpawning.snapshot tests/ThirdTrialSpawningTests/r7-equality-red.json
+& ../crucible-mod/.dotnet/dotnet.exe run --project tests/ThirdTrialSpawningTests -c Release -- src/CrucibleUnlock/ThirdTrialSpawning.cs tests/ThirdTrialSpawningTests/r8-equality-green.json
+```
+
+Frozen R7 source SHA256: `fb7d0f81ac16814d37c0366c7909515b3d4fcf84b2b9f7727396023e95f568c5`. R8 source SHA256: `196059ba1fb7752582500428a33b999cf191619ba4202fc314b19a8dc5be2196`. Independent generated-wrapper IL evidence is in `artifacts/third-launch/r8-qlistptr-null-review.md`: == null invokes native equality, while ReferenceEquals/is null emit managed reference comparison. This closes the specific observed R7 exception; it does not establish successful live NPC argument writeback, combat or room progression. No game DLL is loaded or executed.
+
 R7 final results supersede the older fixture described below: **frozen R6 RED62 checks/38 failures, exit1; R7 GREEN62 checks/zero failures, exit0**. `r6-aot-red.json/.txt` and `r7-pointer-green.json/.txt` preserve same-harness outcomes. The old R5/R6 reports remain historical. Their fake Frame.Get returned managed component objects directly and could not establish actual interop boxing or AOT availability; the R6 live NRE exposed that limitation.
 
 The current harness models Identity as an explicit24-byte struct, IntegrationGroup as an8-byte sequential struct (integration ID+0, node index+4), and source data refs as4-byte structs. Fake EntityRefExtensions.Get returns raw HGlobal buffers of native component sizes:24/8/32/80. Source ref is written at+0 and NPC ref at+16. No managed reference is stored inside copied blittable values; node/data indexes resolve through separate managed tables. Buffers are freed after the run. Frame.Get for the three missing-AOT types throws, and the final assertion requires **zero Frame.Get calls**.

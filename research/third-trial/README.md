@@ -97,3 +97,9 @@ R7将四种组件读取换成官方EntityRefExtensions.Get指针路径，仅在�
 真实刷怪源码harness改为原生布局的raw buffer，并拒绝旧boxed泛型读取；冻结R6先RED、R7再GREEN。新PE审计检查四组件官方pointer调用、禁止Frame.Get与raw-pointer class wrapper。具体最终计数、commit和DLL hash见R7冻结包verification.json。R7是下一次用户进房测试候选，实际原生RESULT、可见模型、战斗和十房流程尚未验收。继续原任务分支，正式main7db4e4a未同步或合并。
 
 R7 source `44d7ef746d9bf1b96b59f44dac1d2a1ba1d5fc4c`，DLL `55268f38272f5d575b823fb2d0ec96601244f783cb86a5d2a2ae655e5cf5d5de`，zip `0fd6783f6016196ae0d6a1fba97fa36e768a933b26d5cad36561e961d275c282`（1524746bytes）。最终13组离线验证通过、Release0warning0error，raw spawning62/0、冻结R6同harness62/38。19:03:58 UTC备份并切换，19:04:33 UTC按已有授权Steam启动，PID25208。完整备份与原始0.9.17回滚见 `artifacts/third-launch/installation-r7-20261009T190358577Z/`；新会话证据见 [R7日志](../../artifacts/third-launch/log-review-r7.md)。不把启动或离线通过作为实际刷怪验收。
+
+## R8：QListPtr空值比较的实机根因修复
+
+R7实际19:05:44 UTC第三盆成功，19:05:57 UTC进入generated-entry后NRE：Il2CppObjectBaseToPtrNotNull→QListPtr.op_Equality→GeneratedEntryMatches。原生生成wrapper要求两个operand均为非空对象，`pointer == null`的第二参数直接违背它；这一次完整stack与生成IL相互印证。R8仅把它改为ReferenceEquals(pointer,null)，保留Ptr及所有entry/ownership/readiness守卫。实际生产PE已无此opEquality，见 [空值比较审查](../../artifacts/third-launch/r8-qlistptr-null-review.md)。
+
+冻结R7相同harness RED66/33，R8 GREEN66/0；生产source `2a557584daaa2f88d0b3937afdc95b96004ca440`，DLL `fbbac8cc70de6f1e2d93dbc0d050d3aaf957f3ef9e11c49c5deabc1145ce7c69`。Release0warning0error及五组相关检查通过，未改模块引用R7验证，不计作本次新跑结果。19:09:27 UTC备份并切换，19:09:50 UTC按已有授权Steam启动，PID51848；原0.9.17rollback保留于 `artifacts/third-launch/installation-r8-20261009T190927115Z/`。新日志 [R8复核](../../artifacts/third-launch/log-review-r8.md) 决定首房原生RESULT，用户本人确认可见敌人及战斗后才有可玩证据；十房/奖励/重进另验，任务分支未合main。

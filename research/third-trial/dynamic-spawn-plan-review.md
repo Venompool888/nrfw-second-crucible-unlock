@@ -1,5 +1,9 @@
 # 精确方案补充审查：十个不同 Arena、Roguelite、动态 NPC 参数替换
 
+## R8实机栈闭合：QListPtr空值比较
+
+R7实际已通过component/source/owner读取，NRE出现在GeneratedEntryMatches中QListPtr.op_Equality→Il2CppObjectBaseToPtrNotNull。生成operator要求两个IL2CPP对象非空，代码pointer==null的第二参数为CLR null。R8仅改ReferenceEquals(pointer,null)，实际编译IL不再调用原生相等运算符；所有Ptr、allNuggets和source/ownership约束保留。同真实源码harness冻结R7 RED66/33、R8 GREEN66/0；具体证据见 [R8空值比较审查](../../artifacts/third-launch/r8-qlistptr-null-review.md)。实际原生Spawn结果与用户模型/战斗观察仍单独核对。
+
 ## R7补充：组件指针与异常阶段
 
 R6第三入口和献祭通过，但首次scope检查NullReferenceException，旧捕获没有stack，失败对象未知。官方EntityRefExtensions.Get有Identity/IntegrationGroup/DynamicSpawner/DynamicNpcSpawner专用AOT实例并返回原始ECS组件指针，R7在Has和layout检查后于当前callback即时读取所需blittable值，不构造boxed wrapper、不缓存pointer。仍保留下文全部source、owner、manifest和entry守卫，仅改NPCref；失败加入phase/source/new/full exception。Frame.Get缺少显式MethodSpec不能单独证明shared-generic失败，playlist entry boxed投影也保留为未知边界。具体原生证据见 [组件读取复核](../../artifacts/third-launch/r6-native-component-get-review.md)。实际Spawn源码raw-buffer测试62/0、冻结R6同harness62/38；R7是否消除真实NRE须新会话和用户游玩确认。
