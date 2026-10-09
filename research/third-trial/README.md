@@ -2,6 +2,8 @@
 
 当前修复候选为R5，接续同一任务分支和9186fe3基线；后来正式main 7db4e4a尚未同步或合并。R4主线程视图注册成功后，进入世界在私有View GUID -611686018427387902发生foreign runtime cache collision，第三入口关闭；R4于18:11:27 UTC正常退出。
 
+R5代码提交4e29d9aa6b22a6fb7f4a12cb82f0e707d4e1071a；候选DLL SHA256 e98b83fa2193bb5d67f06994de474a57547cc8e0545b3ed36611f23526489518，zip SHA256 34ab0869f1986cc9b610b80c7035e0448f26221021db07d29215349dd2f1ce78。18:28:10 UTC已安装，18:28:30 UTC依原授权Steam启动，PID16916；启动/helper/build guard通过，等待用户本人进入世界和第三献祭。备份及直接恢复试玩前0.9.17的rollback位于artifacts/third-launch/installation-r5-20261009T182810267Z，详细本次运行以artifacts/third-launch/log-review-r5.md为准。
+
 R5让simulation层拥有唯一EntityViewData，完整bootstrap（资产→storage/树/NPC附件→playlist）成功后发布按manager pointer隔离的快照；Unity只创建原对象的wrapper，不能提前另造同GUID数据。当前Core.ResourceManager与Frame.Context.ResourceManager须同pointer，十项动态DB/storage/global wrapper须对应同对象。快照保留manager/view强引用，不缓存Frame/storage。入口READY和source remap、四来源pointer冲突均有有界诊断。静态默认建局链证据与未闭合的FindAsset优先级边界见 [R4缓存碰撞复核](../../artifacts/third-launch/r4-storage-cache-collision-review.md)。
 
 实际源码离线回归Runtime87、Views101、ThirdRuntime423、storage154、entry33、presentation41通过，policy与第三/弩枪hook、JIT/unsafe/stub审计通过；冻结R4在同harness下先失败再验证R5。构建0警告0错误。测试不加载执行游戏DLL，也不替代用户第三献祭、刷怪及重进验证。若同manager的新session重新创建不同view pointer，严格identity保护仍会封闭第三入口；这一后续生命周期待实机验证。
