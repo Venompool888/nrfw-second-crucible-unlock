@@ -1,0 +1,121 @@
+{
+  "input": "C:\\Users\\venom\\OneDrive\\Desktop\\NRFW\\research\\third-trial-restored-enemies-20261010\\src\\CrucibleUnlock\\bin\\Release\\CrucibleUnlock.dll",
+  "sha256": "120bba2fa5dbb31f03c541d66b5d6812eaaac9decd63f8bf5cdff00664b9d70f",
+  "metadata_only": true,
+  "target": "CrucibleUnlock.RitualViewRepair",
+  "callback_il_bytes": 71,
+  "callback_locals": [],
+  "callback_calls_helper": true,
+  "native_enumerator_reference_count": 0,
+  "il2cpp_array_getenumerator_reference_count": 0,
+  "install_preparemethod_il_offsets": [
+    68
+  ],
+  "install_patch_il_offsets": [
+    162
+  ],
+  "install_prepare_before_patch": true,
+  "method_count": 4,
+  "methods": [
+    {
+      "method": "CrucibleUnlock.RitualViewRepair::Install",
+      "token": "0x06000244",
+      "il_bytes": 207,
+      "implementation_flags": "Managed",
+      "locals": [
+        "HarmonyLib.Harmony"
+      ]
+    },
+    {
+      "method": "CrucibleUnlock.RitualViewRepair::AfterGetActionView",
+      "token": "0x06000245",
+      "il_bytes": 71,
+      "implementation_flags": "NoInlining",
+      "locals": []
+    },
+    {
+      "method": "CrucibleUnlock.RitualViewRepair::RepairOffering",
+      "token": "0x06000246",
+      "il_bytes": 2384,
+      "implementation_flags": "NoInlining",
+      "locals": [
+        "UnityEngine.GameObject",
+        "System.Collections.Generic.List\u00601\u003CUnityEngine.GameObject\u003E",
+        "Il2CppMoon.Forsaken.GeneralInteractableView",
+        "Il2CppMoon.DynamicDataResolver",
+        "Il2CppMoon.DynamicDataResolver",
+        "Il2CppMoon.Forsaken.InteractionView",
+        "System.Boolean",
+        "System.String",
+        "System.Boolean",
+        "System.Boolean",
+        "Il2CppMoon.Forsaken.GeneralInteractableView",
+        "Il2CppMoon.Forsaken.InteractionView",
+        "System.Int32",
+        "Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppArrayBase\u00601\u003CIl2CppMoon.Forsaken.GeneralInteractableView\u003E",
+        "System.Boolean",
+        "UnityEngine.GameObject",
+        "Il2CppMoon.IMoonTypeResolver",
+        "System.Int32",
+        "System.Int32",
+        "System.Int32",
+        "Il2CppMoon.Timeline.MoonTimeline",
+        "Il2CppSystem.Collections.Generic.List\u00601\u003CIl2CppMoon.Timeline.TimelineItemRecord\u003E",
+        "UnityEngine.Transform",
+        "UnityEngine.Transform",
+        "System.Collections.Generic.Dictionary\u00602\u003CSystem.IntPtr,UnityEngine.GameObject\u003E",
+        "System.Boolean",
+        "System.Int32",
+        "Il2CppMoon.Forsaken.GeneralInteractableView",
+        "Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppArrayBase\u00601\u003CIl2CppMoon.Forsaken.InteractionView\u003E",
+        "System.Int32",
+        "Il2CppMoon.Forsaken.InteractionView",
+        "UnityEngine.SceneManagement.Scene",
+        "System.IntPtr",
+        "System.Nullable\u00601\u003CSystem.IntPtr\u003E",
+        "System.Nullable\u00601\u003CSystem.IntPtr\u003E",
+        "System.String[]",
+        "System.Int32",
+        "System.String",
+        "UnityEngine.Transform",
+        "UnityEngine.GameObject",
+        "System.Int32",
+        "Il2CppMoon.Timeline.ITimelineItem",
+        "UnityEngine.Component",
+        "Il2CppMoon.Forsaken.ForsakenAnimationPlayer",
+        "Il2CppMoon.Forsaken.InstantiationAnimator",
+        "Il2CppMoon.Forsaken.FloatMaterialPropertyAnimator",
+        "Il2CppMoon.MoonReference\u00601\u003CIl2CppMoon.MoonAnimator\u003E",
+        "Il2CppMoon.MoonReference\u00601\u003CUnityEngine.Transform\u003E",
+        "UnityEngine.GameObject",
+        "UnityEngine.GameObject",
+        "Il2CppQuantum.EntityRef",
+        "System.Exception",
+        "System.Collections.Generic.List\u00601\u002BEnumerator\u003CUnityEngine.GameObject\u003E",
+        "UnityEngine.GameObject",
+        "System.Exception"
+      ]
+    },
+    {
+      "method": "CrucibleUnlock.RitualViewRepair::CopyResolver",
+      "token": "0x06000247",
+      "il_bytes": 396,
+      "implementation_flags": "Managed",
+      "locals": [
+        "Il2CppSystem.Collections.Generic.List\u00601\u003CIl2CppMoon.DynamicDataResolver\u002BSerializedDynamicDataLinkItem\u003E",
+        "Il2CppMoon.DynamicDataResolver",
+        "System.Int32",
+        "System.Int32",
+        "Il2CppMoon.DynamicDataResolver\u002BSerializedDynamicDataLinkItem",
+        "Il2CppMoon.DynamicDataLinkSerializedData",
+        "System.Int32",
+        "System.Nullable\u00601\u003CSystem.IntPtr\u003E",
+        "System.IntPtr",
+        "System.Nullable\u00601\u003CSystem.IntPtr\u003E"
+      ]
+    }
+  ],
+  "passed": true,
+  "failures": [],
+  "limitation": "This checks emitted IL shape only. It neither executes game DLLs nor proves the CoreCLR JIT crash is fixed."
+}

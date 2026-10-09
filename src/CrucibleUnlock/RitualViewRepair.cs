@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Reflection;
 using PatchOwner = HarmonyLib.Harmony;
 using Il2CppMoon;
 using Il2CppMoon.Forsaken;
@@ -24,6 +26,15 @@ namespace CrucibleUnlock
             var h = new PatchOwner("NRFW.CrucibleUnlock.RitualView");
             try
             {
+                // Prepare the complete helper before exposing the detour. This
+                // verifies its JIT path at startup rather than postponing the
+                // previous first-compilation crash until a real offering.
+                TrialRepairLog.Write("[ritual-view] preparing isolated offering helper");
+                var helper = typeof(RitualViewRepair).GetMethod(nameof(RepairOffering),
+                    BindingFlags.NonPublic | BindingFlags.Static);
+                if (helper == null) throw new InvalidOperationException("Offering helper missing");
+                RuntimeHelpers.PrepareMethod(helper.MethodHandle);
+                TrialRepairLog.Write("[ritual-view] offering helper compilation ready; indexed interop traversal");
                 TrialRepairLog.Patch(h, typeof(EntityView), "GetActionView", new[] { typeof(ActionData), typeof(bool).MakeByRefType() },
                     typeof(RitualViewRepair), postfix: nameof(AfterGetActionView), returnType: typeof(ActionView));
                 _harmony = h; _enabled = true;
@@ -32,9 +43,20 @@ namespace CrucibleUnlock
             catch { _enabled = false; h.UnpatchSelf(); throw; }
         }
 
+        // Keep the native detour callback small. The loader JITs this method on
+        // ordinary hero ActionView lookups too, before any bowl is considered.
+        [MethodImpl(MethodImplOptions.NoInlining)]
         private static void AfterGetActionView(EntityView __instance, ActionData __0, ref ActionView __result)
         {
             if (!_enabled || __instance == null || __result != null || __0 == null || __0.Guid.Value != TrialRepairPolicy.OfferingGuid) return;
+            TrialRepairLog.Write("[ritual-view] missing offering matched; entering isolated view helper");
+            RepairOffering(__instance, __0, ref __result);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void RepairOffering(EntityView __instance, ActionData __0, ref ActionView __result)
+        {
+            TrialRepairLog.Write("[ritual-view] offering helper entered");
             GameObject root = null;
             var decals = new List<GameObject>();
             GeneralInteractableView bowl = null;
@@ -57,13 +79,21 @@ namespace CrucibleUnlock
                 // Limit discovery to the sibling statues in this loaded room.
                 var statues = bowl.transform.parent?.parent;
                 if (statues == null) throw new InvalidOperationException("Missing statue hierarchy");
-                foreach (var candidate in statues.GetComponentsInChildren<GeneralInteractableView>(true))
+                // Il2CppArrayBase<T>.GetEnumerator has a covariant override of
+                // an abstract parent slot. Do not import that loader path here.
+                var candidates = statues.GetComponentsInChildren<GeneralInteractableView>(true);
+                for (int candidateIndex = 0; candidateIndex < candidates.Length; ++candidateIndex)
                 {
+                    var candidate = candidates[candidateIndex];
                     if (candidate == null || candidate.Data?.Name != "firstStatueBowlInteraction" ||
                         candidate.DataAsset.Id.Value != RitualViewPolicy.BowlDataGuid || !candidate.IsBoundToEntity) continue;
-                    foreach (var view in candidate.GetComponentsInChildren<InteractionView>(true))
+                    var views = candidate.GetComponentsInChildren<InteractionView>(true);
+                    for (int viewIndex = 0; viewIndex < views.Length; ++viewIndex)
+                    {
+                        var view = views[viewIndex];
                         if (view != null && view.QuantumAsset?.AssetGuid.Value == TrialRepairPolicy.OfferingGuid)
                         { first = candidate; template = view; ++count; }
+                    }
                 }
                 bool sameScene = first != null && first.gameObject.scene.handle == bowl.gameObject.scene.handle;
                 bool allowed = third
@@ -119,8 +149,11 @@ namespace CrucibleUnlock
                 stage = "adapt-blood-route";
                 bool bloodAligned = RitualBloodRoute.TryApply(firstModel, decalMap, third);
                 stage = "bind-tracks";
-                foreach (var record in records)
+                // Generated IL2CPP List<T>.Enumerator is a projected native
+                // generic value type. Avoid importing it through the CLR JIT.
+                for (int recordIndex = 0; recordIndex < records.Count; ++recordIndex)
                 {
+                    var record = records[recordIndex];
                     var item = record?.TimelineItem;
                     if (item == null) continue;
                     var component = item.TryCast<Component>();
@@ -191,8 +224,10 @@ namespace CrucibleUnlock
                 SerializedDataItems = new Il2CppSystem.Collections.Generic.List<DynamicDataResolver.SerializedDynamicDataLinkItem>()
             };
             int mask = 0;
-            foreach (var item in source)
+            // Indexed access avoids the generated nested native enumerator.
+            for (int sourceIndex = 0; sourceIndex < source.Count; ++sourceIndex)
             {
+                var item = source[sourceIndex];
                 var data = item.DataLinkItem;
                 int field = item.Guid == AnimatorLink ? 0 : item.Guid == LeftHandLink ? 2 : -1;
                 if (data == null || field == -1 || data.ClassID != 1016 || data.FieldID != field ||

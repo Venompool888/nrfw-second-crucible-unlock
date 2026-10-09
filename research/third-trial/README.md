@@ -53,3 +53,13 @@ Release构建及各离线检查具体计数见任务 `artifacts/third-trial/` �
 0.9.16-third-trial-candidate-r2 把第三完整 bootstrap 及独立恢复模块可选 simulation hook 都移到 InitializeContentSystem.OnInit postfix，等待官方随机池、活动等初始化返回后再注册私有资产。原生调用链与签名证据见 [init-order-review.md](init-order-review.md)。该回调本身不代表官方初始化成功，实际启动结果必须从新会话日志核对。
 
 真实生产 Install 注册/派发回归先复现旧钩子的重复 key，再确认新钩子 official content exported=True、pooled=1。StartOfFrame 阶段私有资产数为0，官方初始化后为43；复用官方同一 Team pointer，重复 mod callback 不重复写入。实际 ThirdTrialRuntime 源码375项、实际 storage150项通过；另7组离线检查全通过，Release0警告0错误，8组第三 hook、unsafe interop及throwing stub审计通过。房间、敌人和生成规则与首包一致。
+
+## R3：献祭视图 JIT 兼容候选（2026-10-10）
+
+R2启动时十棵树与SIMULATION READY成功，随后用户确认自动闪退。Windows记录CoreCLR 0xc0000005/80131506；34MB转储只读归档在 `artifacts/third-launch/r2-crash-evidence/`。项目SDK同版本6.0.36的DAC/SOS读取转储，未执行游戏DLL；异常线程正首次JIT `RitualViewRepair.AfterGetActionView`。微软匹配PDB将故障定位到 `ClassLoader::PropagateCovariantReturnMethodImplSlots`（官方v6.0.36 class.cpp1290），父虚方法slot21反查MethodDesc为空。转储未保留故障类型，不能宣称唯一根因。
+
+最贴合的静态候选是Il2CppArrayBase<T>.GetEnumerator：它带PreserveBaseOverrides并协变覆盖抽象父方法，旧回调两处组件数组foreach直接引用它。R3把组件数组、timeline记录和resolver列表的四处interop foreach改为索引遍历。保持实际接线、九轨检查、对象归属与失败回滚；托管List<GameObject>清理遍历保留。
+
+Harmony callback缩为71 IL bytes，无局部变量，只筛选缺失Offering并调用独立NoInlining helper；Install在Patch前用RuntimeHelpers.PrepareMethod编译完整helper，日志区分preparing与compilation ready，避免把原来首编译崩溃简单推迟到献祭。它不执行helper本体，也不保证所有callee已编译，实际献祭仍须用户测试。
+
+新增 [RitualViewJitAudit](../../tools/RitualViewJitAudit/README.md) 只读PE审计：R2 RED17项失败，R3 GREEN0失败；确认array GetEnumerator和native List Enumerator引用均0，PrepareMethod先于Patch，签名及ref结果不变。实际Runtime375项、献祭/血流41项、已有policy与8组第三/15组弩枪hook审计通过，Release0警告0错误，unsafe/stub0失败。R2日志没有VIEWS READY或完整世界初始化证据；R3实际启动与献祭状态另见本轮安装/日志记录，不以离线通过代替实机结果。
