@@ -6,6 +6,11 @@
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\src\CrucibleUnlock\BowgunInputPolicy.cs" Link="BowgunInputPolicy.cs" />
+    <Compile Include="..\..\src\CrucibleUnlock\BossTraceDropApi.cs" Link="BossTraceDropApi.cs" />
+    <Compile Include="..\..\src\CrucibleUnlock\BossTraceDropPolicy.cs" Link="BossTraceDropPolicy.cs" />
+    <Compile Include="..\..\src\CrucibleUnlock\BrokenVowBossPolicy.cs" Link="BrokenVowBossPolicy.cs" />
+    <Compile Include="..\..\src\CrucibleUnlock\EchoCapPolicy.cs" Link="EchoCapPolicy.cs" />
     <Compile Include="..\..\src\CrucibleUnlock\RitualBloodRouteData.cs" Link="RitualBloodRouteData.cs" />
     <EmbeddedResource Include="..\..\src\CrucibleUnlock\Assets\SecondBowlBlood\*" LogicalName="NRFW.SecondBowlBlood.%(Filename)%(Extension)" />
     <Compile Include="..\..\src\CrucibleUnlock\RoomReusePolicy.cs" Link="RoomReusePolicy.cs" />
@@ -18,4 +23,3 @@
     <Compile Include="..\..\src\CrucibleUnlock\WarrickPhase2TargetPolicy.cs" Link="WarrickPhase2TargetPolicy.cs" />
   </ItemGroup>
 </Project>
-

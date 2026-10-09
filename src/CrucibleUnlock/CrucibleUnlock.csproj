@@ -9,7 +9,7 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
-    <Version>0.9.5-husk-hud-candidate</Version>
+    <Version>0.9.16-bowgun-view-repair-r2</Version>
     <AssemblyName>CrucibleUnlock</AssemblyName>
     <RootNamespace>CrucibleUnlock</RootNamespace>
     <LangVersion>latest</LangVersion>
@@ -36,6 +36,10 @@
     </Reference>
     <Reference Include="0Harmony">
       <HintPath>..\..\vendor\refs\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2Cppmoon.common">
+      <HintPath>..\..\vendor\generated\Il2Cppmoon.common.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Il2Cppmoon.quantum.forsaken">

@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net6.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
+  <ItemGroup><Compile Include="../../src/BowgunRepair/RepairPolicy.cs" Link="RepairPolicy.cs" /><Compile Include="../../src/BowgunRepair/LifecyclePolicy.cs" Link="LifecyclePolicy.cs" /><Compile Include="../../src/BowgunRepair/BlockInputPolicy.cs" Link="BlockInputPolicy.cs" /></ItemGroup>
+</Project>

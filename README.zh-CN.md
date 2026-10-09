@@ -9,9 +9,9 @@
 
 ![第二试炼：解锁与遭遇战修复，Build 22928553](media/header.png)
 
-**[直接下载 CrucibleUnlock.dll（0.9.5）](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll)** · **[图文安装教程](https://venompool888.github.io/nrfw-second-crucible-unlock/)** · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [四步安装](INSTALL-QUICK.zh-CN.md)
+**[直接下载 CrucibleUnlock.dll（0.9.16）](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/CrucibleUnlock.dll)** · **[下载弩箭音效／输入组件（0.3.3）](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/NRFWBowgunAudioSync.dll)** · **[图文安装教程](https://venompool888.github.io/nrfw-second-crucible-unlock/)** · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [四步安装](INSTALL-QUICK.zh-CN.md)
 
-版本 **`0.9.5`** · 支持 **Steam public Build 22928553** · 非官方社区 Mod
+版本 **`0.9.16`** · 支持 **Steam public Build 22928553** · 非官方社区 Mod
 
 ## 章节索引
 
@@ -31,6 +31,8 @@
 - **获得 Boss 痕迹并选择更多回声。** 第二试炼符合条件的 Boss 默认掉落 300 痕迹；当前角色的回声上限提高至 2000。
 - **修正 Boss 界面。** 背誓人与堕落外壳的血条和名称按场景修正；堕落外壳名称覆盖游戏现有的 12 种语言。
 
+- **使用已装备的强化弩枪。** 副手装备后，用游戏当前的举盾动作发射：Xbox 手柄 LB，或键鼠当前举盾绑定。额外的音效／输入 DLL 接通键鼠，并将弩枪发射音效绑定到箭矢释放。本版不会直接发放武器。
+
 ## 联机与复活
 
 支持联机。在某一层的 Boss 战中，如果有队友阵亡，只要存活成员击败本层 Boss，**本场 Boss 战中阵亡的队友**就会复活，生命值恢复为**各自最大生命值的 50%**。
@@ -43,7 +45,7 @@
 
 ## 下载与安装
 
-Windows Steam 玩家按四步操作：下载 MelonLoader 0.7.3、安装加载器、下载 [0.9.5 DLL](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll)、放入 `Mods` 并设置三项配置。
+Windows Steam 玩家按四步操作：下载 MelonLoader 0.7.3、安装加载器、下载 [0.9.16 DLL](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/CrucibleUnlock.dll)和[弩箭音效／输入 DLL](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/NRFWBowgunAudioSync.dll)，将两个文件放入 `Mods` 并设置三项配置。
 
 [![简体中文快速安装](media/install-quick-zh-CN.svg)](INSTALL-QUICK.zh-CN.md)
 [![English Quick Install](media/install-quick-en.svg)](INSTALL-QUICK.md)
@@ -53,14 +55,14 @@ Windows Steam 玩家按四步操作：下载 MelonLoader 0.7.3、安装加载器
 ## 兼容性与安全说明
 
 - **已验证范围：** 2026-10-05 在 Steam public **Build 22928553** 上完成过一次九层完整流程，包含预期的七场 Boss 遭遇战、检查点、奖励房，以及返回第二献祭盆。这仅是一个游戏版本上的一次完整测试，不代表后续版本兼容性保证。其他游戏版本及反复重载场景仍未验证。详见[版本记录](CHANGELOG.md)。
-- **0.9.5 验证状态：**离线检查通过；堕落外壳普通头顶血条的最后修正尚未由玩家实机确认。
+- **0.9.16 验证状态：**本地记录了 24 发弩箭（键鼠阶段 18 发、Gamepad 阶段 6 发），无输入线程异常，前 16 发有独立音效 ID 与释放同帧对照。PS 具体型号、可听起点尚未验证；两次回池／复用清理缺逐发日志，未见恢复错误。此前堕落外壳头顶血条修正未在本轮专项重测。
 - **存档行为：** 解锁只在 Mod 运行期间存在。正常游玩仍可能保存进度；本 Mod 不会把对应任务永久写成完成。
-- **更新与卸载：** 不要在游戏运行时替换 DLL。卸载时先退出游戏，再移除 `Mods/CrucibleUnlock.dll`；如需卸载 MelonLoader，请单独处理。
+- **更新与卸载：** 不要在游戏运行时替换 DLL。卸载时先退出游戏，再移除 `Mods/CrucibleUnlock.dll` 与 `Mods/NRFWBowgunAudioSync.dll`；如需卸载 MelonLoader，请单独处理。
 - **旧版提醒：** 不要使用旧的 `0.4.0` 压缩包，也不要沿用研究工作区中旧版的永久解锁说明。
 
 ## 技术说明与源码构建
 
-[`src/`](src/) 下保存的是冻结的 **`0.9.5-husk-hud-candidate`** 源码快照。
+[`src/`](src/) 下保存的是冻结的 **`0.9.16-bowgun-view-repair-r2` 核心与 `0.3.3` 音效／输入组件** 源码快照。
 
 - Mod 在安装运行时钩子之前，会检查**精确匹配的受支持游戏版本**。
 - 构建需要 MelonLoader 引用，以及从受支持游戏版本生成的 IL2CPP 互操作程序集。

@@ -1,5 +1,15 @@
 # Version history
 
+## 0.9.16 + Bowgun Audio Sync 0.3.3 — 2026-10-10
+
+- Restored the equipped Reinforced Bowgun's firing action, animation dependencies and scoped block-action input.
+- Added the separate 0.3.3 audio/input component: keyboard/mouse uses the game's current block mapping, existing Gamepad routing is retained, and native crossbow fire audio follows projectile release.
+- Reused the core's main-thread hero snapshot in input callbacks; equipment identity and UI/cinematic gates remain scoped.
+- Added view/equipment rebind, pool-return and field-restoration safeguards to the audio component.
+- Local test recorded 24 releases, including keyboard/mouse and Gamepad periods, with no input-extension errors. Sixteen had independent same-frame audio-ID evidence. PS hardware, audible onset and explicit pre-release interruption remain unverified; two cleanup paths lack individual CLEANED events.
+- Both public builds reproduce the tested DLL hashes. Retains all previously merged Second Crucible functionality and the exact Build 22928553 guard.
+- Download both CrucibleUnlock.dll and NRFWBowgunAudioSync.dll. The core retains internal label 0.9.16-bowgun-view-repair-r2; the companion is 0.3.3.
+
 ## 0.9.5 — 2026-10-06
 
 - Added configurable Second Crucible Boss trace rewards, defaulting to 300 for eligible Bosses.

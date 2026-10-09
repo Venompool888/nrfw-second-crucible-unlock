@@ -1,0 +1,2 @@
+a7bde226634ccea7a88f88b8def97200c77c4486fb1fa8c3d9739ff83737ad50  CrucibleUnlock.dll
+e861d4babf57da77259bb2dffca50bb51257c7d8c3adb6d8eb0984d5e333d7c7  NRFWBowgunAudioSync.dll

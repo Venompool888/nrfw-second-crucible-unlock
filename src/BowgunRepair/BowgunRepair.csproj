@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework><PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>NRFWBowgunAudioSync</AssemblyName><Version>0.3.3</Version>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath><DebugType>none</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="0Harmony"><HintPath>../../vendor/refs/0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MelonLoader"><HintPath>../../vendor/refs/MelonLoader.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppInterop.Runtime"><HintPath>../../vendor/generated/Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cppmscorlib"><HintPath>../../vendor/generated/Il2Cppmscorlib.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppQuantum.Engine"><HintPath>../../vendor/generated/Il2CppQuantum.Engine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppQuantum.Deterministic"><HintPath>../../vendor/generated/Il2CppQuantum.Deterministic.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cppmoon.quantum.forsaken"><HintPath>../../vendor/generated/Il2Cppmoon.quantum.forsaken.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cppmoon.common"><HintPath>../../vendor/generated/Il2Cppmoon.common.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cpp__forsaken"><HintPath>../../vendor/generated/Il2Cpp__forsaken.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cpp__moonCore"><HintPath>../../vendor/generated/Il2Cpp__moonCore.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cpp__moonCoreCommon"><HintPath>../../vendor/generated/Il2Cpp__moonCoreCommon.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cpp__moonType"><HintPath>../../vendor/generated/Il2Cpp__moonType.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cpp__timeline"><HintPath>../../vendor/generated/Il2Cpp__timeline.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cpp__wwise"><HintPath>../../vendor/generated/Il2Cpp__wwise.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppAK.Wwise.Unity.API"><HintPath>../../vendor/generated/Il2CppAK.Wwise.Unity.API.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>../../vendor/generated/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

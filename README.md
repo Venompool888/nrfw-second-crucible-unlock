@@ -9,9 +9,9 @@ Unlock the **Second Crucible**, with encounter fixes and multiplayer support.
 
 ![Second Crucible: unlock and encounter fixes, Build 22928553](media/header.png)
 
-**[Download CrucibleUnlock.dll (0.9.5)](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll)** · **[Screenshot tutorial](https://venompool888.github.io/nrfw-second-crucible-unlock/en.html)** · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [Four-step installation](INSTALL-QUICK.md)
+**[Download CrucibleUnlock.dll (0.9.16)](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/CrucibleUnlock.dll)** · **[Download bowgun audio/input 0.3.3](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/NRFWBowgunAudioSync.dll)** · **[Screenshot tutorial](https://venompool888.github.io/nrfw-second-crucible-unlock/en.html)** · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [Four-step installation](INSTALL-QUICK.md)
 
-Version **`0.9.5`** · Supported game: **Steam public Build 22928553** · Unofficial community mod
+Version **`0.9.16`** · Supported game: **Steam public Build 22928553** · Unofficial community mod
 
 ## Contents
 
@@ -31,6 +31,8 @@ Version **`0.9.5`** · Supported game: **Steam public Build 22928553** · Unoffi
 - **Collect Boss traces and choose more echoes.** Eligible Second Crucible Bosses award 300 traces by default, and the mod raises the active hero's echo limit to 2000.
 - **See corrected Boss presentation.** The Broken Vow and Wallowing Husk encounters receive scoped HUD fixes, including the Husk name in the game's 12 supported languages.
 
+- **Use an equipped Reinforced Bowgun.** Fire with the game's current block action: Xbox LB or your keyboard/mouse block binding. The extra audio/input DLL supplies keyboard routing and synchronizes crossbow audio with projectile release. This release does not grant the weapon.
+
 ## Multiplayer and revival
 
 Supports multiplayer. When the surviving team members defeat a floor's Boss, teammates who died during that Boss fight revive with **50% of their own maximum HP**.
@@ -43,7 +45,7 @@ See the mod in action:
 
 ## Download and installation
 
-Four steps for Windows Steam players: download MelonLoader 0.7.3, install it, download the [0.9.5 DLL](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.5/CrucibleUnlock.dll), place it in `Mods`, then set the three options.
+Four steps for Windows Steam players: download MelonLoader 0.7.3, install it, download the [0.9.16 DLL](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/CrucibleUnlock.dll), download the [bowgun audio/input DLL](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/NRFWBowgunAudioSync.dll), place both in `Mods`, then set the three options.
 
 [![简体中文快速安装](media/install-quick-zh-CN.svg)](INSTALL-QUICK.zh-CN.md)
 [![English Quick Install](media/install-quick-en.svg)](INSTALL-QUICK.md)
@@ -53,14 +55,14 @@ Four steps for Windows Steam players: download MelonLoader 0.7.3, install it, do
 ## Compatibility and safety
 
 - **Tested scope:** one full nine-floor run on 2026-10-05 on Steam public **Build 22928553** showed the seven expected Boss encounters, checkpoint, reward room, and return to the second bowl. This is one tested run on one build, not a compatibility guarantee for later builds. Other game builds and repeated reload scenarios remain unverified. See the [version history](CHANGELOG.md).
-- **0.9.5 validation:** offline checks passed. The final Wallowing Husk overhead health-bar change has not yet been confirmed in play.
+- **0.9.16 validation:** 24 bowgun shots were recorded in a local test (18 during keyboard/mouse input and 6 during Gamepad input), with no input-thread errors. Sixteen shots had independent audio/playback IDs matching the projectile-release frame. PS controller models and audible onset remain unverified. Two return/reuse cleanup paths have incomplete per-shot logging; no restoration errors were recorded. The earlier Husk overhead health-bar change has not received a new focused play test.
 - **Save behavior:** the unlock exists only while the mod runs. Normal play can still save progress; the mod does not write permanent quest completion.
-- **Updates and removal:** never replace the DLL while the game is running. To uninstall, close the game and remove `Mods/CrucibleUnlock.dll`; remove MelonLoader separately if desired.
+- **Updates and removal:** never replace the DLL while the game is running. To uninstall, close the game and remove `Mods/CrucibleUnlock.dll` and `Mods/NRFWBowgunAudioSync.dll`; remove MelonLoader separately if desired.
 - **Old builds:** do not use the old `0.4.0` archive or its persistent-unlock instructions from the research workspace.
 
 ## Technical details and building
 
-The source under [`src/`](src/) is the frozen **`0.9.5-husk-hud-candidate`** source snapshot.
+The source under [`src/`](src/) is the frozen **`0.9.16-bowgun-view-repair-r2` core plus `0.3.3` audio/input component** source snapshot.
 
 - The mod checks the **exact supported game build** before installing its runtime hooks.
 - Building requires MelonLoader references and game-specific generated IL2CPP interop assemblies from the supported game.
