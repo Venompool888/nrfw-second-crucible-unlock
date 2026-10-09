@@ -37,7 +37,7 @@ R5让simulation层拥有唯一EntityViewData，完整bootstrap（资产→storag
 ## 实际接线
 
 - 43个独立动态资产：十套NPC/Host/Controller/View，以及三件移除已知坏动作的私有敌人武器。模板和其他敌人的共享资产不改。View使用本地已保留prefab的GUID/名字，空cosmetic配置，战斗可用性仍待实机。
-- Runtime storage：40个独立资源cache、必要静态Team/Interaction/Spawner依赖、十棵按新controllerGuid重建的行为树、十个按新npcGuid建立的默认RuntimeNpcAttachments。Add前全批检查，重复初始化同pointer读回，无覆盖已有key。native缓存没有支持的删除API；失败后保留未被第三路线使用的私有对象直到进程结束，封闭入口，避免dispose后悬空引用。
+- Runtime storage：40个独立对象、50个类型缓存条目（十个controller同pointer分别注册ControllerData和EntityData）、必要静态Team/Interaction/Spawner依赖、十棵按新controllerGuid重建的行为树、十个按新npcGuid建立的默认RuntimeNpcAttachments。Add前全批检查，重复初始化同pointer读回，无覆盖已有key。native缓存没有支持的删除API；失败后保留未被第三路线使用的私有对象直到进程结束，封闭入口，避免dispose后悬空引用。
 - 官方DynamicNpcSpawnerData.Spawn前缀只替ref AssetRefNpcData参数，保留位置/旋转/难度/巡逻/多人条件/miss和生命周期。scope检查私有source、实体所属chunk、原生integration ID→owner node映射、十房生成entry全Nuggets与121个GUID白名单；预加载按出生点所属房间选profile，预测与verified同规则。
 - 各Arena常驻基础层和所有固定辅助Nugget均逐项离线复解，排除原NPC/额外Spawner/BossGate/DirectorZone/WaveSpawner；不是只根据名字推测。
 - 第三盆克隆第一盆九轨时间线，重新绑定角色/两手VFX；血流以第三地面独立TRS和connector制作六张独立RGBA贴图，与第二资源/缓存隔离。
@@ -103,3 +103,11 @@ R7 source `44d7ef746d9bf1b96b59f44dac1d2a1ba1d5fc4c`，DLL `55268f38272f5d575b82
 R7实际19:05:44 UTC第三盆成功，19:05:57 UTC进入generated-entry后NRE：Il2CppObjectBaseToPtrNotNull→QListPtr.op_Equality→GeneratedEntryMatches。原生生成wrapper要求两个operand均为非空对象，`pointer == null`的第二参数直接违背它；这一次完整stack与生成IL相互印证。R8仅把它改为ReferenceEquals(pointer,null)，保留Ptr及所有entry/ownership/readiness守卫。实际生产PE已无此opEquality，见 [空值比较审查](../../artifacts/third-launch/r8-qlistptr-null-review.md)。
 
 冻结R7相同harness RED66/33，R8 GREEN66/0；生产source `2a557584daaa2f88d0b3937afdc95b96004ca440`，DLL `fbbac8cc70de6f1e2d93dbc0d050d3aaf957f3ef9e11c49c5deabc1145ce7c69`。Release0warning0error及五组相关检查通过，未改模块引用R7验证，不计作本次新跑结果。19:09:27 UTC备份并切换，19:09:50 UTC按已有授权Steam启动，PID51848；原0.9.17rollback保留于 `artifacts/third-launch/installation-r8-20261009T190927115Z/`。新日志 [R8复核](../../artifacts/third-launch/log-review-r8.md) 决定首房原生RESULT，用户本人确认可见敌人及战斗后才有可玩证据；十房/奖励/重进另验，任务分支未合main。
+
+## R9：控制器基类缓存与合法敌人视图根
+
+R8实际REPLACED verified=True，但没有RESULT；原生Spawn报EntityData/-611686018427387903缺失，此GUID是控制器。官方ExportRandomAssets给ControllerData同对象分别Add(EntityData)与Add(ControllerData)，Add重载不会自动级联。R9新增同pointer基类slot预检/Ensure/readiness，与真实原生调用链闭合。冻结R8源码在真实类型继承/typed Add harness复现同GUID缺失，R9 storage226/0、实际runtime423/0。见 [原生缓存证据](../../artifacts/third-launch/r8-controller-entity-cache-review.md)。
+
+R8 Player还累计2465次missing EntityView，随后too many exceptions终止，19:11:09 UTC WER同PID51848 GameAssembly c0000409，非正常quit。离线Unity结构确认七个误选ViewVariant是武器，左右shield是任务NPC GenericNpcEntityView；十项binding现指向原view_template对应的五类合法HumanoidEnemyView根。Views只复制官方wrapper的PrefabRef/ViewConfigs/ViewConfigsRef，保持canonical simulation data的pointer/Guid/Path与CharacterType/EnemyFaction配置；实际nonGeneric GetComponent检查root有EntityView/HumanoidEnemyView。公开非泛型TryFindWrapperImpl避免新增closed generic AOT依赖。独立资源加载ref用LoadOpCreate→Done→Result，不调用实例化/激活的LoadOpResult；每ctx/pool最多五根保留到process结束，重进/context累积尚需实测。见 [视图结构与接线](../../artifacts/third-launch/r9-view-root-review.md) 和 [独立审查](../../artifacts/third-launch/r9-storage-pool-independent-review.md)。
+
+R9 source `a886af5edbb3254cae17ba69ef66bbeaf1a04dd2`，DLL `a5cd6b761978b4f09b5645107c4798f661fca80e645eb0fa3d9e68421239d796`，zip `4acd2fd3c40bf09d2a237853b7cfda2747dfa7c5b02f410820e5ed1a923b44d3`（1527220bytes）。最终17组离线检查全通过、Release0warning0error；Views127、storage226、Spawn66、runtime87、thirdRuntime423、entry33、presentation41、catalog53及policy/thirdABI/bowgun/JIT/unsafe/四dependency stubs通过。19:24:15 UTC备份切换，19:24:40 UTC按已有授权Steam启动，PID15040。完整备份与试玩前原0.9.17回滚为 `artifacts/third-launch/installation-r9-20261009T192415973Z/`；新会话 [R9日志](../../artifacts/third-launch/log-review-r9.md) 核对RESULT与异常。实际外观/武器/动作、十房/奖励/死亡重进由用户验证，不合main。
