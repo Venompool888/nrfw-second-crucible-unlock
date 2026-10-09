@@ -87,3 +87,13 @@ R3已成功运行第二盆献祭，但第三入口仍不可用。17:49:07 UTC日
 新增真实EnemyRestorationRuntime编排测试：冻结R3 RED缺逐帧入口、Ensure调用0；R4 GREEN覆盖迟到LUT、当前ctx丢失/交换、十项回读、全局lookup失败及shutdown。真实Views测试冻结R3复现cached LUT无法恢复，R4通过52项，含无静态写入、严格GUID/名字校验、源pointer保留和失败回滚。PE审计新增ModMain.OnUpdate→PumpCurrentViews→Core.AssetCtx调用证据，第三hook现为7组；旧R3 JIT隔离继续保留。完整离线结果和最终DLL哈希见R4包verification.json；实际第三献祭及十房仍须用户游玩验证。
 
 R4代码提交7b7581f，DLL f423265a2f1f3c84245841a2ec444c16a67e890da0ce6ee7176a4108608bf502。本轮按已有明确授权备份、切换并于18:04:59 UTC通过Steam启动，PID49060；18:05:18.9917844 UTC实际VIEWS READY profiles=10，已证明主线程泵与官方缓存路径完成注册和global回读。第三献祭、刷怪及十房验收仍待用户。安装/回滚路径见artifacts/third-launch/current-installation.json，回滚保留试玩前原0.9.17-player-defaults和完整配置；原游戏文件、三个独立插件未改。正式main已另行更新至7db4e4a，本候选继续任务原基线9186fe3，未同步或合并新主线。
+
+## R5–R7：献祭通过后空房间调试（2026-10-10）
+
+R5修复Unity/simulation重复EntityViewData后，实际10TREE、完整simulation/storage、同manager Unity视图、第三入口和第三盆献祭均通过。首个刷怪被错误的组件检查阻止：Spawn中的entity是新NPC spawner，DynamicSpawnerComponent实际在Identity.Scope指向的原始出生点。R6沿Scope交叉核对source/new IntegrationGroup，保留原房间、白名单和readiness；离线50项通过，但真实18:50:37 UTCscope读报NullReferenceException，无REPLACED/RESULT。异常捕获没有stack，实际失败行未知；18:51:26 UTC正常退出。见 [R6空房间日志](../../artifacts/third-launch/r6-empty-room-log-review.md)。
+
+R7将四种组件读取换成官方EntityRefExtensions.Get指针路径，仅在当前Frame callback内读取已验证layout的值字段，无boxed组件wrapper或跨Frame指针缓存。官方AOT实例、unboxed布局及caller访问证据见 [原生组件读取审查](../../artifacts/third-launch/r6-native-component-get-review.md)。Frame.Get缺少显式AOT实例本身不能证明R6根因，因为存在fully-shared generic；R7同时加入phase、entity和完整exception诊断，让下一次实机失败能定位到具体调用。
+
+真实刷怪源码harness改为原生布局的raw buffer，并拒绝旧boxed泛型读取；冻结R6先RED、R7再GREEN。新PE审计检查四组件官方pointer调用、禁止Frame.Get与raw-pointer class wrapper。具体最终计数、commit和DLL hash见R7冻结包verification.json。R7是下一次用户进房测试候选，实际原生RESULT、可见模型、战斗和十房流程尚未验收。继续原任务分支，正式main7db4e4a未同步或合并。
+
+R7 source `44d7ef746d9bf1b96b59f44dac1d2a1ba1d5fc4c`，DLL `55268f38272f5d575b823fb2d0ec96601244f783cb86a5d2a2ae655e5cf5d5de`，zip `0fd6783f6016196ae0d6a1fba97fa36e768a933b26d5cad36561e961d275c282`（1524746bytes）。最终13组离线验证通过、Release0warning0error，raw spawning62/0、冻结R6同harness62/38。19:03:58 UTC备份并切换，19:04:33 UTC按已有授权Steam启动，PID25208。完整备份与原始0.9.17回滚见 `artifacts/third-launch/installation-r7-20261009T190358577Z/`；新会话证据见 [R7日志](../../artifacts/third-launch/log-review-r7.md)。不把启动或离线通过作为实际刷怪验收。
