@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json;
 using CrucibleUnlock;
 using Il2CppQuantum;
@@ -34,7 +35,7 @@ static class Program
     {
         public readonly Frame Frame=new();public readonly EnemyRestorationCatalog Catalog=EnemyRestorationCatalog.Load();
         public readonly ThirdTrialCatalog Rooms=ThirdTrialCatalog.LoadEmbedded();public readonly InfiniteDungeonPlaylist Original=Template();
-        public bool FailAssets;
+        public bool FailAssets,FailPublish;
         public Fixture()
         {
             void Add(AssetObject a,long id){a.Guid=new(){Value=id};Frame.Assets[id]=a;}
@@ -55,6 +56,8 @@ static class Program
         {
             TrialRepairLog.Hooks.Clear();
             ThirdTrialRuntime.StopWithoutNativeReads();EnemyRestorationRuntime.Catalog=Catalog;EnemyRestorationRuntime.CurrentViewsReady=true;
+            EnemyRestorationRuntime.CurrentManager=Frame.Context.ResourceManager;
+            EnemyRestorationRuntime.Published.Clear();EnemyRestorationRuntime.Publications=0;EnemyRestorationRuntime.FailPublish=FailPublish;
             EnemyRestorationRuntime.Prepare=f=>
             {
                 f.InstanceDataStorage.Events.Add("assets");if(FailAssets)throw new InvalidOperationException("owned graph preparation failure");
@@ -75,14 +78,28 @@ static class Program
         public void CheckFailed(string reason,bool canRemain=false)
         {
             Install();Init();Check(!ThirdTrialRuntime.Enabled&&!ThirdTrialRuntime.IsFrameReady(Frame)&&ThirdTrialRuntime.ResolveReadyPlaylist(Frame)==null,reason+" sealed");
+            Check(EnemyRestorationRuntime.Publications==0,reason+" cannot publish simulation views on partial bootstrap");
             if(!canRemain)Check(Frame.PlaylistAdds==0,reason+" no private playlist registration");
         }
     }
-    static void Main()
+    static int Main(string[] args)
+    {
+        Exception failure=null;
+        try { Run(); } catch(Exception error) { failure=error; Console.WriteLine("FAIL: "+error.Message); }
+        string source=args.Length>0?args[0]:"src/CrucibleUnlock/ThirdTrialRuntime.cs";
+        var report=new {source=Path.GetFullPath(source),source_sha256=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(source))).ToLowerInvariant(),
+            actual_source_compiled=true,managed_fakes_only=true,checks,passed=failure==null,failure=failure?.ToString(),
+            limitation="Actual ThirdRuntime/storage source with managed publisher fake verifies complete-bootstrap ordering, not native runtime publication or rendering."};
+        if(args.Length>1)File.WriteAllText(args[1],JsonSerializer.Serialize(report,new JsonSerializerOptions{WriteIndented=true}));
+        return failure==null?0:1;
+    }
+    static void Run()
     {
         CheckOfficialInitializationOrder();
         var f=new Fixture();string source=Snapshot(f.Original);f.Install();f.Init();
         Check(ThirdTrialRuntime.Enabled&&ThirdTrialRuntime.IsFrameReady(f.Frame),"actual OnInit ready");var p=f.Private;
+        Check(EnemyRestorationRuntime.Publications==1&&f.Frame.InstanceDataStorage.Events.IndexOf("publish")>f.Frame.InstanceDataStorage.Events.IndexOf("playlist"),
+            "Actual Third AfterInit publishes once only after full storage and playlist bootstrap");
         Check(p!=null&&p.Pointer!=f.Original.Pointer&&Snapshot(f.Original)==source,"real second fixture independently cloned and unchanged");
         Check(f.Frame.Context.AssetSerializer.Original.Pointer==f.Original.Pointer&&f.Original.Guid.Value==ThirdTrialPolicy.TemplatePlaylistGuid,"cloned exact mainline second source");
         Check(p.Entries.Count==11&&(int)p.PlaylistType==1&&p.SpawnPoint.Id.Value==ThirdTrialPolicy.SpawnPointGuid,"ten Arena plus reward and third spawn/type");
@@ -101,10 +118,13 @@ static class Program
         Check(events.Skip(events.IndexOf("official-content-complete")+1).TakeWhile(x=>x!="block").Count(x=>x=="dependency")==40,"all forty private dependencies before blocks; official Team reused");
         int writes=f.Frame.InstanceDataStorage.Writes,adds=f.Frame.PlaylistAdds,trees=f.Frame.TreeBuilds,blocks=f.Frame.BlockBuilds;f.Init();
         Check(f.Frame.InstanceDataStorage.Writes==writes&&f.Frame.PlaylistAdds==adds&&f.Frame.TreeBuilds==trees&&f.Frame.BlockBuilds==blocks&&ThirdTrialRuntime.IsFrameReady(f.Frame),"repeat OnInit no duplicate writes");
+        Check(EnemyRestorationRuntime.Publications==1,"repeat complete bootstrap does not duplicate published snapshot");
         EnemyRestorationRuntime.CurrentViewsReady=false;Check(!ThirdTrialRuntime.IsFrameReady(f.Frame)&&ThirdTrialRuntime.ResolveReadyPlaylist(f.Frame)==null,"all current views gate");
         EnemyRestorationRuntime.CurrentViewsReady=true;Check(ReferenceEquals(ThirdTrialRuntime.ResolveReadyPlaylist(f.Frame),p),"exact ready private source");
         var other=new Frame();foreach(var a in f.Frame.Assets)other.Assets[a.Key]=a.Value;foreach(var a in f.Frame.DynamicAssetDB.Assets)other.DynamicAssetDB.Assets[a.Key]=a.Value;
         Check(!ThirdTrialRuntime.IsFrameReady(other),"another storage identity not initialized");other.InstanceDataStorage=f.Frame.InstanceDataStorage;
+        Check(!ThirdTrialRuntime.IsFrameReady(other),"retired/different manager cannot borrow initialized storage and current ready flag");
+        other.Context.ResourceManager=f.Frame.Context.ResourceManager;
         Check(ThirdTrialRuntime.IsFrameReady(other),"same initialized storage valid for another Frame");
         foreach(var profile in f.Catalog.Profiles)foreach(long id in new[]{profile.NpcGuid,profile.ControllerGuid})
         {
@@ -122,12 +142,13 @@ static class Program
         var owner=tree.OwnerGuid;tree.OwnerGuid=default;Check(!ThirdTrialRuntime.IsFrameReady(f.Frame),"tenth tree requires exact owner");tree.OwnerGuid=owner;
         var badOrder=new Fixture();(badOrder.Catalog.Profiles[0],badOrder.Catalog.Profiles[1])=(badOrder.Catalog.Profiles[1],badOrder.Catalog.Profiles[0]);
         bool orderRejected=false;try{badOrder.Install();}catch(InvalidOperationException){orderRejected=true;}Check(orderRejected&&!ThirdTrialRuntime.Enabled&&badOrder.Frame.InstanceDataStorage.Writes==0,"profile order collision before initialization");
-        foreach(string failure in new[]{"assets","npc","weapon","weaponGet","npcExport","tree","emptyTree","rootTree","treeAdd","blocks","blockMismatch","typeMismatch","versionMismatch","zeroInteraction","zeroSpawner","blockAdd","blockAddAfterInsert","template","clone","sameClone","cloneCount","reward","floor","nugget","spawn","foreign","sameShapeForeign","playlistAdd","afterAdd","readback","pointerReadback","lootFlag","healingFlag","experienceFlag","respite"})
+        foreach(string failure in new[]{"assets","npc","weapon","weaponGet","npcExport","tree","emptyTree","rootTree","treeAdd","blocks","blockMismatch","typeMismatch","versionMismatch","zeroInteraction","zeroSpawner","blockAdd","blockAddAfterInsert","template","clone","sameClone","cloneCount","reward","floor","nugget","spawn","foreign","sameShapeForeign","playlistAdd","afterAdd","readback","pointerReadback","lootFlag","healingFlag","experienceFlag","respite","publish"})
         {
             var b=new Fixture();var last=b.Catalog.Profiles[9];
             switch(failure)
             {
                 case "assets":b.FailAssets=true;break;
+                case "publish":b.FailPublish=true;break;
                 case "npc":b.Frame.Assets.Remove(last.NpcGuid);break;
                 case "weapon":b.Frame.Assets.Remove(((HumanoidEnemyAiControllerData)b.Frame.Assets[last.ControllerGuid]).Weapon.Id.Value);break;
                 case "weaponGet":b.Frame.BadWeaponGet=((HumanoidEnemyAiControllerData)b.Frame.Assets[last.ControllerGuid]).Weapon.Id.Value;break;
@@ -166,7 +187,7 @@ static class Program
                 case "respite":b.Original.RespiteRoomRange.X=4;break;
             }
             string before=Snapshot(b.Original);
-            b.CheckFailed(failure,failure is "afterAdd" or "readback" or "pointerReadback");
+            b.CheckFailed(failure,failure is "afterAdd" or "readback" or "pointerReadback" or "publish");
             Check(Snapshot(b.Original)==before,"initialization failure leaves mainline second source untouched "+failure);
             foreach(long sourceGuid in new[]{ThirdTrialPolicy.PlaylistGuid,ThirdTrialPolicy.TemplatePlaylistGuid,ThirdTrialPolicy.OriginalPlaylistGuid,1485587607739743779L,0L})
             {
@@ -174,6 +195,9 @@ static class Program
             }
             Check(!ThirdTrialRuntime.TryGetNpc(b.Frame,last.Key,out _),"failed entry cannot expose NPC "+failure);
         }
+        var failedRepeat=new Fixture();failedRepeat.Install();failedRepeat.Init();failedRepeat.FailAssets=true;failedRepeat.Init();
+        Check(!ThirdTrialRuntime.Enabled&&!ThirdTrialRuntime.IsFrameReady(failedRepeat.Frame)&&EnemyRestorationRuntime.Publications==1,
+            "Failed repeated bootstrap does not republish or grant readiness from a prior snapshot");
         Check(!AppDomain.CurrentDomain.GetAssemblies().Any(a=>a.GetName().Name.StartsWith("Il2Cpp")||a.GetName().Name.StartsWith("Unity")),"no native/game assemblies loaded");
         Console.WriteLine("Actual ThirdTrialRuntime source managed tests passed: "+checks+"; no game DLL references or execution.");
     }

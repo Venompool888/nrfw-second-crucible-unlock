@@ -50,20 +50,35 @@ if (!Calls(main).Contains("CrucibleUnlock.EnemyRestorationRuntime.PumpCurrentVie
  throw new Exception("Loader OnUpdate does not pump current enemy views.");
 if (!Calls(pump).Contains("Il2CppMoon.Forsaken.Core.get_AssetCtx"))
  throw new Exception("View pump does not read the official current resolver.");
+if (!Calls(pump).Contains("Il2CppMoon.Forsaken.Core.get_ResourceManager"))
+ throw new Exception("View pump does not bind the simulation snapshot to the current resource manager.");
+var viewEnsure=PluginMethod("CrucibleUnlock.EnemyRestorationViews", "Ensure");
+if(Calls(viewEnsure).Contains("Il2CppQuantum.EntityViewData..ctor"))
+ throw new Exception("Unity view registration constructs a second simulation data object.");
+var viewSignature=plugin.GetMethodDefinition(viewEnsure).DecodeSignature(provider,(object)null);
+if(!viewSignature.ParameterTypes.SequenceEqual(new[]{"Il2Cpp.RuntimeAssetResolutionContext","CrucibleUnlock.EnemyRestorationCatalog",Q+"EntityViewData[]"}))
+ throw new Exception("Unity view registration does not require the canonical simulation views.");
+var initCalls=Calls(PluginMethod("CrucibleUnlock.ThirdTrialRuntime","AfterInit"));
+int storagePosition=initCalls.IndexOf("CrucibleUnlock.ThirdTrialStoragePolicy.Ensure");
+int playlistPosition=initCalls.IndexOf("CrucibleUnlock.ThirdTrialRuntime.EnsurePlaylist");
+int publishPosition=initCalls.IndexOf("CrucibleUnlock.EnemyRestorationRuntime.PublishSimulationViews");
+if(storagePosition<0 || playlistPosition<=storagePosition || publishPosition<=playlistPosition)
+ throw new Exception("Canonical views are not published after storage and playlist initialization.");
 var runtime = plugin.TypeDefinitions.Single(t => provider.GetTypeFromDefinition(plugin,t,0)=="CrucibleUnlock.EnemyRestorationRuntime");
 if (plugin.GetTypeDefinition(runtime).GetMethods().Any(m => plugin.GetString(plugin.GetMethodDefinition(m).Name)=="BeforeResolutionUpdate"))
  throw new Exception("Unused resolver Update callback remains.");
 Console.WriteLine("PASS: loader OnUpdate calls current-view pump; pump reads Core.AssetCtx; unused resolver Update callback removed.");
+Console.WriteLine("PASS: canonical simulation views required by Unity; no second EntityViewData construction; snapshot published after full bootstrap; current manager read.");
 Console.WriteLine("PASS: 7 third-trial hook signatures/callbacks and required embedded manifests/blood resources; PE metadata only.");
 
 MethodDefinitionHandle PluginMethod(string type, string method) {
  var t=plugin.TypeDefinitions.Single(t=>provider.GetTypeFromDefinition(plugin,t,0)==type);
  return plugin.GetTypeDefinition(t).GetMethods().Single(m=>plugin.GetString(plugin.GetMethodDefinition(m).Name)==method);
 }
-HashSet<string> Calls(MethodDefinitionHandle method) {
+List<string> Calls(MethodDefinitionHandle method) {
  var opcodes=typeof(OpCodes).GetFields().Where(f=>f.FieldType==typeof(OpCode)).Select(f=>(OpCode)f.GetValue(null)).ToDictionary(o=>unchecked((ushort)o.Value));
  var il=pluginPe.GetMethodBody(plugin.GetMethodDefinition(method).RelativeVirtualAddress).GetILBytes();
- var calls=new HashSet<string>();
+ var calls=new List<string>();
  for(int i=0;i<il.Length;) {
   ushort code=il[i++]; if(code==0xfe)code=(ushort)(0xfe00|il[i++]);
   var op=opcodes[code]; int size=op.OperandType switch {
@@ -74,7 +89,7 @@ HashSet<string> Calls(MethodDefinitionHandle method) {
    OperandType.InlineSwitch=>4+4*BitConverter.ToInt32(il,i),
    _=>4
   };
-  if(op.OperandType==OperandType.InlineMethod && (op==OpCodes.Call || op==OpCodes.Callvirt))
+  if(op.OperandType==OperandType.InlineMethod && (op==OpCodes.Call || op==OpCodes.Callvirt || op==OpCodes.Newobj))
    calls.Add(MethodName(MetadataTokens.EntityHandle(BitConverter.ToInt32(il,i))));
   i+=size;
  }

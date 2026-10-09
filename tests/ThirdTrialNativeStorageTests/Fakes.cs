@@ -184,12 +184,32 @@ namespace Il2CppQuantum
     }
     class Frame:Il2CppObjectBase,IAssetResolutionContext
     {
+        public FrameContext Context;
+        public DynamicAssetDatabase DynamicAssetDB;
+        public Frame() { Context=new FrameContext(this); DynamicAssetDB=new DynamicAssetDatabase(this); }
         public InstanceDataStorageSystem InstanceDataStorage=new();
         public readonly Dictionary<long,AssetObject> Assets=new();
         public long FailTree,EmptyTree,NoRootTree,FailExport,FailBlockExport,MismatchBlock,BadWeaponGet;
         public long BadCharacterType,BadCharacterVersion,NondefaultZeroInteraction,NondefaultZeroSpawner;
         public int TreeBuilds,Exports,BlockBuilds;
         public T FindAsset<T>(AssetGuid id) where T:AssetObject=>Assets.TryGetValue(id.Value,out var asset)?asset as T:null;
+    }
+    class FrameContext
+    {
+        public ResourceManager ResourceManager;
+        public FrameContext(Frame frame) { ResourceManager=new ResourceManager(frame); }
+    }
+    class ResourceManager
+    {
+        readonly Frame frame;
+        public ResourceManager(Frame frame) { this.frame=frame; }
+        public AssetObject GetAsset(AssetGuid guid)=>frame.Assets.GetValueOrDefault(guid.Value);
+    }
+    class DynamicAssetDatabase
+    {
+        readonly Frame frame;
+        public DynamicAssetDatabase(Frame frame) { this.frame=frame; }
+        public AssetObject FindAsset(AssetGuid guid)=>frame.Assets.GetValueOrDefault(guid.Value);
     }
 }
 namespace CrucibleUnlock

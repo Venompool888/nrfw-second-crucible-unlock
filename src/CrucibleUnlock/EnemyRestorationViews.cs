@@ -41,14 +41,29 @@ namespace CrucibleUnlock
 
         // False means the asynchronous world LUT is not ready yet; the caller may
         // retry on the next main-thread pump. Any collision or inconsistent state throws.
-        public static bool Ensure(RuntimeAssetResolutionContext ctx, EnemyRestorationCatalog catalog)
+        public static bool Ensure(RuntimeAssetResolutionContext ctx, EnemyRestorationCatalog catalog, EntityViewData[] canonicalViews)
         {
             if (ctx == null) throw new ArgumentNullException(nameof(ctx));
             if (catalog?.Profiles == null || catalog.Profiles.Length == 0)
                 throw new ArgumentException("Enemy view catalog is empty.", nameof(catalog));
+            // Simulation owns these assets and has finished its complete bootstrap
+            // before publication. Snapshot only managed references: never construct,
+            // reconfigure or load another EntityViewData in the Unity resolver.
+            if (canonicalViews == null || canonicalViews.Length != catalog.Profiles.Length)
+                throw new InvalidOperationException("Canonical enemy view snapshot is incomplete.");
+            var views = (EntityViewData[])canonicalViews.Clone();
+            var dataPointers = new HashSet<IntPtr>();
+            for (int i = 0; i < views.Length; ++i)
+            {
+                var p = catalog.Profiles[i];
+                var data = views[i];
+                if (p == null || p.Index != i || data == null || data.Guid.Value != p.ViewGuid ||
+                    data.Path != p.Path("view") || data.Pointer == IntPtr.Zero || !dataPointers.Add(data.Pointer))
+                    throw new InvalidOperationException("Canonical enemy view identity/configuration mismatch at index " + i);
+            }
             if (Owned.TryGetValue(ctx.Pointer, out var owned))
             {
-                ValidateOwned(ctx, catalog, owned);
+                ValidateOwned(ctx, catalog, views, owned);
                 return true;
             }
 
@@ -90,8 +105,9 @@ namespace CrucibleUnlock
             var entries = new List<Entry>();
             try
             {
-                foreach (var p in profiles)
+                for (int i = 0; i < profiles.Length; ++i)
                 {
+                    var p = profiles[i];
                     // Snapshot the binding so mutating the caller's catalog cannot
                     // silently redefine the ownership we have already established.
                     var snapshot = new EnemyRestorationProfile
@@ -99,7 +115,7 @@ namespace CrucibleUnlock
                         Key = p.Key, Index = p.Index, PrefabName = p.PrefabName,
                         PrefabGuid = new EnemyRestorationPrefabGuid { Data1 = p.PrefabGuid.Data1, Data2 = p.PrefabGuid.Data2 }
                     };
-                    var entry = new Entry { Profile = snapshot, ListIndex = -1 };
+                    var entry = new Entry { Profile = snapshot, Data = views[i], ListIndex = -1 };
                     // Track the wrapper immediately so later configuration failure
                     // destroys only this attempt's ScriptableObject.
                     entries.Add(entry);
@@ -114,7 +130,6 @@ namespace CrucibleUnlock
                     };
                     entry.Wrapper.ViewConfigs = new Il2CppReferenceArray<IEntityViewSettings>(0);
                     entry.Wrapper.ViewConfigsRef = new GuidRef<EntityViewSettingsViewData>();
-                    entry.Data = new EntityViewData { Guid = Guid(p), Path = p.Path("view") };
                     ValidateEntry(entry);
                 }
 
@@ -135,7 +150,7 @@ namespace CrucibleUnlock
                     AssetsPointer = ctx.m_assetByGuid.Pointer, WrappersPointer = ctx.m_loadedWrappers.Pointer,
                     ListPointer = ctx.m_allAssets.Pointer
                 };
-                ValidateOwned(ctx, catalog, context);
+                ValidateOwned(ctx, catalog, views, context);
                 // Get(ctx) dispatches IAssetResolutionContext.FindAsset; AssetObject
                 // uses AssetBase.Resolve. Verify both without replacing that global
                 // delegate, which belongs to the game's active resolution context.
@@ -202,7 +217,7 @@ namespace CrucibleUnlock
                 throw new InvalidOperationException("Enemy view configuration changed: " + p.Path("view"));
         }
 
-        private static void ValidateOwned(RuntimeAssetResolutionContext ctx, EnemyRestorationCatalog catalog, OwnedContext owned)
+        private static void ValidateOwned(RuntimeAssetResolutionContext ctx, EnemyRestorationCatalog catalog, EntityViewData[] canonicalViews, OwnedContext owned)
         {
             RequireCaches(ctx);
             if (owned.Context.Pointer != ctx.Pointer || ctx.m_assetByGuid.Pointer != owned.AssetsPointer ||
@@ -214,7 +229,8 @@ namespace CrucibleUnlock
                 var entry = owned.Entries[i];
                 var p = catalog.Profiles[i];
                 if (p == null || p.PrefabGuid == null || p.ViewGuid != entry.Profile.ViewGuid || p.Key != entry.Profile.Key ||
-                    p.PrefabName != entry.Profile.PrefabName || p.PrefabGuid.Data1 != entry.Profile.PrefabGuid.Data1 ||
+                    p.PrefabName != entry.Profile.PrefabName || canonicalViews[i].Pointer != entry.Data.Pointer ||
+                    p.PrefabGuid.Data1 != entry.Profile.PrefabGuid.Data1 ||
                     p.PrefabGuid.Data2 != entry.Profile.PrefabGuid.Data2)
                     throw new InvalidOperationException("Enemy view catalog changed after registration.");
                 ValidateEntry(entry);

@@ -58,6 +58,7 @@ namespace CrucibleUnlock
                 EnemyRestorationRuntime.EnsureSimulationAssets(__0);
                 ThirdTrialStoragePolicy.Ensure(EnemyRestorationRuntime.Catalog,new ThirdTrialStorageBackend(__0));
                 EnsurePlaylist(__0);
+                EnemyRestorationRuntime.PublishSimulationViews(__0, requireStorage: true);
                 ReadyStorages.Add(__0.InstanceDataStorage.Pointer);
                 TrialRepairLog.Write("[third-trial] SIMULATION READY: 10 profiles, 10 private behavior trees, default NPC blocks, 10 distinct arenas + native reward; source="+ThirdTrialPolicy.PlaylistGuid);
             }
@@ -130,7 +131,7 @@ namespace CrucibleUnlock
         }
         internal static bool IsFrameReady(Frame frame)
         {
-            if(!_enabled || !EnemyRestorationRuntime.CurrentViewsReady || frame?.InstanceDataStorage==null || !ReadyStorages.Contains(frame.InstanceDataStorage.Pointer)) return false;
+            if(!_enabled || !EnemyRestorationRuntime.IsSimulationViewsReady(frame) || frame?.InstanceDataStorage==null || !ReadyStorages.Contains(frame.InstanceDataStorage.Pointer)) return false;
             var playlist=frame.DynamicAssetDB.FindAsset(new AssetGuid {Value=ThirdTrialPolicy.PlaylistGuid})?.TryCast<InfiniteDungeonPlaylist>();
             if(playlist==null || !OwnedPlaylists.ContainsKey(playlist.Pointer) || !MatchesPlaylist(playlist)) return false;
             foreach(var profile in EnemyRestorationRuntime.Catalog.Profiles)

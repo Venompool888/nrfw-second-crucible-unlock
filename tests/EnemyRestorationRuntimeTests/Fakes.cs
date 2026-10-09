@@ -49,6 +49,13 @@ namespace Il2CppMoon.Forsaken
 {
     static class Core
     {
+        static Il2CppQuantum.FakeResourceManager manager;
+        public static Queue<Il2CppQuantum.FakeResourceManager> ScriptedManagers;
+        public static Il2CppQuantum.FakeResourceManager ResourceManager
+        {
+            get { FakeRuntime.Reads.Read(); if (ScriptedManagers?.Count > 0) manager = ScriptedManagers.Dequeue(); return manager; }
+            set { manager = value; ScriptedManagers = null; }
+        }
         static Il2Cpp.IAssetWrapperResolver current;
         public static Queue<Il2Cpp.IAssetWrapperResolver> ScriptedReads;
         public static Il2Cpp.IAssetWrapperResolver AssetCtx
@@ -80,8 +87,17 @@ namespace Il2CppQuantum
     struct AssetRefControllerData { public AssetGuid Id { get; set; } }
     class AssetObject : FakeRuntime.NativeObject { public AssetGuid Guid; public string Path; }
     class NpcData : AssetObject { public AssetRefEntityData EntityDataAssetRef { get; set; } public AssetRefControllerData ControllerDataAssetRef { get; set; } }
-    class DynamicAssetDatabase { public AssetObject FindAsset(AssetGuid guid) => null; }
-    class Frame { public DynamicAssetDatabase DynamicAssetDB = new(); }
+    class EntityViewData : AssetObject { }
+    class DynamicAssetDatabase
+    {
+        public readonly Dictionary<long,AssetObject> Assets = new();
+        public AssetObject FindAsset(AssetGuid guid) => Assets.GetValueOrDefault(guid.Value);
+    }
+    class FakeResourceManager : FakeRuntime.NativeObject { }
+    class FakeContext { public FakeResourceManager ResourceManager = new(); }
+    class ViewStorage { public readonly Dictionary<long,int> m_lookup = new(); public readonly List<EntityViewData> m_storage = new(); }
+    class InstanceDataStorage { public readonly ViewStorage m_storageEntityViewData = new(); }
+    class Frame { public DynamicAssetDatabase DynamicAssetDB = new(); public FakeContext Context = new(); public InstanceDataStorage InstanceDataStorage = new(); }
     class InitializeContentSystem { public void OnInit(Frame frame) { } }
 }
 namespace CrucibleUnlock
@@ -91,10 +107,16 @@ namespace CrucibleUnlock
         public static int Checks;
         public static void VerifyEnemyDatabase(string path) { ++Checks; }
     }
-    class EnemyRestorationNativeBackend { public EnemyRestorationNativeBackend(Frame frame) { } }
+    class EnemyRestorationNativeBackend { public Frame Frame; public EnemyRestorationNativeBackend(Frame frame) { Frame = frame; } }
     static class EnemyRestorationRegistration
     {
-        public static List<AssetObject> Register(EnemyRestorationCatalog catalog, EnemyRestorationNativeBackend backend) => new();
+        public static List<AssetObject> Register(EnemyRestorationCatalog catalog, EnemyRestorationNativeBackend backend)
+        {
+            foreach (var p in catalog.Profiles)
+                if (!backend.Frame.DynamicAssetDB.Assets.ContainsKey(p.ViewGuid))
+                    backend.Frame.DynamicAssetDB.Assets.Add(p.ViewGuid, new EntityViewData { Guid = new() { Value = p.ViewGuid }, Path = p.Path("view") });
+            return backend.Frame.DynamicAssetDB.Assets.Values.ToList();
+        }
     }
     static class EnemyRestorationViews
     {
@@ -102,15 +124,20 @@ namespace CrucibleUnlock
         public static bool ThrowEnsure;
         public static int Calls;
         public static Il2Cpp.RuntimeAssetResolutionContext LastContext;
+        public static EntityViewData[] LastViews;
+        // Legacy overload only exists so the frozen R4 source remains runnable.
         public static bool Ensure(Il2Cpp.RuntimeAssetResolutionContext ctx, EnemyRestorationCatalog catalog)
+            => Ensure(ctx, catalog, null);
+        public static bool Ensure(Il2Cpp.RuntimeAssetResolutionContext ctx, EnemyRestorationCatalog catalog, EntityViewData[] views)
         {
-            FakeRuntime.Reads.Read(); ++Calls; LastContext = ctx;
+            FakeRuntime.Reads.Read(); ++Calls; LastContext = ctx; LastViews = views;
             if (ThrowEnsure) throw new InvalidOperationException("Injected strict view validation failure");
             if (!LutReady) return false;
-            foreach (var p in catalog.Profiles)
+            for (int i = 0; i < catalog.Profiles.Length; i++)
             {
+                var p = catalog.Profiles[i];
                 var guid = new AssetGuid { Value = p.ViewGuid };
-                if (!ctx.m_assetByGuid.ContainsKey(guid)) ctx.m_assetByGuid.Add(guid, new AssetObject { Guid = guid, Path = p.Path("view") });
+                if (!ctx.m_assetByGuid.ContainsKey(guid)) ctx.m_assetByGuid.Add(guid, views == null ? new EntityViewData { Guid = guid, Path = p.Path("view") } : views[i]);
                 if (!ctx.m_loadedWrappers.ContainsKey(guid)) ctx.m_loadedWrappers.Add(guid, new Il2Cpp.FakeWrapper { Guid = guid });
             }
             return true;

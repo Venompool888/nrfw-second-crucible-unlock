@@ -1,5 +1,11 @@
 # 第三试炼恢复敌人候选
 
+当前修复候选为R5，接续同一任务分支和9186fe3基线；后来正式main 7db4e4a尚未同步或合并。R4主线程视图注册成功后，进入世界在私有View GUID -611686018427387902发生foreign runtime cache collision，第三入口关闭；R4于18:11:27 UTC正常退出。
+
+R5让simulation层拥有唯一EntityViewData，完整bootstrap（资产→storage/树/NPC附件→playlist）成功后发布按manager pointer隔离的快照；Unity只创建原对象的wrapper，不能提前另造同GUID数据。当前Core.ResourceManager与Frame.Context.ResourceManager须同pointer，十项动态DB/storage/global wrapper须对应同对象。快照保留manager/view强引用，不缓存Frame/storage。入口READY和source remap、四来源pointer冲突均有有界诊断。静态默认建局链证据与未闭合的FindAsset优先级边界见 [R4缓存碰撞复核](../../artifacts/third-launch/r4-storage-cache-collision-review.md)。
+
+实际源码离线回归Runtime87、Views101、ThirdRuntime423、storage154、entry33、presentation41通过，policy与第三/弩枪hook、JIT/unsafe/stub审计通过；冻结R4在同harness下先失败再验证R5。构建0警告0错误。测试不加载执行游戏DLL，也不替代用户第三献祭、刷怪及重进验证。若同manager的新session重新创建不同view pointer，严格identity保护仍会封闭第三入口；这一后续生命周期待实机验证。
+
 本次用户已选择：第一试炼普通竞技场、第二试炼式逐房清场/转场/最终奖励、十个战斗房，每房一种恢复敌人。一个房间仍会沿官方出生点生成多只该类型敌人；不是一房只放一只。
 
 基线：正式 main `9186fe3bf67da5a832e9ba37c17badf05f2adf3c`，CrucibleUnlock 0.9.16 + NRFWBowgunAudioSync 0.3.3。本任务新分支 `feature/third-trial-restored-enemies-20261010`。唯一未合并依赖是用户上一项敌人接线工作的 `15e1c17e4196b882da0da2ce04436963dd65b00c` 中恢复模块和bindings；这是实现本请求所必需的同一批敌人，不包括其他AI分支。

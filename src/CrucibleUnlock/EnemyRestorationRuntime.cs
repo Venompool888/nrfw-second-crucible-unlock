@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Il2Cpp;
 using Il2CppQuantum;
@@ -16,6 +17,18 @@ namespace CrucibleUnlock
         private static int _reportedFailure;
         private static int _reportedViewWaitStates;
         private static volatile bool _currentViewsReady;
+        private static IntPtr _readyViewManager;
+        private static readonly object ViewSnapshotGate = new object();
+        private static readonly Dictionary<IntPtr, SimulationViewSnapshot> ViewSnapshots = new Dictionary<IntPtr, SimulationViewSnapshot>();
+        private sealed class SimulationViewSnapshot
+        {
+            // Strong references prevent manager pointer reuse and keep the exact
+            // simulation assets alive. No Frame or storage survives this callback.
+            internal readonly object Manager;
+            internal readonly EntityViewData[] Views;
+            internal readonly IntPtr[] ViewPointers;
+            internal SimulationViewSnapshot(object manager, EntityViewData[] views, IntPtr[] pointers) { Manager = manager; Views = views; ViewPointers = pointers; }
+        }
         internal static bool CurrentViewsReady => _enabled && _currentViewsReady;
         internal static EnemyRestorationCatalog Catalog => _catalog;
 
@@ -37,6 +50,8 @@ namespace CrucibleUnlock
                 _reportedFailure = 0;
                 _reportedViewWaitStates = 0;
                 _currentViewsReady = false;
+                _readyViewManager = IntPtr.Zero;
+                lock (ViewSnapshotGate) ViewSnapshots.Clear();
                 _enabled = true;
                 TrialRepairLog.Write("[enemy-restoration] installed; profiles=" + catalog.Profiles.Length +
                     "; build=" + catalog.SteamBuildId + "; qdb SHA256 match; spawn wiring deferred");
@@ -56,9 +71,53 @@ namespace CrucibleUnlock
             EnemyRestorationRegistration.Register(_catalog,new EnemyRestorationNativeBackend(frame));
         }
 
+        internal static void PublishSimulationViews(Frame frame, bool requireStorage = false)
+        {
+            if (!_enabled || _catalog == null || frame == null) throw new InvalidOperationException("Enemy module is unavailable.");
+            var manager = frame.Context.ResourceManager;
+            if (manager == null || manager.Pointer == IntPtr.Zero) throw new InvalidOperationException("Simulation resource manager is unavailable.");
+            var views = new EntityViewData[_catalog.Profiles.Length];
+            var viewPointers = new IntPtr[views.Length];
+            for (int i = 0; i < views.Length; i++)
+            {
+                var profile = _catalog.Profiles[i];
+                var view = frame.DynamicAssetDB.FindAsset(new AssetGuid { Value = profile.ViewGuid })?.TryCast<EntityViewData>();
+                if (view == null || view.Pointer == IntPtr.Zero || view.Guid.Value != profile.ViewGuid || view.Path != profile.Path("view"))
+                    throw new InvalidOperationException("Simulation view mismatch: " + profile.Key);
+                if (requireStorage)
+                {
+                    var slot = frame.InstanceDataStorage?.m_storageEntityViewData;
+                    if (slot == null || !slot.m_lookup.TryGetValue(profile.ViewGuid, out int index) || index <= 0 ||
+                        index > slot.m_storage.Count || slot.m_storage[index - 1]?.Pointer != view.Pointer)
+                        throw new InvalidOperationException("Simulation view storage mismatch: " + profile.Key);
+                }
+                views[i] = view;
+                viewPointers[i] = view.Pointer;
+            }
+            var managerPointer = manager.Pointer;
+            lock (ViewSnapshotGate)
+            {
+                if (!_enabled) throw new InvalidOperationException("Enemy module stopped during view publication.");
+                if (ViewSnapshots.TryGetValue(managerPointer, out var existing))
+                {
+                    for (int i = 0; i < views.Length; i++)
+                        if (existing.ViewPointers[i] != viewPointers[i])
+                            throw new InvalidOperationException("Simulation view identity changed for the same resource manager.");
+                    return;
+                }
+                ViewSnapshots.Add(managerPointer, new SimulationViewSnapshot(manager, views, viewPointers));
+            }
+            TrialRepairLog.Write("[enemy-restoration] SIMULATION VIEWS PUBLISHED profiles=" + views.Length +
+                "; manager=" + managerPointer + "; storageChecked=" + requireStorage.ToString().ToLowerInvariant());
+        }
+
+        internal static bool IsSimulationViewsReady(Frame frame) => CurrentViewsReady && frame != null &&
+            frame.Context.ResourceManager?.Pointer == _readyViewManager;
+
         private static void BeforeResourceManagerReset()
         {
             _currentViewsReady=false;
+            _readyViewManager=IntPtr.Zero;
             _lastReadyViewContext=IntPtr.Zero;
         }
 
@@ -68,6 +127,7 @@ namespace CrucibleUnlock
             try
             {
                 var assets = EnemyRestorationRegistration.Register(_catalog, new EnemyRestorationNativeBackend(__0));
+                PublishSimulationViews(__0);
                 TrialRepairLog.Write("[enemy-restoration] SIMULATION READY profiles=" + _catalog.Profiles.Length +
                     "; assets=" + assets.Count + "; independent hosts/controllers/views/NPCs; no spawn changes");
             }
@@ -92,36 +152,54 @@ namespace CrucibleUnlock
                     return;
                 }
                 if (_lastReadyViewContext != ctx.Pointer) _currentViewsReady = false;
+                var manager = Il2CppMoon.Forsaken.Core.ResourceManager;
+                var managerPointer = manager?.Pointer ?? IntPtr.Zero;
+                if (_readyViewManager != managerPointer) _currentViewsReady = false;
+                SimulationViewSnapshot snapshot;
+                lock (ViewSnapshotGate) ViewSnapshots.TryGetValue(managerPointer, out snapshot);
+                if (snapshot == null)
+                {
+                    _currentViewsReady = false;
+                    string publishedManagers;
+                    lock (ViewSnapshotGate) publishedManagers = string.Join(",", ViewSnapshots.Keys);
+                    ReportViewWait(16, "simulation views publication; current-manager=" + managerPointer + "; published-managers=" + publishedManagers);
+                    return;
+                }
                 // Prove ownership before any writes or global wrapper lookups.
                 // A retired resolver must not disable the current world's module.
-                if (Il2CppMoon.Forsaken.Core.AssetCtx?.Pointer != ctx.Pointer)
+                if (Il2CppMoon.Forsaken.Core.AssetCtx?.Pointer != ctx.Pointer ||
+                    Il2CppMoon.Forsaken.Core.ResourceManager?.Pointer != managerPointer)
                 {
                     _currentViewsReady = false;
                     ReportViewWait(2, "current resolver changed");
                     return;
                 }
-                if (EnemyRestorationViews.Ensure(ctx, _catalog))
+                if (EnemyRestorationViews.Ensure(ctx, _catalog, snapshot.Views))
                 {
                     bool current=true;
                     try
                     {
-                        foreach(var p in _catalog.Profiles)
+                        for (int i = 0; i < _catalog.Profiles.Length; i++)
                         {
+                            var p = _catalog.Profiles[i];
                             var guid=new AssetGuid {Value=p.ViewGuid};
                             if(!ctx.m_assetByGuid.TryGetValue(guid,out var data) || data==null ||
                                 !ctx.m_loadedWrappers.TryGetValue(guid,out var wrapper) || wrapper==null ||
-                                wrapper.AssetObject?.Pointer!=data.Pointer) { current=false; break; }
+                                data.Pointer != snapshot.ViewPointers[i] || wrapper.AssetObject?.Pointer!=data.Pointer) { current=false; break; }
                         }
                     }
                     catch { current=false; }
-                    current = current && Il2CppMoon.Forsaken.Core.AssetCtx?.Pointer == ctx.Pointer;
+                    current = current && Il2CppMoon.Forsaken.Core.AssetCtx?.Pointer == ctx.Pointer &&
+                        Il2CppMoon.Forsaken.Core.ResourceManager?.Pointer == managerPointer;
+                    bool changedReadyManager = _readyViewManager != managerPointer;
+                    if (current) _readyViewManager = managerPointer;
                     _currentViewsReady=current;
                     if(!current) { ReportViewWait(4, "global wrapper resolution"); return; }
-                    if(_lastReadyViewContext!=ctx.Pointer)
+                    if(_lastReadyViewContext!=ctx.Pointer || changedReadyManager)
                     {
                         _lastReadyViewContext = ctx.Pointer;
                         TrialRepairLog.Write("[enemy-restoration] VIEWS READY profiles=" + _catalog.Profiles.Length +
-                            "; retained prefab GUID/name pairs verified; no inherited donor costume");
+                            "; manager=" + managerPointer + "; retained prefab GUID/name pairs verified; no inherited donor costume");
                     }
                 }
                 else
@@ -144,6 +222,7 @@ namespace CrucibleUnlock
         {
             _enabled = false;
             _currentViewsReady = false;
+            _readyViewManager = IntPtr.Zero;
             if (Interlocked.Exchange(ref _reportedFailure, 1) == 0)
                 TrialRepairLog.Write("[enemy-restoration] DISABLED during " + stage + ": " + error);
         }
@@ -153,7 +232,7 @@ namespace CrucibleUnlock
         public static bool TryGetNpc(Frame frame, string key, out AssetRefNpcData npc)
         {
             npc = default;
-            if (!CurrentViewsReady || frame == null || key == null) return false;
+            if (!IsSimulationViewsReady(frame) || key == null) return false;
             foreach (var profile in _catalog.Profiles)
             {
                 if (!string.Equals(profile.Key, key, StringComparison.Ordinal)) continue;
@@ -172,6 +251,8 @@ namespace CrucibleUnlock
         {
             _enabled = false;
             _currentViewsReady = false;
+            _readyViewManager = IntPtr.Zero;
+            lock (ViewSnapshotGate) ViewSnapshots.Clear();
             // Do not touch native objects or unpatch hooks during process teardown.
         }
     }

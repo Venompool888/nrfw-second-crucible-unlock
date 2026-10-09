@@ -61,7 +61,26 @@ namespace CrucibleUnlock
             Check(p.NpcGuid,npc,Npc(p.NpcGuid));
             Check(p.HostGuid,Asset<EntityData>(p.HostGuid),Host(p.HostGuid));
             Check(p.ControllerGuid,Asset<ControllerData>(p.ControllerGuid),Controller(p.ControllerGuid));
-            Check(p.ViewGuid,Asset<EntityViewData>(p.ViewGuid),View(p.ViewGuid));
+            var view=Asset<EntityViewData>(p.ViewGuid);
+            var cachedView=View(p.ViewGuid);
+            if(cachedView!=null && cachedView.Pointer!=view.Pointer)
+            {
+                // Capture each resolution source before the strict check seals
+                // the entrance. Same GUID/path does not prove object ownership.
+                string sources;
+                try
+                {
+                    var guid=new AssetGuid { Value=p.ViewGuid };
+                    var dynamicView=_frame.DynamicAssetDB.FindAsset(guid);
+                    var resourceView=_frame.Context.ResourceManager.GetAsset(guid);
+                    sources="; dynamic="+(dynamicView?.Pointer.ToString()??"null")+
+                        "; resource="+(resourceView?.Pointer.ToString()??"null");
+                }
+                catch(Exception error) { sources="; source probe failed="+error.GetType().Name; }
+                TrialRepairLog.Write("[third-trial] VIEW IDENTITY CONFLICT profile="+p.Key+"; guid="+p.ViewGuid+
+                    "; frame="+view.Pointer+"; storage="+cachedView.Pointer+sources);
+            }
+            Check(p.ViewGuid,view,cachedView);
             var raw=new SerializedNpcAttachments();
             npc.ExportNpcBlock(_frame,raw);
             raw.Id=p.NpcGuid;

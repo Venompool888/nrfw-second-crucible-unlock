@@ -21,6 +21,7 @@ namespace CrucibleUnlock
         private static Action<string> _log, _error;
         private static string _pendingError;
         private static int _errorRecorded;
+        private static int _reportedEntryStates;
         internal static bool Enabled => _enabled;
 
         // Pure managed readiness provided by the loader. ResolveReadyPlaylist additionally
@@ -44,7 +45,7 @@ namespace CrucibleUnlock
             if (error == null) throw new ArgumentNullException(nameof(error));
             if (_harmony != null) throw new InvalidOperationException("Third entry is already installed.");
             _resolveReadyPlaylist = resolveReadyPlaylist; _currentViewsReady = currentViewsReady;
-            _log = log; _error = error; _pendingError = null; _errorRecorded = 0; _enabled = false;
+            _log = log; _error = error; _pendingError = null; _errorRecorded = 0; _reportedEntryStates = 0; _enabled = false;
             var harmony = new PatchOwner(OwnerId);
             try
             {
@@ -71,11 +72,13 @@ namespace CrucibleUnlock
 
         private static InfiniteDungeonPlaylist ResolveReady(Frame frame)
         {
-            if (!_enabled || frame == null || !CurrentViewsReady) return null;
+            if (!_enabled || frame == null) return null;
+            if (!CurrentViewsReady) { ReportState(1, "WAIT current simulation and views"); return null; }
             var playlist = _resolveReadyPlaylist(frame);
-            if (playlist == null) return null;
+            if (playlist == null) { ReportState(2, "WAIT current Frame assets and runtime caches"); return null; }
             if (playlist.Guid.Value != PrivatePlaylistGuid || (int)playlist.PlaylistType != 1)
                 throw new InvalidOperationException("Third entry readiness returned a foreign source or non-Roguelite playlist.");
+            ReportState(4, "READY third-step condition; current Frame assets, runtime caches and views verified");
             return playlist;
         }
 
@@ -128,8 +131,20 @@ namespace CrucibleUnlock
                 // FinishGenerating and guards its later Guid read. Block the stripped
                 // Horde source even on saves that already completed the third step.
                 __result = replacement;
+                if(replacement!=null) ReportState(8, "SOURCE REMAPPED original Horde to private ten-room playlist");
             }
             catch (Exception error) { RecordError(error); if (matched) __result = null; }
+        }
+
+        private static void ReportState(int state, string message)
+        {
+            int prior;
+            do
+            {
+                prior=Volatile.Read(ref _reportedEntryStates);
+                if((prior & state)!=0) return;
+            } while(Interlocked.CompareExchange(ref _reportedEntryStates,prior | state,prior)!=prior);
+            TrialRepairLog.Write("[third-entry] "+message+"; step="+TargetStepGuid+"; source="+PrivatePlaylistGuid);
         }
 
         private static void RecordError(Exception error)

@@ -1,0 +1,3 @@
+INIT ORDER actual production hook: InitializeContentSystem.OnInit postfix AfterInit
+INIT ORDER official content exported=True; pooled=1; error=
+FAIL: Actual Third AfterInit publishes once only after full storage and playlist bootstrap

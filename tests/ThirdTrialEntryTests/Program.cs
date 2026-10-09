@@ -31,6 +31,8 @@ namespace CrucibleUnlock
 {
     static class TrialRepairLog
     {
+        internal static readonly List<string> Messages=new List<string>();
+        internal static void Write(string message) { Messages.Add(message); }
         internal static int Patched,FailAt;
         public static void Patch(HarmonyLib.Harmony h,Type type,string name,Type[] args,Type patchType,string prefix=null,string postfix=null,Type returnType=null)
         {
@@ -69,10 +71,12 @@ static class Program
         Install(); Check(TrialRepairLog.Patched==3,"three precise hooks");
         Check(!Read(verified,ThirdTrialEntry.TargetStepGuid,out var result)&&result,"third verified read override");
         Check(!Read(predicted,ThirdTrialEntry.TargetStepGuid,out result)&&result,"prediction same readiness");
+        Check(TrialRepairLog.Messages.FindAll(x=>x.Contains("READY third-step condition")).Count==1,"ready diagnostic emitted once across predicted and verified reads");
         Check(Read(verified,346285554720904463L,out result)&&!result,"second original read untouched");
         Check(Read(verified,0,out result),"foreign quest untouched");
         Check(ReferenceEquals(Select(verified,original),own),"verified remaps own source");
         Check(ReferenceEquals(Select(predicted,original),own),"prediction remaps own source");
+        Check(TrialRepairLog.Messages.FindAll(x=>x.Contains("SOURCE REMAPPED")).Count==1,"remap diagnostic bounded");
         verified.Selected=346285554720904463L;
         Check(ReferenceEquals(Select(verified,original),original),"selected second protected");
         verified.Selected=ThirdTrialEntry.TargetStepGuid;
@@ -82,9 +86,11 @@ static class Program
         views=false;
         Check(!Read(verified,ThirdTrialEntry.TargetStepGuid,out result)&&!result,"views not ready completed save cannot unlock");
         Check(Select(verified,original)==null,"views not ready stripped Horde blocked");
+        Check(TrialRepairLog.Messages.FindAll(x=>x.Contains("WAIT current simulation and views")).Count==1,"views wait diagnostic bounded");
         views=true; verified.AssetsReady=false;
         Check(!Read(verified,ThirdTrialEntry.TargetStepGuid,out result)&&!result,"exact Frame assets unavailable");
         Check(Select(verified,original)==null,"Frame assets unavailable Horde blocked");
+        Check(TrialRepairLog.Messages.FindAll(x=>x.Contains("WAIT current Frame assets")).Count==1,"frame cache wait diagnostic bounded");
         Check(!Read(predicted,ThirdTrialEntry.TargetStepGuid,out result),"ready other Frame cannot make unavailable Frame ready");
         verified.AssetsReady=true;
         for(int state=0;state<=2;state++) foreach(bool invert in new[]{false,true})

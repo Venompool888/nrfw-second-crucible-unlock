@@ -58,7 +58,7 @@ namespace Il2CppQuantum
         public readonly Dictionary<long,AssetObject> Assets=new();
         public AssetObject FindAsset(AssetGuid guid)=>Assets.TryGetValue(guid.Value,out var a)?a:null;
     }
-    class FakeResourceManager
+    class FakeResourceManager : Il2CppObjectBase
     {
         public readonly Dictionary<long,AssetObject> Assets=new();
         public AssetObject GetAsset(AssetGuid id)=>Assets.TryGetValue(id.Value,out var a)?a:null;
@@ -155,6 +155,31 @@ namespace CrucibleUnlock
         public static EnemyRestorationCatalog Catalog;
         public static bool CurrentViewsReady;
         public static Action<Frame> Prepare;
+        public static FakeResourceManager CurrentManager;
+        public static readonly Dictionary<IntPtr,IntPtr[]> Published = new();
+        public static bool FailPublish;
+        public static int Publications;
+        public static void PublishSimulationViews(Frame frame, bool requireStorage = false)
+        {
+            if(!requireStorage)throw new InvalidOperationException("Third publisher must check storage");
+            if(FailPublish)throw new InvalidOperationException("injected publisher failure");
+            if(!frame.DynamicAssetDB.Assets.ContainsKey(ThirdTrialPolicy.PlaylistGuid) ||
+                frame.InstanceDataStorage.m_storageRuntimeNpcAttachments.m_storage.Count!=10 || frame.InstanceDataStorage.m_storageTree.m_storage.Count!=10)
+                throw new InvalidOperationException("publish before full bootstrap");
+            var pointers=Catalog.Profiles.Select(p=>frame.DynamicAssetDB.Assets[p.ViewGuid].Pointer).ToArray();
+            foreach(var p in Catalog.Profiles)
+            {
+                var slot=frame.InstanceDataStorage.m_storageEntityViewData;
+                if(!slot.m_lookup.TryGetValue(p.ViewGuid,out int index) || slot.m_storage[index-1].Pointer!=frame.DynamicAssetDB.Assets[p.ViewGuid].Pointer)
+                    throw new InvalidOperationException("publish mismatched storage view");
+            }
+            if(Published.TryGetValue(frame.Context.ResourceManager.Pointer,out var prior))
+            {if(!prior.SequenceEqual(pointers))throw new InvalidOperationException("same manager changed views");return;}
+            Published.Add(frame.Context.ResourceManager.Pointer,pointers);Publications++;
+            frame.InstanceDataStorage.Events.Add("publish");
+        }
+        public static bool IsSimulationViewsReady(Frame frame) => CurrentViewsReady && frame!=null &&
+            frame.Context.ResourceManager.Pointer==CurrentManager?.Pointer && Published.ContainsKey(frame.Context.ResourceManager.Pointer);
         public static void EnsureSimulationAssets(Frame frame){Prepare(frame);}
         public static bool TryGetNpc(Frame f,string key,out AssetRefNpcData npc)
         {

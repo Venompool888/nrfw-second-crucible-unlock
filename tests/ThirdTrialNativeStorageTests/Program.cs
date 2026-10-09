@@ -59,6 +59,23 @@ static class Program
     }
     static void Main()
     {
+        // The exact R4 collision was profile0's view, not a foreign NPC or tree.
+        // Same ID and asset shape with two native identities must stay blocked.
+        var split=new Fixture();var first=split.Catalog.Profiles[0];
+        var presentationView=new EntityViewData { Guid=new AssetGuid { Value=first.ViewGuid } };
+        split.Frame.InstanceDataStorage.Add(presentationView);
+        int originalWrites=split.Frame.InstanceDataStorage.Writes;
+        split.Ensure();
+        Check(split.Failure?.Message=="Foreign runtime cache collision: "+first.ViewGuid,"exact R4 profile0 split identity rejected");
+        Check(!split.EntranceReady && split.Frame.InstanceDataStorage.Writes==originalWrites && split.Frame.TreeBuilds==0 && split.Frame.BlockBuilds==0,
+            "split view identity fails before private caches/trees/blocks");
+        var shared=new Fixture();first=shared.Catalog.Profiles[0];
+        var canonical=(EntityViewData)shared.Frame.Assets[first.ViewGuid];
+        shared.Frame.InstanceDataStorage.Add(canonical);shared.Ensure();
+        Check(shared.EntranceReady && shared.Failure==null,"canonical pre-exported simulation view accepted by exact pointer");
+        Check(shared.Frame.InstanceDataStorage.m_storageEntityViewData.m_storage.Count==10 &&
+            shared.Frame.InstanceDataStorage.m_storageEntityViewData.m_storage[0].Pointer==canonical.Pointer,
+            "canonical view is preserved without a duplicate append");
         var f=new Fixture();f.Ensure();Check(f.Failure==null&&f.EntranceReady,"complete real backend graph ready: "+f.Failure);
         var storage=f.Frame.InstanceDataStorage;
         Check(storage.m_storageNpcData.m_storage.Count==10&&storage.m_storageEntityData.m_storage.Count==10&&
