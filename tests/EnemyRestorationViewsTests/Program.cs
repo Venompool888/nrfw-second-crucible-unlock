@@ -50,6 +50,90 @@ internal static class Program
     {
         Check(ctx.m_assetByGuid.Count == 0 && ctx.m_loadedWrappers.Count == 0 && ctx.m_allAssets.Count == 0, label);
     }
+    private const long OfficialLutGuid = 8265928748392077239L;
+    private static WorldLUTAsset CacheOfficialLut(RuntimeAssetResolutionContext ctx)
+    {
+        var lut = InitializeQuantumAssetDatabase.GeneratedLut;
+        lut.AssetGuid = new AssetGuid { Value = OfficialLutGuid };
+        ctx.m_loadedWrappers.Add(lut.AssetGuid, lut);
+        InitializeQuantumAssetDatabase.GeneratedLut = null;
+        return lut;
+    }
+    private static void FallbackChecks()
+    {
+        var catalog = Catalog();
+        var ctx = Context();
+        var lut = CacheOfficialLut(ctx);
+        var created = UnityEngine.ScriptableObject.Created;
+        var destroyed = UnityEngine.Object.Destroyed;
+        Check(EnemyRestorationViews.Ensure(ctx, catalog), "cached official LUT restores readiness when GeneratedLut is null");
+        Check(InitializeQuantumAssetDatabase.GeneratedLut == null, "fallback never writes GeneratedLut");
+        Check(ctx.m_loadedWrappers[new AssetGuid { Value = OfficialLutGuid }].Pointer == lut.Pointer,
+            "fallback preserves official LUT wrapper identity");
+        Check(ctx.m_assetByGuid.Count == 2 && ctx.m_loadedWrappers.Count == 3 && ctx.m_allAssets.Count == 2,
+            "fallback appends only enemy stores alongside original LUT");
+        Check(UnityEngine.ScriptableObject.Created - created == 2 && UnityEngine.Object.Destroyed == destroyed,
+            "fallback creates only two enemy wrappers and destroys no source");
+        created = UnityEngine.ScriptableObject.Created;
+        Check(EnemyRestorationViews.Ensure(ctx, catalog) && UnityEngine.ScriptableObject.Created == created &&
+            ctx.m_loadedWrappers.Count == 3 && ctx.m_allAssets.Count == 2, "fallback repeat has no additions");
+
+        ctx = Context(); lut = CacheOfficialLut(ctx);
+        ctx.m_loadedWrappers.Remove(new AssetGuid { Value = OfficialLutGuid });
+        created = UnityEngine.ScriptableObject.Created;
+        Check(!EnemyRestorationViews.Ensure(ctx, catalog), "uncached official LUT remains waiting");
+        Empty(ctx, "uncached official LUT creates no stores");
+        Check(UnityEngine.ScriptableObject.Created == created, "uncached official LUT creates no wrappers");
+
+        ctx = Context(); lut = CacheOfficialLut(ctx);
+        var key = new AssetGuid { Value = OfficialLutGuid };
+        var wrong = new EntityViewDataAsset { AssetGuid = key };
+        ctx.m_loadedWrappers[key] = wrong;
+        created = UnityEngine.ScriptableObject.Created;
+        Throws(() => EnemyRestorationViews.Ensure(ctx, catalog), "cached official LUT wrong CLR type rejected");
+        Check(ctx.m_loadedWrappers.Count == 1 && ctx.m_loadedWrappers[key].Pointer == wrong.Pointer &&
+            ctx.m_assetByGuid.Count == 0 && ctx.m_allAssets.Count == 0 && UnityEngine.ScriptableObject.Created == created,
+            "wrong cached type causes zero writes");
+
+        ctx = Context(); lut = CacheOfficialLut(ctx);
+        lut.AssetGuid = new AssetGuid { Value = OfficialLutGuid + 1 };
+        created = UnityEngine.ScriptableObject.Created;
+        Throws(() => EnemyRestorationViews.Ensure(ctx, catalog), "cached LUT mismatched own GUID rejected");
+        Check(ctx.m_loadedWrappers.Count == 1 && ctx.m_loadedWrappers[key].Pointer == lut.Pointer &&
+            ctx.m_assetByGuid.Count == 0 && ctx.m_allAssets.Count == 0 && UnityEngine.ScriptableObject.Created == created,
+            "wrong cached GUID causes zero writes");
+
+        ctx = Context(); lut = CacheOfficialLut(ctx);
+        lut.DebugNames[0] = "ForeignPrefab";
+        created = UnityEngine.ScriptableObject.Created;
+        Throws(() => EnemyRestorationViews.Ensure(ctx, catalog), "cached LUT still enforces exact GUID/name");
+        Check(ctx.m_loadedWrappers.Count == 1 && ctx.m_loadedWrappers[key].Pointer == lut.Pointer &&
+            ctx.m_assetByGuid.Count == 0 && ctx.m_allAssets.Count == 0 && UnityEngine.ScriptableObject.Created == created,
+            "cached prefab mismatch preflight leaves source untouched");
+
+        ctx = Context(); lut = CacheOfficialLut(ctx);
+        ctx.m_loadedWrappers.ThrowAfterAdd = 1;
+        destroyed = UnityEngine.Object.Destroyed;
+        Throws(() => EnemyRestorationViews.Ensure(ctx, catalog), "fallback post-insert failure rolls back enemy registration");
+        Check(ctx.m_loadedWrappers.Count == 1 && ctx.m_loadedWrappers[key].Pointer == lut.Pointer &&
+            ctx.m_assetByGuid.Count == 0 && ctx.m_allAssets.Count == 0 && UnityEngine.Object.Destroyed - destroyed == 2,
+            "fallback rollback preserves LUT and destroys only own enemy wrappers");
+        Check(EnemyRestorationViews.Ensure(ctx, catalog), "fallback retry succeeds after clean rollback");
+
+        ctx = Context();
+        ctx.m_loadedWrappers.Add(key, new EntityViewDataAsset { AssetGuid = key });
+        Check(EnemyRestorationViews.Ensure(ctx, catalog), "ready GeneratedLut takes precedence over unrelated cached wrong type");
+
+        ctx = Context();
+        var goodCached = new WorldLUTAsset { AssetGuid = key,
+            PooledPrefabs = InitializeQuantumAssetDatabase.GeneratedLut.PooledPrefabs,
+            DebugNames = new[] { "PrefabA", "PrefabB" } };
+        ctx.m_loadedWrappers.Add(key, goodCached);
+        InitializeQuantumAssetDatabase.GeneratedLut.DebugNames[0] = "WrongPrimary";
+        Throws(() => EnemyRestorationViews.Ensure(ctx, catalog), "invalid present GeneratedLut is not masked by valid fallback");
+        Check(ctx.m_loadedWrappers.Count == 1 && ctx.m_assetByGuid.Count == 0 && ctx.m_allAssets.Count == 0,
+            "invalid primary LUT retains source caches");
+    }
     private static void Main()
     {
         var catalog = Catalog();
@@ -59,6 +143,7 @@ internal static class Program
         Check(!EnemyRestorationViews.Ensure(ctx, catalog), "LUT wait returns false");
         Empty(ctx, "LUT wait leaves caches empty");
         Check(UnityEngine.ScriptableObject.Created == created, "LUT wait creates no wrapper");
+        FallbackChecks();
 
         ctx = Context();
         Check(EnemyRestorationViews.Ensure(ctx, catalog), "register ready");
@@ -140,6 +225,7 @@ public class FakeNative
 {
     private static long next;
     public IntPtr Pointer { get; } = new IntPtr(++next);
+    public T TryCast<T>() where T : class => this as T;
 }
 public sealed class FakeDictionary<TKey, TValue> : FakeNative
 {

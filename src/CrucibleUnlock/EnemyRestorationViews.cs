@@ -10,12 +10,16 @@ using UnityEngine;
 
 namespace CrucibleUnlock
 {
-    // Called only by RuntimeAssetResolutionContext.Update on Unity's main thread.
+    // Called only by the loader's main-thread pump of the current Core.AssetCtx.
     // These wrappers refer to shipped pooled prefabs; no prefab, costume, NPC or
     // source asset is cloned or modified. Ownership is established by pointers,
     // never merely by matching a GUID/path supplied by another mod.
     internal static class EnemyRestorationViews
     {
+        // PoolingSystem.LoadPoolingData uses this exact WorldLUTAsset GUID in
+        // ViewFrame.LoadAssetWrapper<WorldLUTAsset>. The shipped QdbTask path
+        // caches the wrapper instead of publishing the editor GeneratedLut.
+        private const long OfficialWorldLutGuid = 8265928748392077239L;
         private sealed class Entry
         {
             public EnemyRestorationProfile Profile;
@@ -36,7 +40,7 @@ namespace CrucibleUnlock
         private static readonly Dictionary<IntPtr, OwnedContext> Owned = new Dictionary<IntPtr, OwnedContext>();
 
         // False means the asynchronous world LUT is not ready yet; the caller may
-        // retry on the next Update. Any collision or inconsistent state throws.
+        // retry on the next main-thread pump. Any collision or inconsistent state throws.
         public static bool Ensure(RuntimeAssetResolutionContext ctx, EnemyRestorationCatalog catalog)
         {
             if (ctx == null) throw new ArgumentNullException(nameof(ctx));
@@ -49,8 +53,16 @@ namespace CrucibleUnlock
             }
 
             var lut = InitializeQuantumAssetDatabase.GeneratedLut;
-            if (lut == null) return false;
             RequireCaches(ctx);
+            if (lut == null)
+            {
+                var lutGuid = new AssetGuid { Value = OfficialWorldLutGuid };
+                if (!ctx.m_loadedWrappers.TryGetValue(lutGuid, out var wrapper) || wrapper == null)
+                    return false; // Official asynchronous load has not completed.
+                lut = wrapper.TryCast<WorldLUTAsset>();
+                if (lut == null || lut.AssetGuid.Value != OfficialWorldLutGuid)
+                    throw new InvalidOperationException("Official pooled prefab LUT wrapper type/GUID mismatch.");
+            }
             var profiles = catalog.Profiles;
             var guids = new HashSet<long>();
             var paths = new HashSet<string>(StringComparer.Ordinal);

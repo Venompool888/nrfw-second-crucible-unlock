@@ -6,14 +6,15 @@ using PatchOwner = HarmonyLib.Harmony;
 
 namespace CrucibleUnlock
 {
-    // Initialization owns simulation writes. Unity's resolution callback owns
-    // presentation writes. No polling of a cached Verified frame, and no spawns.
+    // Initialization owns simulation writes. The loader's Unity main-thread
+    // update pumps the current resolver. No cached Verified frame, and no spawns.
     internal static class EnemyRestorationRuntime
     {
         private static EnemyRestorationCatalog _catalog;
         private static volatile bool _enabled;
         private static IntPtr _lastReadyViewContext;
         private static int _reportedFailure;
+        private static int _reportedViewWaitStates;
         private static volatile bool _currentViewsReady;
         internal static bool CurrentViewsReady => _enabled && _currentViewsReady;
         internal static EnemyRestorationCatalog Catalog => _catalog;
@@ -29,13 +30,12 @@ namespace CrucibleUnlock
                 if(attachSimulationHook)
                     TrialRepairLog.Patch(owner, typeof(InitializeContentSystem), "OnInit", new[] { typeof(Frame) },
                         typeof(EnemyRestorationRuntime), postfix: nameof(AfterSimulationInit));
-                TrialRepairLog.Patch(owner, typeof(RuntimeAssetResolutionContext), "Update", Type.EmptyTypes,
-                    typeof(EnemyRestorationRuntime), prefix: nameof(BeforeResolutionUpdate));
                 TrialRepairLog.Patch(owner, typeof(Il2CppMoon.Playmode.InitializeQuantumAssetDatabase), "InitializeResourceManager",
                     new[] { typeof(Il2CppMoon.TheLoop.ViewFrame) }, typeof(EnemyRestorationRuntime), prefix: nameof(BeforeResourceManagerReset));
                 _catalog = catalog;
                 _lastReadyViewContext = IntPtr.Zero;
                 _reportedFailure = 0;
+                _reportedViewWaitStates = 0;
                 _currentViewsReady = false;
                 _enabled = true;
                 TrialRepairLog.Write("[enemy-restoration] installed; profiles=" + catalog.Profiles.Length +
@@ -74,40 +74,70 @@ namespace CrucibleUnlock
             catch (Exception error) { Fail("simulation initialization", error); }
         }
 
-        private static void BeforeResolutionUpdate(RuntimeAssetResolutionContext __instance)
+        internal static void PumpCurrentViews()
         {
-            if (!_enabled || __instance == null) return;
+            // Official UpdateAsyncQuantumViewAssetLoading.Tick inlines the
+            // resolver Update body, so a detour on that body has no live caller.
+            // Melon OnUpdate supplies retries without relying on native inlining.
+            if (!_enabled) return;
             try
             {
-                if(_lastReadyViewContext!=__instance.Pointer) _currentViewsReady=false;
-                if (EnemyRestorationViews.Ensure(__instance, _catalog))
+                var resolver = Il2CppMoon.Forsaken.Core.AssetCtx;
+                var ctx = resolver?.TryCast<RuntimeAssetResolutionContext>();
+                if (ctx == null)
                 {
-                    // A retired context can still receive an Update after the global
-                    // resolver switches worlds. Check that exact resolver on this Unity
-                    // callback before publishing a managed readiness flag to simulation.
+                    _currentViewsReady = false;
+                    _lastReadyViewContext = IntPtr.Zero;
+                    ReportViewWait(1, "current runtime resolver");
+                    return;
+                }
+                if (_lastReadyViewContext != ctx.Pointer) _currentViewsReady = false;
+                // Prove ownership before any writes or global wrapper lookups.
+                // A retired resolver must not disable the current world's module.
+                if (Il2CppMoon.Forsaken.Core.AssetCtx?.Pointer != ctx.Pointer)
+                {
+                    _currentViewsReady = false;
+                    ReportViewWait(2, "current resolver changed");
+                    return;
+                }
+                if (EnemyRestorationViews.Ensure(ctx, _catalog))
+                {
                     bool current=true;
                     try
                     {
                         foreach(var p in _catalog.Profiles)
                         {
                             var guid=new AssetGuid {Value=p.ViewGuid};
-                            if(!__instance.m_assetByGuid.TryGetValue(guid,out var data) || data==null ||
-                                !__instance.m_loadedWrappers.TryGetValue(guid,out var wrapper) || wrapper==null ||
+                            if(!ctx.m_assetByGuid.TryGetValue(guid,out var data) || data==null ||
+                                !ctx.m_loadedWrappers.TryGetValue(guid,out var wrapper) || wrapper==null ||
                                 wrapper.AssetObject?.Pointer!=data.Pointer) { current=false; break; }
                         }
                     }
-                    catch { current=false; } // Retired context / new resolver not loaded yet; retry on its own Update.
+                    catch { current=false; }
+                    current = current && Il2CppMoon.Forsaken.Core.AssetCtx?.Pointer == ctx.Pointer;
                     _currentViewsReady=current;
-                    if(!current) return;
-                    if(_lastReadyViewContext!=__instance.Pointer)
+                    if(!current) { ReportViewWait(4, "global wrapper resolution"); return; }
+                    if(_lastReadyViewContext!=ctx.Pointer)
                     {
-                        _lastReadyViewContext = __instance.Pointer;
+                        _lastReadyViewContext = ctx.Pointer;
                         TrialRepairLog.Write("[enemy-restoration] VIEWS READY profiles=" + _catalog.Profiles.Length +
                             "; retained prefab GUID/name pairs verified; no inherited donor costume");
                     }
                 }
+                else
+                {
+                    _currentViewsReady = false;
+                    ReportViewWait(8, "official pooled prefab LUT");
+                }
             }
             catch (Exception error) { Fail("Unity view resolution", error); }
+        }
+
+        private static void ReportViewWait(int state, string reason)
+        {
+            if ((_reportedViewWaitStates & state) != 0) return;
+            _reportedViewWaitStates |= state;
+            TrialRepairLog.Write("[enemy-restoration] VIEWS WAIT: " + reason + "; main-thread retry active");
         }
 
         private static void Fail(string stage, Exception error)

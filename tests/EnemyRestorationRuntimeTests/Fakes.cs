@@ -1,0 +1,145 @@
+using System.Reflection;
+using CrucibleUnlock;
+using Il2CppQuantum;
+
+// These types are compiled into this test executable. No referenced or loaded
+// IL2CPP, Unity, Harmony or game assembly is required.
+namespace FakeRuntime
+{
+    static class Reads
+    {
+        public static int Unity;
+        public static bool Forbidden;
+        public static void Read() { ++Unity; if (Forbidden) throw new InvalidOperationException("Unity read while disabled"); }
+    }
+    class NativeObject
+    {
+        static long next;
+        readonly IntPtr pointer = new(Interlocked.Increment(ref next));
+        public IntPtr Pointer { get { Reads.Read(); return pointer; } }
+        public T TryCast<T>() where T : class { Reads.Read(); return this as T; }
+    }
+}
+namespace HarmonyLib
+{
+    class Harmony
+    {
+        public string Id;
+        public Harmony(string id) { Id = id; }
+        public void UnpatchSelf() => TrialRepairLog.Hooks.RemoveAll(h => h.Owner == Id);
+    }
+}
+namespace Il2Cpp
+{
+    class IAssetWrapperResolver : FakeRuntime.NativeObject { }
+    class RuntimeAssetResolutionContext : IAssetWrapperResolver
+    {
+        public readonly Dictionary<AssetGuid, AssetObject> m_assetByGuid = new();
+        public readonly Dictionary<AssetGuid, FakeWrapper> m_loadedWrappers = new();
+        public void Update() { } // Legacy R3 registration can resolve, but host never dispatches it.
+    }
+    sealed class FakeWrapper
+    {
+        public AssetGuid Guid;
+        public AssetObject AssetObject { get { FakeRuntime.Reads.Read(); return Global.Resolve?.Invoke(Guid); } }
+    }
+    static class Global { public static Func<AssetGuid, AssetObject> Resolve; }
+}
+namespace Il2CppMoon.Forsaken
+{
+    static class Core
+    {
+        static Il2Cpp.IAssetWrapperResolver current;
+        public static Queue<Il2Cpp.IAssetWrapperResolver> ScriptedReads;
+        public static Il2Cpp.IAssetWrapperResolver AssetCtx
+        {
+            get
+            {
+                FakeRuntime.Reads.Read();
+                if (ScriptedReads?.Count > 0) current = ScriptedReads.Dequeue();
+                return current;
+            }
+            set { current = value; ScriptedReads = null; }
+        }
+    }
+}
+namespace Il2CppMoon.TheLoop
+{
+    class ViewFrame { }
+    static class UpdateAsyncQuantumViewAssetLoading { public static void Tick(ViewFrame vf) { } }
+}
+namespace Il2CppMoon.Playmode
+{
+    class InitializeQuantumAssetDatabase { public static void InitializeResourceManager(Il2CppMoon.TheLoop.ViewFrame vf) { } }
+}
+namespace Il2CppQuantum
+{
+    struct AssetGuid { public long Value; }
+    struct AssetRefNpcData { public AssetGuid Id; }
+    struct AssetRefEntityData { public AssetGuid Id { get; set; } }
+    struct AssetRefControllerData { public AssetGuid Id { get; set; } }
+    class AssetObject : FakeRuntime.NativeObject { public AssetGuid Guid; public string Path; }
+    class NpcData : AssetObject { public AssetRefEntityData EntityDataAssetRef { get; set; } public AssetRefControllerData ControllerDataAssetRef { get; set; } }
+    class DynamicAssetDatabase { public AssetObject FindAsset(AssetGuid guid) => null; }
+    class Frame { public DynamicAssetDatabase DynamicAssetDB = new(); }
+    class InitializeContentSystem { public void OnInit(Frame frame) { } }
+}
+namespace CrucibleUnlock
+{
+    static class BuildGuard
+    {
+        public static int Checks;
+        public static void VerifyEnemyDatabase(string path) { ++Checks; }
+    }
+    class EnemyRestorationNativeBackend { public EnemyRestorationNativeBackend(Frame frame) { } }
+    static class EnemyRestorationRegistration
+    {
+        public static List<AssetObject> Register(EnemyRestorationCatalog catalog, EnemyRestorationNativeBackend backend) => new();
+    }
+    static class EnemyRestorationViews
+    {
+        public static bool LutReady;
+        public static bool ThrowEnsure;
+        public static int Calls;
+        public static Il2Cpp.RuntimeAssetResolutionContext LastContext;
+        public static bool Ensure(Il2Cpp.RuntimeAssetResolutionContext ctx, EnemyRestorationCatalog catalog)
+        {
+            FakeRuntime.Reads.Read(); ++Calls; LastContext = ctx;
+            if (ThrowEnsure) throw new InvalidOperationException("Injected strict view validation failure");
+            if (!LutReady) return false;
+            foreach (var p in catalog.Profiles)
+            {
+                var guid = new AssetGuid { Value = p.ViewGuid };
+                if (!ctx.m_assetByGuid.ContainsKey(guid)) ctx.m_assetByGuid.Add(guid, new AssetObject { Guid = guid, Path = p.Path("view") });
+                if (!ctx.m_loadedWrappers.ContainsKey(guid)) ctx.m_loadedWrappers.Add(guid, new Il2Cpp.FakeWrapper { Guid = guid });
+            }
+            return true;
+        }
+    }
+    static class TrialRepairLog
+    {
+        public record Hook(string Owner, Type TargetType, string Method, Type[] Args, MethodInfo Prefix, MethodInfo Postfix);
+        public static readonly List<Hook> Hooks = new();
+        public static readonly List<string> Messages = new();
+        public static void Write(string value) => Messages.Add(value);
+        public static void Patch(HarmonyLib.Harmony owner, Type type, string method, Type[] args, Type patchType,
+            string prefix = null, string postfix = null, Type returnType = null)
+        {
+            var target = type.GetMethod(method, BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, args, null);
+            if (target == null || target.ReturnType != (returnType ?? typeof(void))) throw new InvalidOperationException("Fake target ABI mismatch");
+            MethodInfo Find(string name) => name == null ? null : patchType.GetMethod(name, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("Fake callback absent");
+            Hooks.Add(new Hook(owner.Id, type, method, args, Find(prefix), Find(postfix)));
+        }
+        public static void ResetResourceManager()
+        {
+            var hook = Hooks.Single(h => h.TargetType == typeof(Il2CppMoon.Playmode.InitializeQuantumAssetDatabase) &&
+                h.Method == "InitializeResourceManager" && h.Args.SequenceEqual(new[] { typeof(Il2CppMoon.TheLoop.ViewFrame) }));
+            if (hook.Prefix != null) Invoke(hook.Prefix, new Il2CppMoon.TheLoop.ViewFrame());
+            Il2CppMoon.Playmode.InitializeQuantumAssetDatabase.InitializeResourceManager(new());
+            if (hook.Postfix != null) Invoke(hook.Postfix, new Il2CppMoon.TheLoop.ViewFrame());
+        }
+        static void Invoke(MethodInfo method, object argument)
+        { method.Invoke(null, method.GetParameters().Length == 0 ? Array.Empty<object>() : new[] { argument }); }
+    }
+}

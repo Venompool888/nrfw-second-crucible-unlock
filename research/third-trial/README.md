@@ -63,3 +63,13 @@ R2启动时十棵树与SIMULATION READY成功，随后用户确认自动闪退�
 Harmony callback缩为71 IL bytes，无局部变量，只筛选缺失Offering并调用独立NoInlining helper；Install在Patch前用RuntimeHelpers.PrepareMethod编译完整helper，日志区分preparing与compilation ready，避免把原来首编译崩溃简单推迟到献祭。它不执行helper本体，也不保证所有callee已编译，实际献祭仍须用户测试。
 
 新增 [RitualViewJitAudit](../../tools/RitualViewJitAudit/README.md) 只读PE审计：R2 RED17项失败，R3 GREEN0失败；确认array GetEnumerator和native List Enumerator引用均0，PrepareMethod先于Patch，签名及ref结果不变。实际Runtime375项、献祭/血流41项、已有policy与8组第三/15组弩枪hook审计通过，Release0警告0错误，unsafe/stub0失败。R2日志没有VIEWS READY或完整世界初始化证据；R3实际启动与献祭状态另见本轮安装/日志记录，不以离线通过代替实机结果。
+
+## R4：第三盆视图准备活性修复（2026-10-10）
+
+R3已成功运行第二盆献祭，但第三入口仍不可用。17:49:07 UTC日志目标明确为secondStatueBowlInteraction，第二血流/九轨播放成功；没有第三目标、VIEWS READY或第三刷怪。会话17:50:24 UTC正常退出，无新CoreCLR崩溃。
+
+原生核验确认官方UpdateAsyncQuantumViewAssetLoading.Tick直接调用UpdatePendingLoads/InvokePendingCallbacks，绕过被挂接的RuntimeAssetResolutionContext.Update。R4删除该无活性钩子，由已有ModMain.OnUpdate在Unity主线程每帧调用PumpCurrentViews，每次重新读取官方Core.AssetCtx；先核对当前身份再注册，resolver重建立即撤销ready，十项global wrapper lookup全部通过才发布ready。等待ctx/LUT/global resolver分阶段有界日志，停用与退出后不读Unity。没有缓存Frame、放松入口或改变刷怪条件。
+
+官方QdbTask路径可以不写InitializeQuantumAssetDatabase.GeneratedLut。PoolingSystem.LoadPoolingData实际调用ViewFrame.LoadAssetWrapper<WorldLUTAsset>，精确GUID8265928748392077239（native MethodSpec673909/11610/13086）；R4在静态LUT空时只读当前ctx已加载的该wrapper，要求WorldLUTAsset类型及AssetGuid匹配，再沿用十个prefab GUID/DebugNames严格检查。未加载时重试，不主动加载或写官方LUT/池。
+
+新增真实EnemyRestorationRuntime编排测试：冻结R3 RED缺逐帧入口、Ensure调用0；R4 GREEN覆盖迟到LUT、当前ctx丢失/交换、十项回读、全局lookup失败及shutdown。真实Views测试冻结R3复现cached LUT无法恢复，R4通过52项，含无静态写入、严格GUID/名字校验、源pointer保留和失败回滚。PE审计新增ModMain.OnUpdate→PumpCurrentViews→Core.AssetCtx调用证据，第三hook现为7组；旧R3 JIT隔离继续保留。完整离线结果和最终DLL哈希见R4包verification.json；实际第三献祭及十房仍须用户游玩验证。

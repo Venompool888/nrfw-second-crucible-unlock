@@ -1,11 +1,12 @@
 using System.Collections.Immutable;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
+using System.Reflection.Emit;
+using System.Reflection.Metadata.Ecma335;
 var provider=new Names();
 const string Q="Il2CppQuantum.";
 var hooks=new[] {
  new Spec("Il2Cppmoon.quantum.forsaken",Q+"InitializeContentSystem","OnInit","Void",new[]{Q+"Frame"},"ThirdTrialRuntime","AfterInit",false),
- new Spec("Il2Cpp__forsaken","Il2Cpp.RuntimeAssetResolutionContext","Update","Void",Array.Empty<string>(),"EnemyRestorationRuntime","BeforeResolutionUpdate",true),
  new Spec("Il2Cpp__forsaken","Il2CppMoon.Playmode.InitializeQuantumAssetDatabase","InitializeResourceManager","Void",new[]{"Il2CppMoon.TheLoop.ViewFrame"},"EnemyRestorationRuntime","BeforeResourceManagerReset",true),
  new Spec("Il2Cppmoon.quantum.forsaken",Q+"QuestAPI","IsQuestStepComplete","System.Boolean",new[]{Q+"Frame",Q+"AssetRefGameQuestStepData"},"ThirdTrialEntry","QuestPrefix",true),
  new Spec("Il2Cppmoon.quantum.forsaken",Q+"QuantumConditionQuestStepState","ConditionPassedInternal","System.Boolean",new[]{Q+"Frame",Q+"EntityRef"},"ThirdTrialEntry","ConditionPrefix",true),
@@ -43,7 +44,57 @@ var resources=plugin.ManifestResources.Select(h=>plugin.GetString(plugin.GetMani
 foreach(string resource in new[]{"NRFW.ThirdTrial.Rooms.json","NRFW.EnemyRestoration.Bindings.json","NRFW.ThirdBowlBlood.layout.json"})
  if(!resources.Contains(resource))throw new Exception("Missing embedded resource "+resource);
 if(resources.Count(x=>x.StartsWith("NRFW.ThirdBowlBlood."))!=7)throw new Exception("Third blood resources incomplete");
-Console.WriteLine("PASS: 8 third-trial hook signatures/callbacks and required embedded manifests/blood resources; PE metadata only.");
+var main = PluginMethod("CrucibleUnlock.ModMain", "OnUpdate");
+var pump = PluginMethod("CrucibleUnlock.EnemyRestorationRuntime", "PumpCurrentViews");
+if (!Calls(main).Contains("CrucibleUnlock.EnemyRestorationRuntime.PumpCurrentViews"))
+ throw new Exception("Loader OnUpdate does not pump current enemy views.");
+if (!Calls(pump).Contains("Il2CppMoon.Forsaken.Core.get_AssetCtx"))
+ throw new Exception("View pump does not read the official current resolver.");
+var runtime = plugin.TypeDefinitions.Single(t => provider.GetTypeFromDefinition(plugin,t,0)=="CrucibleUnlock.EnemyRestorationRuntime");
+if (plugin.GetTypeDefinition(runtime).GetMethods().Any(m => plugin.GetString(plugin.GetMethodDefinition(m).Name)=="BeforeResolutionUpdate"))
+ throw new Exception("Unused resolver Update callback remains.");
+Console.WriteLine("PASS: loader OnUpdate calls current-view pump; pump reads Core.AssetCtx; unused resolver Update callback removed.");
+Console.WriteLine("PASS: 7 third-trial hook signatures/callbacks and required embedded manifests/blood resources; PE metadata only.");
+
+MethodDefinitionHandle PluginMethod(string type, string method) {
+ var t=plugin.TypeDefinitions.Single(t=>provider.GetTypeFromDefinition(plugin,t,0)==type);
+ return plugin.GetTypeDefinition(t).GetMethods().Single(m=>plugin.GetString(plugin.GetMethodDefinition(m).Name)==method);
+}
+HashSet<string> Calls(MethodDefinitionHandle method) {
+ var opcodes=typeof(OpCodes).GetFields().Where(f=>f.FieldType==typeof(OpCode)).Select(f=>(OpCode)f.GetValue(null)).ToDictionary(o=>unchecked((ushort)o.Value));
+ var il=pluginPe.GetMethodBody(plugin.GetMethodDefinition(method).RelativeVirtualAddress).GetILBytes();
+ var calls=new HashSet<string>();
+ for(int i=0;i<il.Length;) {
+  ushort code=il[i++]; if(code==0xfe)code=(ushort)(0xfe00|il[i++]);
+  var op=opcodes[code]; int size=op.OperandType switch {
+   OperandType.InlineNone=>0,
+   OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar=>1,
+   OperandType.InlineVar=>2,
+   OperandType.InlineI8 or OperandType.InlineR=>8,
+   OperandType.InlineSwitch=>4+4*BitConverter.ToInt32(il,i),
+   _=>4
+  };
+  if(op.OperandType==OperandType.InlineMethod && (op==OpCodes.Call || op==OpCodes.Callvirt))
+   calls.Add(MethodName(MetadataTokens.EntityHandle(BitConverter.ToInt32(il,i))));
+  i+=size;
+ }
+ return calls;
+}
+string MethodName(EntityHandle h) {
+ if(h.Kind==HandleKind.MethodSpecification)return MethodName(plugin.GetMethodSpecification((MethodSpecificationHandle)h).Method);
+ if(h.Kind==HandleKind.MethodDefinition) {
+  var m=plugin.GetMethodDefinition((MethodDefinitionHandle)h);
+  return provider.GetTypeFromDefinition(plugin,m.GetDeclaringType(),0)+"."+plugin.GetString(m.Name);
+ }
+ var r=plugin.GetMemberReference((MemberReferenceHandle)h);
+ string owner=r.Parent.Kind switch {
+  HandleKind.TypeReference=>provider.GetTypeFromReference(plugin,(TypeReferenceHandle)r.Parent,0),
+  HandleKind.TypeDefinition=>provider.GetTypeFromDefinition(plugin,(TypeDefinitionHandle)r.Parent,0),
+  HandleKind.TypeSpecification=>provider.GetTypeFromSpecification(plugin,null,(TypeSpecificationHandle)r.Parent,0),
+  _=>r.Parent.Kind.ToString()
+ };
+ return owner+"."+plugin.GetString(r.Name);
+}
 record Spec(string Assembly,string Type,string Method,string Return,string[] Args,string CallbackType,string Callback,bool Prefix);
 
 sealed class Names : ISignatureTypeProvider<string, object>
