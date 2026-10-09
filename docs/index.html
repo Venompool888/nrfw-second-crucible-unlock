@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>【恶意不息】第二试炼解锁 Mod 安装教程</title>
-<meta name="description" content="《恶意不息》第二试炼（Second Crucible）解锁 Mod 的图文安装教程：安装 MelonLoader、放置两个 Mod DLL、配置 MelonPreferences.cfg，中英双语。">
+<meta name="description" content="《恶意不息》第二试炼（Second Crucible）解锁 Mod 的图文安装教程：安装 MelonLoader、放置两个 Mod DLL、无需手动配置，中英双语。">
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -17,7 +17,7 @@
       <a href="en.html">English</a>
     </nav>
     <h1>【恶意不息】第二试炼解锁 Mod 安装教程</h1>
-    <p class="meta">Steam 版《恶意不息》· Build 22928553 · Mod 0.9.16</p>
+    <p class="meta">Steam 版《恶意不息》· Build 22928553 · Mod 0.9.17 正式版 · 最新正式版 · 用户于 2026-10-10 实机试用后反馈没有问题</p>
   </div>
 </header>
 
@@ -27,9 +27,8 @@
     <h2><span class="n">1</span>准备工作</h2>
     <ol class="downloads">
       <li>下载 <a href="https://github.com/LavaGang/MelonLoader/releases/download/v0.7.3/MelonLoader.Installer.exe" target="_blank" rel="noopener"><strong><u>Melonloader</u></strong></a></li>
-      <li>下载 <a href="https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/CrucibleUnlock.dll" target="_blank" rel="noopener"><strong><u>CrucibleUnlock.dll</u></strong></a></li>
-      <li>下载 <a href="https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/NRFWBowgunAudioSync.dll" target="_blank" rel="noopener"><strong><u>NRFWBowgunAudioSync.dll</u></strong></a></li>
-      <li>下载 <a href="https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/MelonPreferences.cfg" target="_blank" rel="noopener"><strong><u>MelonPreferences.cfg</u></strong></a></li>
+      <li>下载 <a href="https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/CrucibleUnlock.dll" target="_blank" rel="noopener"><strong><u>CrucibleUnlock.dll</u></strong></a></li>
+      <li>下载 <a href="https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/NRFWBowgunAudioSync.dll" target="_blank" rel="noopener"><strong><u>NRFWBowgunAudioSync.dll</u></strong></a></li>
     </ol>
   </section>
 
@@ -53,14 +52,9 @@
   </section>
 
   <section>
-    <h2><span class="n">4</span>放置 MelonPreferences.cfg</h2>
-    <p>进入 📂 <strong>UserData</strong></p>
-    <img class="shot-half" src="assets/image-ESrh.png" width="2416" height="1080" alt="进入 UserData 文件夹">
-    <p>放置 <strong>MelonPreferences.cfg</strong></p>
-    <img class="shot-half" src="assets/image-atqG.png" width="1684" height="985" alt="放置 MelonPreferences.cfg">
-    <div class="note">
-      ⚠️ <strong>如果你之前装过别的 Mod</strong>，<code>UserData</code> 里可能已经有 <code>MelonPreferences.cfg</code> 了——<strong>不要直接覆盖</strong>，请看文末的<a href="#existing-cfg">《已经有 MelonPreferences.cfg 的玩家》</a>。
-    </div>
+    <h2><span class="n">4</span>可选设置</h2>
+    <p>全新安装无需手写配置：加载器首次启动时会自动创建 <code>UserData\MelonPreferences.cfg</code>，核心默认启用运行行为与已验收修复。只有想修改 Boss 痕迹数量时，才在已有 <code>[CrucibleUnlock]</code> 区块中编辑 <code>boss_trace_drop_amount</code>，允许 0–1000，默认 300，0 表示不掉落目标 Boss 痕迹。修改时请先退出游戏并保留其他 Mod 的区块。旧 mode、修复开关和 bowgun_weapon_class 均忽略；弩枪类别 30 是内置默认。可选配置示例不是必需品，且不得覆盖已有共享配置文件。</p>
+    <div class="note">0.9.17 已通过离线核验；用户于 2026-10-10 实机试用后反馈没有问题。其他游戏版本、控制器及联机路径不因此视为已验证。</div>
   </section>
 
   <section>
@@ -71,54 +65,12 @@
     <img class="shot-half" src="assets/image-hZaX.png" width="3840" height="2160" alt="BOSS RUSH 愉快">
   </section>
 
-  <section id="existing-cfg">
-    <h2>已经有 MelonPreferences.cfg 的玩家（重要）</h2>
-
-    <p><code>UserData\MelonPreferences.cfg</code> 是 <strong>MelonLoader 给所有 Mod 共用的同一个配置文件</strong>。只要你之前装过别的 Mod，或者游戏已经启动过一次，这个文件就已经存在了。这时候把下载来的 cfg 直接覆盖进去，会把你其他 Mod 的设置一起删掉。</p>
-
-    <h3>该怎么做</h3>
-    <ol>
-      <li>先把现有的 <code>UserData\MelonPreferences.cfg</code> 复制一份到别处备份。</li>
-      <li>用记事本打开它。</li>
-      <li>在文件末尾追加下面这一整段；如果里面<strong>已经有</strong> <code>[CrucibleUnlock]</code>，就改这个区块里的值，<strong>不要</strong>再新建第二个 <code>[CrucibleUnlock]</code>。</li>
-    </ol>
-
-<pre><code>[CrucibleUnlock]
-mode = "runtime-unlock"
-guard_broken_warrick_music = true
-repair_warrick_phase2_target = true
-repair_bossrush_progression = true
-repair_ritual_animator = true
-trace_boss_motion = false
-boss_trace_drop_amount = 300</code></pre>
-
-    <ol start="4">
-      <li>保存并关闭，然后重新启动游戏。</li>
-    </ol>
-
-    <h3>对照你的情况</h3>
-    <table>
-      <thead>
-        <tr><th>你的情况</th><th>怎么做</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>从没装过 Mod，<code>UserData</code> 里没有 cfg</td><td>直接把下载的 <code>MelonPreferences.cfg</code> 放进 <code>UserData\</code></td></tr>
-        <tr><td>有 cfg，但里面没有 <code>[CrucibleUnlock]</code></td><td>把上面那段追加到文件末尾</td></tr>
-        <tr><td>有 cfg，里面已经有 <code>[CrucibleUnlock]</code></td><td>只改这个区块里的值，保留其他 Mod 的区块</td></tr>
-        <tr><td>改乱了，想从头来</td><td>先备份，再删掉 cfg；MelonLoader 下次启动会重新生成默认配置（其他 Mod 的设置会回到默认值）</td></tr>
-      </tbody>
-    </table>
-
-    <div class="note">
-      放置 DLL 和修改 cfg 时，游戏必须<strong>完全退出</strong>。另外请打开 Windows 的“显示文件扩展名”，确认文件名是 <code>MelonPreferences.cfg</code> 而不是 <code>MelonPreferences.cfg.txt</code>。
-    </div>
-  </section>
 
 </main>
 
 <footer>
   <div class="wrap">
-    <p>本页内容与原教程一致，另加了一章讲配置文件的处理。原文：<a href="https://halo.rin.cool/archives/e-yi-bu-xi-di-er-hui-sheng-jie-suo-modan-zhuang-jiao-cheng" target="_blank" rel="noopener">halo.rin.cool</a></p>
+    <p>本页介绍 0.9.17 正式版的安装和可选配置。原文：<a href="https://halo.rin.cool/archives/e-yi-bu-xi-di-er-hui-sheng-jie-suo-modan-zhuang-jiao-cheng" target="_blank" rel="noopener">halo.rin.cool</a></p>
     <p><a href="https://github.com/Venompool888/nrfw-second-crucible-unlock" target="_blank" rel="noopener">GitHub 仓库</a> · <a href="https://www.nexusmods.com/norestforthewicked/mods/108" target="_blank" rel="noopener">Nexus Mods</a> · 非官方社区 Mod</p>
   </div>
 </footer>

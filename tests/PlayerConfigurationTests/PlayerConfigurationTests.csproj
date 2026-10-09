@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <NoWarn>$(NoWarn);NETSDK1138</NoWarn>
+  </PropertyGroup>
+  <!-- Execute only our managed entry point. No loader, game, Unity or interop DLL references. -->
+  <ItemGroup>
+    <Compile Include="../../src/CrucibleUnlock/ModMain.cs" Link="ModMain.cs" />
+    <Compile Include="../../src/CrucibleUnlock/BossTraceDropApi.cs" Link="BossTraceDropApi.cs" />
+    <Compile Include="../../src/CrucibleUnlock/ReflectionPlan.cs" Link="ReflectionPlan.cs" />
+    <Compile Include="../../src/CrucibleUnlock/UnlockRunner.cs" Link="UnlockRunner.cs" />
+  </ItemGroup>
+</Project>

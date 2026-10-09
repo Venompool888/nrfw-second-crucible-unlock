@@ -9,9 +9,9 @@
 
 ![第二试炼：解锁与遭遇战修复，Build 22928553](media/header.png)
 
-**[直接下载 CrucibleUnlock.dll（0.9.16）](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/CrucibleUnlock.dll)** · **[下载弩箭音效／输入组件（0.3.3）](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/NRFWBowgunAudioSync.dll)** · **[图文安装教程](https://venompool888.github.io/nrfw-second-crucible-unlock/)** · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108) · [四步安装](INSTALL-QUICK.zh-CN.md)
+**[下载 0.9.17 正式版核心 DLL](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/CrucibleUnlock.dll)** · **[下载弩箭音效／输入组件（0.3.3）](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.17/NRFWBowgunAudioSync.dll)** · [0.9.17 快速安装](INSTALL-QUICK.zh-CN.md) · [Nexus Mods](https://www.nexusmods.com/norestforthewicked/mods/108)
 
-版本 **`0.9.16`** · 支持 **Steam public Build 22928553** · 非官方社区 Mod
+最新正式版：**`0.9.17`** · 支持 **Steam public Build 22928553** · 非官方社区 Mod
 
 ## 章节索引
 
@@ -45,16 +45,17 @@
 
 ## 下载与安装
 
-Windows Steam 玩家按四步操作：下载 MelonLoader 0.7.3、安装加载器、下载 [0.9.16 DLL](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/CrucibleUnlock.dll)和[弩箭音效／输入 DLL](https://github.com/Venompool888/nrfw-second-crucible-unlock/releases/download/v0.9.16/NRFWBowgunAudioSync.dll)，将两个文件放入 `Mods` 并设置三项配置。
+使用 0.9.17 正式版时，下载并安装 MelonLoader 0.7.3，再下载两个 DLL 并放进 `Mods`。核心会默认启用已验收的运行行为，无需设置偏好文件。只有想修改 Boss 痕迹数量时，才编辑现有 `[CrucibleUnlock]` 区块中的 `boss_trace_drop_amount`。该设置允许 0–1000，默认 300；0 表示目标 Boss 不掉落痕迹。
 
 [![简体中文快速安装](media/install-quick-zh-CN.svg)](INSTALL-QUICK.zh-CN.md)
 [![English Quick Install](media/install-quick-en.svg)](INSTALL-QUICK.md)
 
-**[图文安装教程（截图版）](https://venompool888.github.io/nrfw-second-crucible-unlock/)** · [English screenshot guide](https://venompool888.github.io/nrfw-second-crucible-unlock/en.html)
+**[截图教程（0.9.17）](https://venompool888.github.io/nrfw-second-crucible-unlock/)** · [English screenshot guide (0.9.17)](https://venompool888.github.io/nrfw-second-crucible-unlock/en.html)
 
 ## 兼容性与安全说明
 
-- **已验证范围：** 2026-10-05 在 Steam public **Build 22928553** 上完成过一次九层完整流程，包含预期的七场 Boss 遭遇战、检查点、奖励房，以及返回第二献祭盆。这仅是一个游戏版本上的一次完整测试，不代表后续版本兼容性保证。其他游戏版本及反复重载场景仍未验证。详见[版本记录](CHANGELOG.md)。
+- **此前基线的实机验证：** 2026-10-05 在 Steam public **Build 22928553** 上完成过一次九层完整流程，包含预期的七场 Boss 遭遇战、检查点、奖励房，以及返回第二献祭盆。这仅是一个游戏版本上的一次完整测试，不代表后续版本兼容性保证。其他游戏版本及反复重载场景仍未验证。详见[版本记录](CHANGELOG.md)。
+- **0.9.17 正式版：**离线构建和纯托管入口检查已通过。用户于 2026-10-10 实机试用 0.9.17 后反馈没有问题；这不代表每场战斗、所有控制器或联机路径均已验收。
 - **0.9.16 验证状态：**本地记录了 24 发弩箭（键鼠阶段 18 发、Gamepad 阶段 6 发），无输入线程异常，前 16 发有独立音效 ID 与释放同帧对照。PS 具体型号、可听起点尚未验证；两次回池／复用清理缺逐发日志，未见恢复错误。此前堕落外壳头顶血条修正未在本轮专项重测。
 - **存档行为：** 解锁只在 Mod 运行期间存在。正常游玩仍可能保存进度；本 Mod 不会把对应任务永久写成完成。
 - **更新与卸载：** 不要在游戏运行时替换 DLL。卸载时先退出游戏，再移除 `Mods/CrucibleUnlock.dll` 与 `Mods/NRFWBowgunAudioSync.dll`；如需卸载 MelonLoader，请单独处理。
@@ -62,7 +63,7 @@ Windows Steam 玩家按四步操作：下载 MelonLoader 0.7.3、安装加载器
 
 ## 技术说明与源码构建
 
-[`src/`](src/) 下保存的是冻结的 **`0.9.16-bowgun-view-repair-r2` 核心与 `0.3.3` 音效／输入组件** 源码快照。
+[`src/`](src/) 下包含 **0.9.17 玩家默认配置正式版**及未变更的 **0.3.3** 音效／输入组件源码。0.9.17 是最新正式版。
 
 - Mod 在安装运行时钩子之前，会检查**精确匹配的受支持游戏版本**。
 - 构建需要 MelonLoader 引用，以及从受支持游戏版本生成的 IL2CPP 互操作程序集。

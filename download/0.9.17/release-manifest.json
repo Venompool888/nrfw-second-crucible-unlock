@@ -1,0 +1,31 @@
+{
+  "version": "0.9.17",
+  "release_channel": "GitHub stable release",
+  "audio_input_version": "0.3.3",
+  "supported_steam_build": 22928553,
+  "source_commit": "dc1d0b2d9889c317b1e601b098c184fe8bbe198e",
+  "source_branch": "fix/player-config-defaults-20261010",
+  "public_base_commit": "9186fe3",
+  "files": {
+    "CrucibleUnlock.dll": "5553c36b4fd694484150fe3cebcb7864ff3c1bc45df4e6f484873cf9c2ef12ad",
+    "NRFWBowgunAudioSync.dll": "e861d4babf57da77259bb2dffca50bb51257c7d8c3adb6d8eb0984d5e333d7c7",
+    "MelonPreferences.cfg": "optional example only; not required for installation"
+  },
+  "verification": {
+    "offline_build": "passed",
+    "player_configuration_entry_tests": "17/17 passed",
+    "in_game_test": "passed; user confirmed on 2026-10-10 that in-game testing found no issues",
+    "latest_stable_release": "0.9.17",
+    "release_channel": "GitHub stable release",
+    "offline_policy_and_metadata_checks": "passed; 0 failures"
+  },
+  "configuration": {
+    "only_player_option": "boss_trace_drop_amount",
+    "default": 300,
+    "minimum": 0,
+    "maximum": 1000,
+    "zero_means": "target Boss trace quantity is overridden to 0",
+    "legacy_keys": "ignored and preserved in existing shared preference files",
+    "bowgun_weapon_class": 30
+  }
+}

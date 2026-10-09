@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Text.Json;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(CrucibleUnlock.ModMain), "Crucible Unlock", "0.9.16-bowgun-view-repair-r2", "NRFW research", "")]
+[assembly: MelonInfo(typeof(CrucibleUnlock.ModMain), "Crucible Unlock", "0.9.17-player-defaults", "NRFW research", "")]
 [assembly: MelonGame("Moon Studios", "NoRestForTheWicked")]
 [assembly: MelonAdditionalDependencies("0Harmony")]
 
@@ -16,9 +16,9 @@ namespace CrucibleUnlock
     /// <summary>
     /// 第二试炼解锁 mod。
     ///
-    /// 本轮支持两种模式（MelonPreferences 的 mode，默认 probe）：
-    ///   probe        只探测并记录类型/方法/Frame 入口，**不调用任何游戏 API**；
-    ///   runtime-unlock 校验版本后，仅覆盖第二试炼的两处完成状态读取，退出游戏即失效。
+    /// 正式版固定 runtime-unlock：校验版本后覆盖第二试炼的两处完成状态读取，退出游戏即失效。
+    /// 已验收修复固定启用，详细位移采样关闭；玩家只配置 Boss 痕迹数量。
+    /// 旧 mode / 修复开关 / 弩枪类别配置不再读取，也不改写或删除。
     ///
     /// 旧持久写入代码保留供研究，但本版本入口不执行 unlock / unlock-dry。
     ///
@@ -27,6 +27,8 @@ namespace CrucibleUnlock
     public class ModMain : MelonMod
     {
         private const string CategoryId = "CrucibleUnlock";
+        private const string RuntimeMode = "runtime-unlock";
+        private const int BowgunWeaponClass = 30;
         private const int TypeSweepLimit = 200;
         private const int RunnerSweepLimit = 60;
         private const int MembersPerType = 14;
@@ -88,14 +90,7 @@ namespace CrucibleUnlock
             public void Error(string message) { _logger.Error(message); }
         }
 
-        private MelonPreferences_Entry<string> _mode;
-        private MelonPreferences_Entry<bool> _guardBrokenWarrickMusic;
-        private MelonPreferences_Entry<bool> _traceBossMotion;
-        private MelonPreferences_Entry<bool> _repairWarrickPhase2Target;
-        private MelonPreferences_Entry<bool> _repairBossRushProgression, _repairRitualAnimator;
         private MelonPreferences_Entry<int> _bossTraceDropAmount;
-        private MelonPreferences_Entry<string> _motionTraceDirectory;
-        private MelonPreferences_Entry<int> _bowgunWeaponClass;
         private MotionTraceSink _motionSink;
         private bool _motionActive;
         private long _lastMotionHealth;
@@ -108,37 +103,21 @@ namespace CrucibleUnlock
         public override void OnInitializeMelon()
         {
             MelonPreferences_Category category = MelonPreferences.CreateCategory(CategoryId, "Crucible Unlock");
-            _mode = category.CreateEntry("mode", "probe",
-                "运行模式", "probe = 只探测；runtime-unlock = 临时解锁第二试炼（不写完成状态）；旧持久模式停用");
-            _repairBossRushProgression = category.CreateEntry("repair_bossrush_progression", true,
-                "第二试炼清场修复", "开层时调用原生SetFloor，沿用原生清场、提示、交互与转场");
-            _repairRitualAnimator = category.CreateEntry("repair_ritual_animator", true,
-                "献祭动作角色绑定修复", "只在献祭轨绑定缺失或错误时临时指向当前献祭角色，结束恢复");
             _bossTraceDropAmount = category.CreateEntry("boss_trace_drop_amount", BossTraceDropApi.DefaultAmount,
                 "第二试炼 Boss 痕迹掉落数量", "每个 Boss 原生痕迹掉落基数，0关闭，允许0至1000；多人修正沿用原生规则；重启生效");
-            _guardBrokenWarrickMusic = category.CreateEntry("guard_broken_warrick_music", false,
-                "首 Boss 坏音乐防护", "仅在已确认的隐藏 Warrick 对象身份与坏子引用结构相符时跳过音乐时间轴；不处理献祭动画");
-            _repairWarrickPhase2Target = category.CreateEntry("repair_warrick_phase2_target", false,
-                "沃里克二阶段目标修复", "每次二阶段动作执行时，将本实体已确认错误的远方落点改为当刻位置；覆盖重复出生，不改共享资产或存档");
             _baseDirectory = Path.GetDirectoryName(typeof(ModMain).Assembly.Location) ?? AppDomain.CurrentDomain.BaseDirectory;
-            _traceBossMotion = category.CreateEntry("trace_boss_motion", false,
-                "首 Boss 位移日志", "主线程轮询隐藏首 Warrick 的显示位置、模型偏移与动作，不添加位置同步钩子，后台写入独立 JSONL");
-            _motionTraceDirectory = category.CreateEntry("motion_trace_directory", Path.Combine(_baseDirectory, "motion-logs"),
-                "位移日志目录", "每次启动创建独立文件，不覆盖旧日志");
-            _bowgunWeaponClass = category.CreateEntry("bowgun_weapon_class", 30,
-                "弩枪武器类别（动画）", "写入强化弩枪 WeaponStaticData.Class（原生偏移 0x128）：30=Crossbow、21=Greatbow、20=Bow、0=不写；重启生效");
 
             LoggerInstance.Msg("=====================================================");
-            LoggerInstance.Msg("Crucible Unlock 0.9.16-bowgun-view-repair-r2 已加载");
+            LoggerInstance.Msg("Crucible Unlock 0.9.17-player-defaults 已加载");
             LoggerInstance.Msg($"MelonLoader: {typeof(MelonMod).Assembly.GetName().Version}");
             LoggerInstance.Msg($"CLR: {Environment.Version}  64bit={Environment.Is64BitProcess}");
-            LoggerInstance.Msg($"mode = {_mode.Value}   目录 = {_baseDirectory}");
-            LoggerInstance.Msg($"guard_broken_warrick_music = {_guardBrokenWarrickMusic.Value}");
-            LoggerInstance.Msg($"trace_boss_motion = {_traceBossMotion.Value}");
-            LoggerInstance.Msg($"repair_warrick_phase2_target = {_repairWarrickPhase2Target.Value}");
-            LoggerInstance.Msg($"repair_bossrush_progression = {_repairBossRushProgression.Value}; repair_ritual_animator = {_repairRitualAnimator.Value}");
+            LoggerInstance.Msg($"mode = {RuntimeMode}（内置）   目录 = {_baseDirectory}");
+            LoggerInstance.Msg("guard_broken_warrick_music = True（内置）");
+            LoggerInstance.Msg("trace_boss_motion = False（内置）");
+            LoggerInstance.Msg("repair_warrick_phase2_target = True（内置）");
+            LoggerInstance.Msg("repair_bossrush_progression = True; repair_ritual_animator = True（内置）");
             LoggerInstance.Msg($"boss_trace_drop_amount = {_bossTraceDropAmount.Value}");
-            LoggerInstance.Msg($"bowgun_weapon_class = {_bowgunWeaponClass.Value}（30=Crossbow、21=Greatbow、20=Bow、0=不写）");
+            LoggerInstance.Msg($"bowgun_weapon_class = {BowgunWeaponClass}（Crossbow，内置）");
             LoggerInstance.Msg($"目标：quest step GUID {StepGuid} / PrimeState GUID {PrimeStateGuid}");
             LoggerInstance.Msg("=====================================================");
         }
@@ -147,63 +126,41 @@ namespace CrucibleUnlock
         {
             try
             {
-                string mode = (_mode.Value ?? "probe").Trim().ToLowerInvariant();
-                if (mode == "runtime-unlock")
+                // Keep the existing build/hash guard before every repair installation.
+                // Legacy preference keys cannot select probe mode or disable accepted repairs.
+                BuildGuard.Verify(_baseDirectory, message => LoggerInstance.Msg(message));
+                try { BossTraceDropApi.SetAmount(_bossTraceDropAmount.Value); }
+                catch (ArgumentOutOfRangeException)
                 {
-                    BuildGuard.Verify(_baseDirectory, message => LoggerInstance.Msg(message));
-                    try { BossTraceDropApi.SetAmount(_bossTraceDropAmount.Value); }
-                    catch (ArgumentOutOfRangeException)
-                    {
-                        BossTraceDropApi.ResetToDefault();
-                        LoggerInstance.Warning("[boss-traces] invalid configuration; using default=" + BossTraceDropApi.DefaultAmount);
-                    }
-                    if (_guardBrokenWarrickMusic.Value)
-                        BrokenWarrickMusicGuard.Install(message => LoggerInstance.Msg(message), message => LoggerInstance.Error(message));
-                    try
-                    {
-                        RuntimeUnlock.Install(message => LoggerInstance.Msg(message), message => LoggerInstance.Error(message));
-                    }
-                    catch (Exception installError)
-                    {
-                        if (_guardBrokenWarrickMusic.Value)
-                        {
-                            try { BrokenWarrickMusicGuard.Dispose(); }
-                            catch (Exception rollbackError) { throw new AggregateException(installError, rollbackError); }
-                        }
-                        throw;
-                    }
-                    _runtimeActive = true;
-                    if (_repairWarrickPhase2Target.Value)
-                    {
-                        WarrickPhase2TargetRepair.Install(message => LoggerInstance.Msg(message), message => LoggerInstance.Error(message));
-                        _phase2RepairActive = true;
-                    }
-                    if (_traceBossMotion.Value) StartMotionTrace();
-                    if (_repairBossRushProgression.Value) BossRushProgressionRepair.Install();
-                    BossTraceDropRepair.Install();
-                    BrokenVowBossRepair.Install();
-                    BossTracePickupDiagnostics.Install();
-                    HuskBossNameRepair.Install();
-                    EchoCapRepair.Install();
-                    BowgunInputRepair.Configure(_bowgunWeaponClass.Value);
-                    BowgunInputRepair.Install();
-                    if (_repairRitualAnimator.Value)
-                    {
-                        RitualAnimatorRepair.Install();
-                        RitualViewRepair.Install();
-                    }
-                    LoggerInstance.Msg("[runtime-unlock] 本轮临时解锁；不调用完成任务或写入存档接口。先在城里测试动作，再献祭进入首Boss。");
+                    BossTraceDropApi.ResetToDefault();
+                    LoggerInstance.Warning("[boss-traces] invalid configuration; using default=" + BossTraceDropApi.DefaultAmount);
                 }
-                else if (mode == "probe")
+                BrokenWarrickMusicGuard.Install(message => LoggerInstance.Msg(message), message => LoggerInstance.Error(message));
+                try
                 {
-                    ProbeIl2CppAssemblies();
-                    ProbeFrameAccess();
-                    LoggerInstance.Msg("[unlock] mode=probe：只做类型探测，不调用解锁接口。");
+                    RuntimeUnlock.Install(message => LoggerInstance.Msg(message), message => LoggerInstance.Error(message));
                 }
-                else
+                catch (Exception installError)
                 {
-                    LoggerInstance.Error($"[unlock] mode='{_mode.Value}' 本轮停用；仅支持 probe / runtime-unlock。未安装解锁补丁。");
+                    try { BrokenWarrickMusicGuard.Dispose(); }
+                    catch (Exception rollbackError) { throw new AggregateException(installError, rollbackError); }
+                    throw;
                 }
+                _runtimeActive = true;
+                WarrickPhase2TargetRepair.Install(message => LoggerInstance.Msg(message), message => LoggerInstance.Error(message));
+                _phase2RepairActive = true;
+                // Detailed motion sampling is disabled in the player build.
+                BossRushProgressionRepair.Install();
+                BossTraceDropRepair.Install();
+                BrokenVowBossRepair.Install();
+                BossTracePickupDiagnostics.Install();
+                HuskBossNameRepair.Install();
+                EchoCapRepair.Install();
+                BowgunInputRepair.Configure(BowgunWeaponClass);
+                BowgunInputRepair.Install();
+                RitualAnimatorRepair.Install();
+                RitualViewRepair.Install();
+                LoggerInstance.Msg("[runtime-unlock] 本轮临时解锁；不调用完成任务或写入存档接口。先在城里测试动作，再献祭进入首Boss。");
             }
             catch (Exception error)
             {
@@ -240,13 +197,13 @@ namespace CrucibleUnlock
 
         private void StartMotionTrace()
         {
-            string path = Path.Combine(Path.GetFullPath(_motionTraceDirectory.Value),
+            string path = Path.Combine(Path.GetFullPath(Path.Combine(_baseDirectory, "motion-logs")),
                 "boss-motion-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-pid" + Process.GetCurrentProcess().Id + ".jsonl");
             try
             {
                 _motionSink = new MotionTraceSink(path);
                 var start = _motionSink.NewRecord("trace_started");
-                start.note = "CrucibleUnlock 0.9.5-husk-hud-candidate; build 22928553; hook-free motion sampling; ritual/progression hooks logged separately; phase2 target repair enabled=" + _repairWarrickPhase2Target.Value + "; per-entity action target application reported in loader log; raw/interpolated/simulation-frame/teleport unknown";
+                start.note = "CrucibleUnlock 0.9.17-player-defaults; build 22928553; hook-free motion sampling; ritual/progression hooks logged separately; phase2 target repair enabled=True; per-entity action target application reported in loader log; raw/interpolated/simulation-frame/teleport unknown";
                 _motionSink.TryWrite(start);
                 BossMotionTrace.Install(_motionSink, message => LoggerInstance.Msg(message), message => LoggerInstance.Error(message));
                 _motionActive = true;
@@ -283,7 +240,7 @@ namespace CrucibleUnlock
 
         private void RunUnlockFlow()
         {
-            string mode = (_mode.Value ?? "probe").Trim().ToLowerInvariant();
+            string mode = RuntimeMode;
             if (mode == "probe")
             {
                 LoggerInstance.Msg("[unlock] mode=probe：只做探测，不解析也不调用任何解锁接口。");
@@ -291,7 +248,7 @@ namespace CrucibleUnlock
             }
             if (mode != "unlock" && mode != "unlock-dry")
             {
-                LoggerInstance.Error($"[unlock] 未知 mode='{_mode.Value}'；可选 probe / unlock-dry / unlock。本次不做任何事。");
+                LoggerInstance.Error($"[unlock] 未知 mode='{RuntimeMode}'；可选 probe / unlock-dry / unlock。本次不做任何事。");
                 return;
             }
 
