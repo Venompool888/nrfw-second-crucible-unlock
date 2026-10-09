@@ -21,6 +21,7 @@ namespace CrucibleUnlock
             }
         }
         internal const string Prefix = "NRFW.SecondBowlBlood.";
+        internal const string ThirdPrefix = "NRFW.ThirdBowlBlood.";
         internal sealed class Layout
         {
             public int Version { get; set; }
@@ -38,11 +39,13 @@ namespace CrucibleUnlock
             public string RawSha256 { get; set; }
             public int? SourceColorSpace { get; set; }
         }
-        internal static Stream Open(string name) => typeof(RitualBloodRouteData).Assembly.GetManifestResourceStream(Prefix + name)
+        internal static Stream Open(string name) => Open(Prefix, name);
+        internal static Stream Open(string prefix, string name) => typeof(RitualBloodRouteData).Assembly.GetManifestResourceStream(prefix + name)
             ?? throw new InvalidDataException("Missing blood route resource: " + name);
-        internal static Layout ReadLayout()
+        internal static Layout ReadLayout() => ReadLayout(Prefix);
+        internal static Layout ReadLayout(string prefix)
         {
-            using var stream = Open("layout.json");
+            using var stream = Open(prefix, "layout.json");
             var layout = JsonSerializer.Deserialize<Layout>(stream);
             if (layout == null || layout.Version != 1 || layout.Position?.Length != 3 || layout.Rotation?.Length != 4 ||
                 layout.Scale?.Length != 3 || layout.Textures?.Length != 6 ||
@@ -55,9 +58,10 @@ namespace CrucibleUnlock
                         throw new InvalidDataException("Invalid blood route map set");
             return layout;
         }
-        internal static byte[] ReadPixels(Map map)
+        internal static byte[] ReadPixels(Map map) => ReadPixels(Prefix, map);
+        internal static byte[] ReadPixels(string prefix, Map map)
         {
-            using var stream = Open(map.Resource);
+            using var stream = Open(prefix, map.Resource);
             using var gzip = new GZipStream(stream, CompressionMode.Decompress);
             using var decoded = new MemoryStream();
             gzip.CopyTo(decoded);

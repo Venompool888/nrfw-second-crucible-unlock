@@ -10,7 +10,7 @@ using UObject = UnityEngine.Object;
 
 namespace CrucibleUnlock
 {
-    // The installed second bowl has no offering ActionView, resolver links or blood decals.
+    // The installed second and third bowls have no offering ActionView, resolver links or blood decals.
     // Reuse the first bowl's scene-owned presentation without changing Quantum actions/assets.
     internal static class RitualViewRepair
     {
@@ -27,7 +27,7 @@ namespace CrucibleUnlock
                 TrialRepairLog.Patch(h, typeof(EntityView), "GetActionView", new[] { typeof(ActionData), typeof(bool).MakeByRefType() },
                     typeof(RitualViewRepair), postfix: nameof(AfterGetActionView), returnType: typeof(ActionView));
                 _harmony = h; _enabled = true;
-                TrialRepairLog.Write("[ritual-view] installed missing second-bowl offering view repair; first-bowl scene template only");
+                TrialRepairLog.Write("[ritual-view] installed missing bowl offering view repair; second always, third only when custom entry ready; first-bowl scene template only");
             }
             catch { _enabled = false; h.UnpatchSelf(); throw; }
         }
@@ -45,7 +45,9 @@ namespace CrucibleUnlock
             try
             {
                 bowl = __instance.TryCast<GeneralInteractableView>();
-                if (bowl == null || bowl.Data?.Name != "secondStatueBowlInteraction" ||
+                bool third = bowl?.Data?.Name == "thirdStatueBowlInteraction";
+                bool thirdReady = third && ThirdTrialEntry.CurrentViewsReady;
+                if (bowl == null || (bowl.Data?.Name != "secondStatueBowlInteraction" && !thirdReady) ||
                     bowl.DataAsset.Id.Value != RitualViewPolicy.BowlDataGuid || !bowl.IsBoundToEntity) return;
 
                 GeneralInteractableView first = null;
@@ -64,19 +66,23 @@ namespace CrucibleUnlock
                         { first = candidate; template = view; ++count; }
                 }
                 bool sameScene = first != null && first.gameObject.scene.handle == bowl.gameObject.scene.handle;
-                if (!RitualViewPolicy.ShouldCreate(__0.Guid.Value, bowl.DataAsset.Id.Value, bowl.Data.Name, true,
-                    bowl.IsBoundToEntity, count, sameScene)) throw new InvalidOperationException("Offering template count=" + count);
+                bool allowed = third
+                    ? RitualViewPolicy.ShouldCreateThird(__0.Guid.Value, bowl.DataAsset.Id.Value, bowl.Data.Name, true,
+                        bowl.IsBoundToEntity, count, sameScene, thirdReady)
+                    : RitualViewPolicy.ShouldCreate(__0.Guid.Value, bowl.DataAsset.Id.Value, bowl.Data.Name, true,
+                        bowl.IsBoundToEntity, count, sameScene);
+                if (!allowed) throw new InvalidOperationException("Offering template count=" + count);
 
                 stage = "copy-resolver";
                 original = bowl.m_dataResolver;
                 if (original?.SerializedDataItems != null && original.SerializedDataItems.Count != 0)
-                    throw new InvalidOperationException("Second bowl resolver is no longer empty");
+                    throw new InvalidOperationException("Target bowl resolver is no longer empty");
                 installed = CopyResolver(first, bowl);
                 bowl.m_dataResolver = installed;
 
                 // Keep the new hierarchy inactive until every external reference is retargeted.
                 stage = "parent-inactive-root";
-                root = new GameObject("NRFW_SecondBowlOffering");
+                root = new GameObject(third ? "NRFW_ThirdBowlOffering" : "NRFW_SecondBowlOffering");
                 root.SetActive(false);
                 // Moon's Unity build only exports the three-argument overload; the two-argument
                 // generated method is a literal NotSupportedException (unstripping failed) stub.
@@ -111,7 +117,7 @@ namespace CrucibleUnlock
                     decalMap.Add(source.gameObject.Pointer, copy);
                 }
                 stage = "adapt-blood-route";
-                bool bloodAligned = RitualBloodRoute.TryApply(firstModel, decalMap);
+                bool bloodAligned = RitualBloodRoute.TryApply(firstModel, decalMap, third);
                 stage = "bind-tracks";
                 foreach (var record in records)
                 {
@@ -153,7 +159,7 @@ namespace CrucibleUnlock
                 registering = true;
                 bowl.RegisterActionView(cloned);
                 __result = cloned;
-                TrialRepairLog.Write("[ritual-view] CREATED bowl=" + bowl.EntityRef.Raw + "; view=" + cloned.Pointer +
+                TrialRepairLog.Write("[ritual-view] CREATED target=" + bowl.Data.Name + "; bowl=" + bowl.EntityRef.Raw + "; view=" + cloned.Pointer +
                     "; template=" + template.Pointer + "; tracks=9; handVfx=2; bowlDecals=" + decals.Count + "; bloodRouteAligned=" + bloodAligned + "; original timeline retained");
             }
             catch (Exception e)

@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Text.Json;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(CrucibleUnlock.ModMain), "Crucible Unlock", "0.9.16-bowgun-view-repair-r2", "NRFW research", "")]
+[assembly: MelonInfo(typeof(CrucibleUnlock.ModMain), "Crucible Unlock", "0.9.16-third-trial-candidate", "NRFW research", "")]
 [assembly: MelonGame("Moon Studios", "NoRestForTheWicked")]
 [assembly: MelonAdditionalDependencies("0Harmony")]
 
@@ -93,6 +93,7 @@ namespace CrucibleUnlock
         private MelonPreferences_Entry<bool> _traceBossMotion;
         private MelonPreferences_Entry<bool> _repairWarrickPhase2Target;
         private MelonPreferences_Entry<bool> _repairBossRushProgression, _repairRitualAnimator;
+        private MelonPreferences_Entry<bool> _thirdTrial;
         private MelonPreferences_Entry<int> _bossTraceDropAmount;
         private MelonPreferences_Entry<string> _motionTraceDirectory;
         private MelonPreferences_Entry<int> _bowgunWeaponClass;
@@ -114,6 +115,8 @@ namespace CrucibleUnlock
                 "第二试炼清场修复", "开层时调用原生SetFloor，沿用原生清场、提示、交互与转场");
             _repairRitualAnimator = category.CreateEntry("repair_ritual_animator", true,
                 "献祭动作角色绑定修复", "只在献祭轨绑定缺失或错误时临时指向当前献祭角色，结束恢复");
+            _thirdTrial=category.CreateEntry("third_trial_restored_enemies",true,
+                "第三试炼恢复敌人", "十个普通竞技场，每房一种恢复敌人，官方刷怪/清场；重启生效，不写任务或存档");
             _bossTraceDropAmount = category.CreateEntry("boss_trace_drop_amount", BossTraceDropApi.DefaultAmount,
                 "第二试炼 Boss 痕迹掉落数量", "每个 Boss 原生痕迹掉落基数，0关闭，允许0至1000；多人修正沿用原生规则；重启生效");
             _guardBrokenWarrickMusic = category.CreateEntry("guard_broken_warrick_music", false,
@@ -129,7 +132,7 @@ namespace CrucibleUnlock
                 "弩枪武器类别（动画）", "写入强化弩枪 WeaponStaticData.Class（原生偏移 0x128）：30=Crossbow、21=Greatbow、20=Bow、0=不写；重启生效");
 
             LoggerInstance.Msg("=====================================================");
-            LoggerInstance.Msg("Crucible Unlock 0.9.16-bowgun-view-repair-r2 已加载");
+            LoggerInstance.Msg("Crucible Unlock 0.9.16-third-trial-candidate 已加载");
             LoggerInstance.Msg($"MelonLoader: {typeof(MelonMod).Assembly.GetName().Version}");
             LoggerInstance.Msg($"CLR: {Environment.Version}  64bit={Environment.Is64BitProcess}");
             LoggerInstance.Msg($"mode = {_mode.Value}   目录 = {_baseDirectory}");
@@ -187,12 +190,32 @@ namespace CrucibleUnlock
                     EchoCapRepair.Install();
                     BowgunInputRepair.Configure(_bowgunWeaponClass.Value);
                     BowgunInputRepair.Install();
+                    if(_thirdTrial.Value)
+                    {
+                        try
+                        {
+                            // Seal the stripped official Horde entrance before any
+                            // fallible dependency installation can leave it available.
+                            ThirdTrialEntry.Install(ThirdTrialRuntime.ResolveReadyPlaylist,
+                                ()=>ThirdTrialRuntime.Enabled && EnemyRestorationRuntime.CurrentViewsReady,
+                                message=>LoggerInstance.Msg(message),message=>LoggerInstance.Error(message));
+                            EnemyRestorationRuntime.Install(_baseDirectory,attachSimulationHook:false);
+                            ThirdTrialRuntime.Install();
+                            ThirdTrialSpawning.Install(message=>LoggerInstance.Msg(message),message=>LoggerInstance.Error(message));
+                        }
+                        catch(Exception error)
+                        {
+                            ThirdTrialRuntime.Fail("module setup failed: "+error);
+                            EnemyRestorationRuntime.StopWithoutUnityReads();
+                            LoggerInstance.Error("[third-trial] module unavailable: "+error);
+                        }
+                    }
                     if (_repairRitualAnimator.Value)
                     {
                         RitualAnimatorRepair.Install();
                         RitualViewRepair.Install();
                     }
-                    LoggerInstance.Msg("[runtime-unlock] 本轮临时解锁；不调用完成任务或写入存档接口。先在城里测试动作，再献祭进入首Boss。");
+                    LoggerInstance.Msg("[runtime-unlock] 临时开放第二试炼；第三试炼开关="+_thirdTrial.Value+"，资产/视图/缓存就绪后开放；不调用完成任务或写入存档接口。");
                 }
                 else if (mode == "probe")
                 {
@@ -216,6 +239,7 @@ namespace CrucibleUnlock
             BowgunInputRepair.UpdateLocalHero();
             TrialRepairLog.Flush(message => LoggerInstance.Msg(message));
             if (_runtimeActive) RuntimeUnlock.Flush();
+            ThirdTrialEntry.Flush();
             if (_motionSink != null && Stopwatch.GetTimestamp() - _lastMotionHealth >= 5L * Stopwatch.Frequency)
             {
                 _lastMotionHealth = Stopwatch.GetTimestamp();
@@ -264,6 +288,11 @@ namespace CrucibleUnlock
         {
             _phase2RepairActive = false;
             WarrickPhase2TargetRepair.StopWithoutUnityReads();
+            ThirdTrialEntry.StopWithoutUnityReads();
+            ThirdTrialSpawning.StopWithoutNativeReads();
+            ThirdTrialRuntime.StopWithoutNativeReads();
+            EnemyRestorationRuntime.StopWithoutUnityReads();
+            ThirdTrialEntry.Flush();
             if (_runtimeActive) RuntimeUnlock.Flush();
             if (_motionSink != null)
             {
