@@ -1,10 +1,12 @@
 # 第三试炼恢复敌人候选
 
-当前已安装R6：R5实机第三献祭、路线和模型/战斗缓存已通过，刷怪在首回调因误把新NPC spawner当原始出生点而封闭。R6保持原8byte Spawn接口，通过Identity.Scope回源并交叉核对两份IntegrationGroup，再沿原白名单/房间归属改NPC参数；postfix有限记录原生保存的NPCref及返回entity，预测/确认帧分别记录，诊断不改变生成或控制。原生时序见 [R5刷怪来源证据](../../artifacts/third-launch/r5-empty-room-native-review.md)。最终真实源码刷怪回归50项通过（冻结R5同harness50项/37失败），其它Runtime87/Views101/ThirdRuntime423/storage154/entry33/presentation41和policy通过，7目标8callback及弩枪/JIT/unsafe/stub审计通过，Release0警告0错误。实际敌人、清层、奖励和重进须R6新会话用户验证。
+当前已安装 R13，源码 f8327558a1e99fa07582bb9924f1dd6e66d61abe，按本轮既有授权于 2026-10-10 06:33:00 UTC 通过 Steam 启动。R12 用户游玩已记录十类敌人 verified 刷新，动作基本完整；R13 补大剑守卫特效归属与剑类格挡反应，并添加只读音频诊断。R13 实机特效/声音仍待用户确认。最新状态见 [安装记录](../../artifacts/third-launch/current-installation.json)，下列旧版文字为历史证据。
+
+R6历史安装：R5实机第三献祭、路线和模型/战斗缓存已通过，刷怪在首回调因误把新NPC spawner当原始出生点而封闭。R6保持原8byte Spawn接口，通过Identity.Scope回源并交叉核对两份IntegrationGroup，再沿原白名单/房间归属改NPC参数；postfix有限记录原生保存的NPCref及返回entity，预测/确认帧分别记录，诊断不改变生成或控制。原生时序见 [R5刷怪来源证据](../../artifacts/third-launch/r5-empty-room-native-review.md)。最终真实源码刷怪回归50项通过（冻结R5同harness50项/37失败），其它Runtime87/Views101/ThirdRuntime423/storage154/entry33/presentation41和policy通过，7目标8callback及弩枪/JIT/unsafe/stub审计通过，Release0警告0错误。实际敌人、清层、奖励和重进须R6新会话用户验证。
 
 R6代码f543a25e9096a84682804dc4189aa6a338bdc0d4，DLL SHA256 fa0295c5745a532b06b010fe219788a0587dc1f3813352038dfc9fdc375e3886，zip SHA256 29069ea097c1898c4a8623de0a1aaa38a3b3453ef3b5a55009234c86c1ec1f85。18:48:26 UTC备份校验并安装，18:48:57 UTC按已有授权Steam启动；记录/回滚位于artifacts/third-launch/installation-r6-20261009T184826534Z，实际新会话看artifacts/third-launch/log-review-r6.md。冻结包初次回归48项；后续两项纯诊断补充的50项最终记录另存artifacts/third-launch/r6-final-spawn-validation.json，生产源码/DLL未改变。
 
-当前修复候选为R5，接续同一任务分支和9186fe3基线；后来正式main 7db4e4a尚未同步或合并。R4主线程视图注册成功后，进入世界在私有View GUID -611686018427387902发生foreign runtime cache collision，第三入口关闭；R4于18:11:27 UTC正常退出。
+R5历史修复候选，接续同一任务分支和9186fe3基线；后来正式main 7db4e4a尚未同步或合并。R4主线程视图注册成功后，进入世界在私有View GUID -611686018427387902发生foreign runtime cache collision，第三入口关闭；R4于18:11:27 UTC正常退出。
 
 R5代码提交4e29d9aa6b22a6fb7f4a12cb82f0e707d4e1071a；候选DLL SHA256 e98b83fa2193bb5d67f06994de474a57547cc8e0545b3ed36611f23526489518，zip SHA256 34ab0869f1986cc9b610b80c7035e0448f26221021db07d29215349dd2f1ce78。18:28:10 UTC已安装，18:28:30 UTC依原授权Steam启动，PID16916；启动/helper/build guard通过，等待用户本人进入世界和第三献祭。备份及直接恢复试玩前0.9.17的rollback位于artifacts/third-launch/installation-r5-20261009T182810267Z，详细本次运行以artifacts/third-launch/log-review-r5.md为准。
 
@@ -181,3 +183,7 @@ Latest仍等simulation views publication，Player到SteamLogin/IntroSequence；�
 最终 Release 构建 0警告/0错误，实际源码托管依赖假实现共432项通过（Keeper38、Hooks41、Runtime108、Reaction222、Audio23）；第三钩子13回调/12目标 ABI、献祭顺序/71字节回调/无原生数组枚举、已知不安全 interop 与流程 policy 均通过。冻结 R12 真实反应源码在新增格挡用例中按预期失败；独立复核无剩余可执行缺陷。静态/假实现检查不执行游戏 DLL，也不算本版实机验证。发行 DLL SHA256：46686ca520a3754e7821b6c7e22f9e236ddb015a58b114bdebacb39f0f8144f8。
 
 源码、构建与证据详见任务 artifacts/third-launch/r13-final-checks.json、r13-keeper-review/r13-final-review.md、r12-audio-review/reaction-weapon-animator-cache-abi.md、r12-vfx-review/r13-canonical-blocked-reaction.md。测试包与后续安装/启动状态以 dist/third-trial-20261010-r13/verification.json 和 current-installation.json 为准。未合 main，声音/特效完整性仍待用户实机确认。
+
+R13 已于 2026-10-10 06:32:34 UTC 备份切换、06:33:00 UTC 按既有授权通过 Steam 启动，PID35704；安装/备份/直接恢复试玩前0.9.17的回滚记录为 artifacts/third-launch/installation-r13-20261010T063232716Z/。原游戏文件与其他三个自研插件逐项hash保持；当前完整配置值与计划一致，未改源存档。源码 f8327558a1e99fa07582bb9924f1dd6e66d61abe，冻结zip SHA256 8edf73da8071c3c45f03c823db6622789c4e83eb8a93b495a7188b1ec33f7e39（1541841bytes）。
+
+06:34:10 UTC 快照中，实际R13版本/DLL hash匹配，进程Responding；早期三helper与晚期三helper各自ready，恢复动作/音频诊断钩子及献祭视图钩子installed，十棵TREE、SIMULATION VIEWS PUBLISHED、SIMULATION READY通过。仍等待official pooled prefab LUT，VIEWS READY和进入世界尚未观察；ENTRY、献祭、实际spawn、Keeper特效和音频运行事件均0，不能把安装marker算作玩法触发。本检查窗口无fatal/exception及Windows1000/1001/1023事件。详见 artifacts/third-launch/log-review-r13.md；runtime_verified保持false，完整特效/声音由用户游玩验证。未合main。
