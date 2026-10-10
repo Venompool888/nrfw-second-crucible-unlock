@@ -187,3 +187,13 @@ Latest仍等simulation views publication，Player到SteamLogin/IntroSequence；�
 R13 已于 2026-10-10 06:32:34 UTC 备份切换、06:33:00 UTC 按既有授权通过 Steam 启动，PID35704；安装/备份/直接恢复试玩前0.9.17的回滚记录为 artifacts/third-launch/installation-r13-20261010T063232716Z/。原游戏文件与其他三个自研插件逐项hash保持；当前完整配置值与计划一致，未改源存档。源码 f8327558a1e99fa07582bb9924f1dd6e66d61abe，冻结zip SHA256 8edf73da8071c3c45f03c823db6622789c4e83eb8a93b495a7188b1ec33f7e39（1541841bytes）。
 
 06:34:10 UTC 快照中，实际R13版本/DLL hash匹配，进程Responding；早期三helper与晚期三helper各自ready，恢复动作/音频诊断钩子及献祭视图钩子installed，十棵TREE、SIMULATION VIEWS PUBLISHED、SIMULATION READY通过。仍等待official pooled prefab LUT，VIEWS READY和进入世界尚未观察；ENTRY、献祭、实际spawn、Keeper特效和音频运行事件均0，不能把安装marker算作玩法触发。本检查窗口无fatal/exception及Windows1000/1001/1023事件。详见 artifacts/third-launch/log-review-r13.md；runtime_verified保持false，完整特效/声音由用户游玩验证。未合main。
+
+## R13 武器回归与 R14 单项修复
+
+R13 用户报告声音未明显改善且敌人手持武器消失。实际R13日志在06:38:02 UTC记录Keeper装备桥调用双参数Transform.SetParent时抛Method unstripping failed；冻结DLL/当前generated IL均证明该重载只抛异常，克隆在原生接管前被清理，原装备请求仍被拦截。这是本版引入的确定装备回归；将它对应到用户屏幕中那只敌人仍是依据时间/profile的推断。五类敌人刷新verified并不证明装备完成。完整证据保存在 artifacts/third-launch/r13-playthrough-regression-evidence/。
+
+R14只把该调用换为出货原生三参数SetParent(parent,false,false)，保持局部姿态、正常transform通知、初始化前父角色归属。假实现现在让双参数接口像实物一样抛错，R13真实源码39项/17失败，R14真实源码39项/0失败。第三hook PE审计增加全参数签名的占位接口拦截；冻结R13准确RED1，新R14扫描插件引用且实际供应的16个generated依赖为0。未执行游戏DLL。边界为实际供应依赖、标准leading unstripping message和direct TypeReference引用，不能把它当所有ABI安全证明。
+
+Release0警告0错误，新跑五套实际源码托管检查433项全部通过；第三13回调/12目标、献祭早/晚完整准备顺序和71字节回调/无原生数组枚举、已知unsafe及流程policy通过，独立源码复核无可操作问题。DLL SHA256 39835bd42d16aff082e1c0f79afa0443ea4d1b3384659b3f405d7972ff4cc3be。R13失败包/日志和R12可游玩包保留，不合main。
+
+四条R13装备音频记录owner=0不能认定缺声原因：原生OnEquip先设武器收起，后续UpdateEquipment拔刀才进入OnUnsheathed/SetOwnerParameters。攻击声音另有WeaponSoundHostIsReady门控，装备时非空host/event不证明实际就绪或播放。静态复核已更正此前“装备立即拔刀”的误述；R14不强改Owner或音频事件，声音完整性未修复/未验收。详细生命周期见 artifacts/third-launch/r13-playthrough-regression-evidence/regression-review/r13-audio-lifecycle-review.md。

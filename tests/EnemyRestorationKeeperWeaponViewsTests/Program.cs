@@ -119,6 +119,9 @@ Check(EnemyRestorationKeeperWeaponViews.TryEquip(fourthOwner, fourthItem, true, 
 Check(fourthClone.transform.parent?.Pointer == fourthOwner.transform.Pointer &&
     fourthClone.Weapon.m_meleeEffects[0].m_characterView?.Pointer == fourthOwner.Pointer,
     "Keeper clone has official owner parent before native first MeleeEffects.Init");
+Check(fourthClone.transform.NativeParentCalls == 1 &&
+    !fourthClone.transform.NativeWorldPositionStays && !fourthClone.transform.NativeDisableTransformMessage,
+    "Keeper uses shipped native three-argument parenting before Equip with local pose and normal messages");
 Check(fourthClone.Weapon.AudioCompanion.WeaponSoundHost != null,
     "Native weapon companion/host remains available for diagnostics");
 Check(fourthPool.LastParent.Pointer == fourthOwner.transform.Pointer &&
@@ -148,9 +151,9 @@ foreach (bool firstWins in new[] { false, true })
     Check(EnemyRestorationKeeperWeaponViews.TryEquip(duplicateOwner, duplicateItem, true, catalog) &&
         TrialRepairLog.Messages.Count(x => x.Contains("keeper weapon view equipped")) == successBefore + 1,
         "Shipped duplicate Thrust accepts either native clone-owned winner: first=" + firstWins);
-    var winner = duplicateOwner.m_actionViewMap[new AssetGuid { Value = attacks[3] }];
-    Check(winner.Pointer == (firstWins ? duplicateClone.Weapon.m_actionViews[3].Pointer : duplicate.Pointer) &&
-        duplicateOwner.MainWeaponView.Pointer == duplicateClone.Weapon.Pointer && duplicateClone.activeSelf,
+    duplicateOwner.m_actionViewMap.TryGetValue(new AssetGuid { Value = attacks[3] }, out var winner);
+    Check(winner?.Pointer == (firstWins ? duplicateClone.Weapon.m_actionViews[3].Pointer : duplicate.Pointer) &&
+        duplicateOwner.MainWeaponView?.Pointer == duplicateClone.Weapon.Pointer && duplicateClone.activeSelf,
         "Verification preserves native registration choice and equipped clone: first=" + firstWins);
 
     var verify = typeof(EnemyRestorationKeeperWeaponViews).GetMethod("VerifyEquippedActionViews",

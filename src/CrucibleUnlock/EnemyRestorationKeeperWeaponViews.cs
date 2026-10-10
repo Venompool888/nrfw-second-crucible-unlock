@@ -147,7 +147,9 @@ namespace CrucibleUnlock
                 cloneWeapon = clone.GetComponent(Il2CppType.Of<EnemyWeaponView>())?.TryCast<EnemyWeaponView>();
                 if (cloneWeapon == null || cloneWeapon.WeaponData.Id.Value != WeaponGuid)
                     throw new InvalidOperationException("Cloned keeper weapon root lost its native binding.");
-                clone.transform.SetParent(view.transform, false);
+                // The two-argument overload is a throwing unstripping stub in
+                // this build. Use the shipped native overload with messages on.
+                clone.transform.SetParent(view.transform, false, false);
                 // The official pool callback performs this single state write.
                 cloneWeapon.OnInstantiatedFromPool();
                 if (!clone.activeSelf) clone.SetActive(true);

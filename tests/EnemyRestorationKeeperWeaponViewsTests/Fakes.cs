@@ -28,10 +28,17 @@ namespace UnityEngine
         public Transform root;
         public Transform parent;
         public bool ThrowDuringSetParent;
+        public int NativeParentCalls;
+        public bool NativeWorldPositionStays, NativeDisableTransformMessage;
         public GameObject gameObject;
         public void SetParent(Transform value, bool worldPositionStays)
+            => throw new NotSupportedException("Method unstripping failed");
+        public void SetParent(Transform value, bool worldPositionStays, bool disableTransformMessage)
         {
             if (ThrowDuringSetParent) throw new InvalidOperationException("native SetParent failed");
+            ++NativeParentCalls;
+            NativeWorldPositionStays = worldPositionStays;
+            NativeDisableTransformMessage = disableTransformMessage;
             parent = value;
         }
     }

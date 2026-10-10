@@ -21,6 +21,36 @@ var hooks=new[] {
  new Spec("Il2Cpp__forsaken","Il2CppMoon.Forsaken.HumanoidEnemyView","OnItemViewInstantiated","Void",new[]{"UnityEngine.GameObject","Il2Cpp.EnemyItemDataBaseAsset","System.Boolean"},"EnemyRestorationActionHooks","AfterItemViewInstantiated",false)
 };
 using var pluginFile=File.OpenRead(args[1]);using var pluginPe=new PEReader(pluginFile);var plugin=pluginPe.GetMetadataReader();
+// A signature can exist while its generated implementation only throws.
+// Audit every supplied generated assembly referenced by this plugin before
+// treating hook/clone method signatures as usable native bridges.
+var stubs=new HashSet<string>();
+int inspectedDependencies=0;
+foreach(var reference in plugin.AssemblyReferences) {
+ var dependencyPath=Path.Combine(args[0],plugin.GetString(plugin.GetAssemblyReference(reference).Name)+".dll");
+ if(!File.Exists(dependencyPath))continue; // CLR/loader references live elsewhere.
+ using var dependencyFile=File.OpenRead(dependencyPath);using var dependencyPe=new PEReader(dependencyFile);
+ var dependency=dependencyPe.GetMetadataReader();++inspectedDependencies;
+ foreach(var th in dependency.TypeDefinitions)foreach(var mh in dependency.GetTypeDefinition(th).GetMethods()) {
+  var method=dependency.GetMethodDefinition(mh);if(method.RelativeVirtualAddress==0)continue;
+  var il=dependencyPe.GetMethodBody(method.RelativeVirtualAddress).GetILBytes();
+  if(il.Length<5||il[0]!=0x72||(BitConverter.ToInt32(il,1)&unchecked((int)0xff000000))!=0x70000000)continue;
+  var message=dependency.GetUserString(MetadataTokens.UserStringHandle(BitConverter.ToInt32(il,1)&0xffffff));
+  if(!message.Contains("unstripping failed",StringComparison.Ordinal))continue;
+  var sig=method.DecodeSignature(provider,(object)null);
+  stubs.Add(provider.GetTypeFromDefinition(dependency,th,0)+"::"+dependency.GetString(method.Name)+"("+string.Join(",",sig.ParameterTypes)+")");
+ }
+}
+int stubFailures=0;
+foreach(var mh in plugin.MemberReferences) {
+ var method=plugin.GetMemberReference(mh);
+ if(method.GetKind()!=MemberReferenceKind.Method||method.Parent.Kind!=HandleKind.TypeReference)continue;
+ var sig=method.DecodeMethodSignature(provider,(object)null);
+ var key=provider.GetTypeFromReference(plugin,(TypeReferenceHandle)method.Parent,0)+"::"+plugin.GetString(method.Name)+"("+string.Join(",",sig.ParameterTypes)+")";
+ if(stubs.Contains(key)){++stubFailures;Console.WriteLine("FAIL: compiled plugin references throwing interop stub "+key);}
+}
+if(stubFailures!=0){Environment.ExitCode=1;return;}
+Console.WriteLine("PASS: throwing interop stub references=0; generated dependencies inspected="+inspectedDependencies+"; PE metadata only.");
 foreach(var hook in hooks) {
  using var file=File.OpenRead(Path.Combine(args[0],hook.Assembly+".dll"));using var pe=new PEReader(file);var reader=pe.GetMetadataReader();
  var type=reader.TypeDefinitions.Single(t=>provider.GetTypeFromDefinition(reader,t,0)==hook.Type);
