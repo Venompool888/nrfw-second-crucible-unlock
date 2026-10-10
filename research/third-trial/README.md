@@ -143,3 +143,13 @@ R11只替换献祭修复的组件发现路径与启动诊断，六份敌人武�
 FindOfferingTemplate、CopyResolver和完整RepairOffering均在Patch前PrepareMethod，三段启动日志直接由loader线程输出。保留预编译以避免把同类风险推迟至献祭；ModMain此前先flush已有诊断。所用非泛型GetComponent与Transform调用经生成PE元数据确认有真实runtime_invoke实现，未执行游戏DLL。
 
 Release0warning0error，DLL `7d2f63b7c1d8dc4f30a43791eef6e26e9a1c9a5a7512a3679c3d8b5c19ca0db6`；本版新跑13组通过：实际发现源码15项、policy含献祭/血流范围、Ritual PE、第三12回调/11原生target、unsafe及8组dependency stub。扩展Ritual PE检查冻结R10 RED8原生数组引用，R11 GREEN0；回调71ILbytes、0原生枚举器。未改模块的R10验证以源hash校验后引用，不计作本次新跑。离线结果不证明实机JIT或动画已修复；安装及新会话结果以current-installation为准。任务未合main。
+
+R11源码 `b624f2f6a784ab7ac48f010935abe77e61de181b`，zip `cd4b508dd51e1c7b8d3e6ab765fff05e43bc98e200e8981113345dd90452d3d9`（1538820bytes）。05:24:22 UTC备份切换、05:24:42 UTC授权Steam启动；本次PID34760在05:24:52 UTC再次CoreCLR 80131506/c0000005自动退出。直接日志确认enemy-animation helper prepared及hook installed，最后到FindOfferingTemplate preparing，无ready。新会话 [Luna复核](../../artifacts/third-launch/log-review-r11.md) 与 [R11转储](../../artifacts/third-launch/r11-crash-evidence/native-jit-review.md) 留存，实际玩法未触发。
+
+R11转储SHA256 `d908e78ab607a2bab4f75053302de79828f5698553112fa61c3f4f960497a2ef`，SOS仍Ritual.Install→PrepareMethod。原生寄存器与匹配CoreCLR指令证明当前slot21的父MethodDesc为空；没有当前/父MethodTable，不能命名唯一故障类型。Find已无原生数组，因此“仅移除数组即可消除fatal”不成立。GeneralInteractableView的CLR继承链包含EntityView；按完整父链与NewSlot顺序估算GetActionView也是slot21，且新增恢复模块在Find预编译前重patch该target，是更具体的顺序候选。Stack<Transform>的标准MethodImpl也存在，但仅形状相容不是致因。详见独立 `r12-find-closure.json/.txt`。
+
+## R12：相同修复代码的预编译顺序对照
+
+R12保持FindOfferingTemplate/CopyResolver/RepairOffering三个完整body与R11 canonical IL不变，只抽独立PrepareHelpers启动预检：第三入口先封闭，再预编译三段献祭代码，随后才装新增恢复模块；原Ritual.Install仍在旧位置重复PrepareHelpers→Patch，不使用跳过flag，不改变_enabled或克隆/注册。既有Bowgun更早仍patch同一GetActionView，本对照控制的是新增恢复模块的预编译及重detour顺序，不能单独归因某一新增postfix。
+
+Release0warning0error，DLL `50adfa0a34b4f6d0121fa4199a889f01d641b2616ed7c81a39a13ef55b57403a`；新跑顺序PE、第三hook ABI与unsafe三组通过。扩展可选 `--require-early-preflight` 在冻结R11 RED2、R12 GREEN0，检查ModMain Entry.Install→PrepareHelpers→EnemyRestoration.Install的词法IL顺序，以及Ritual.Install仍通过PrepareHelpers执行RuntimeHelpers.PrepareMethod再Patch。这不执行条件分支，也不是实机兼容证明。R11未改的15项发现/policy/8dependency与R10核心动作验证通过源hash/normalized body比对后引用，不计本版新跑。安装和新会话以current-installation为准，任务不合main。

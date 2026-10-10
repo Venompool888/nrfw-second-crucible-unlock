@@ -9,9 +9,9 @@ using System.Text.Json;
 
 // PEReader and metadata decoding only. No Assembly.Load, dependency resolution,
 // inspected method invocation, or game/Unity/IL2CPP assembly reference.
-if (args.Length is < 1 or > 2)
+if (args.Length is < 1 or > 3 || (args.Length == 3 && args[2] != "--require-early-preflight"))
 {
-    Console.Error.WriteLine("Usage: RitualViewJitAudit <plugin.dll> [report.json]");
+    Console.Error.WriteLine("Usage: RitualViewJitAudit <plugin.dll> [report.json] [--require-early-preflight]");
     return 2;
 }
 string inputPath = Path.GetFullPath(args[0]);
@@ -41,6 +41,8 @@ int arrayEnumeratorReferences = 0;
 int nativeArrayReferences = 0;
 var prepareOffsets = new List<int>();
 var patchOffsets = new List<int>();
+var preflightOffsets = new List<int>();
+var helperPrepareOffsets = new List<int>();
 var opcodes = typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static)
     .Where(f => f.FieldType == typeof(OpCode)).Select(f => (OpCode)f.GetValue(null)!)
     .ToDictionary(c => unchecked((ushort)c.Value));
@@ -125,7 +127,10 @@ foreach (var handle in allMethods)
             {
                 if (described.StartsWith("System.Runtime.CompilerServices.RuntimeHelpers::PrepareMethod(", StringComparison.Ordinal)) prepareOffsets.Add(offset);
                 if (described.StartsWith("CrucibleUnlock.TrialRepairLog::Patch(", StringComparison.Ordinal)) patchOffsets.Add(offset);
+                if (described.StartsWith("CrucibleUnlock.RitualViewRepair::PrepareHelpers(", StringComparison.Ordinal)) preflightOffsets.Add(offset);
             }
+            if (owner == target && name == "PrepareHelpers" && code == OpCodes.Call &&
+                described.StartsWith("System.Runtime.CompilerServices.RuntimeHelpers::PrepareMethod(", StringComparison.Ordinal)) helperPrepareOffsets.Add(offset);
             if (name == "AfterGetActionView" && code.OperandType == OperandType.InlineMethod &&
                 helperHandles.Length == 1 && token == MetadataTokens.GetToken(helperHandles[0]) && code == OpCodes.Call)
                 callsHelper = true;
@@ -134,10 +139,54 @@ foreach (var handle in allMethods)
     }
 }
 Require(callsHelper, "Callback does not directly dispatch to the inspected RepairOffering helper.");
-Require(prepareOffsets.Count > 0, "Install does not call RuntimeHelpers.PrepareMethod.");
+bool preflightGraph = preflightOffsets.Count > 0 && helperPrepareOffsets.Count > 0;
+Require(prepareOffsets.Count > 0 || preflightGraph, "Install does not eagerly prepare helpers directly or through PrepareHelpers.");
 Require(patchOffsets.Count > 0, "Install does not call TrialRepairLog.Patch.");
-Require(prepareOffsets.Count > 0 && patchOffsets.Count > 0 && prepareOffsets.Max() < patchOffsets.Min(),
-    "Install PrepareMethod call must precede its first TrialRepairLog.Patch call in IL order.");
+var eagerOffsets = prepareOffsets.Concat(preflightGraph ? preflightOffsets : Enumerable.Empty<int>()).ToArray();
+bool eagerBeforePatch = eagerOffsets.Length > 0 && patchOffsets.Count > 0 && eagerOffsets.Max() < patchOffsets.Min();
+Require(eagerBeforePatch, "Install eager preparation must precede its first TrialRepairLog.Patch call in IL order.");
+bool earlyRequired = args.Length == 3;
+var entryOffsets = new List<int>();
+var earlyPrepareOffsets = new List<int>();
+var restorationOffsets = new List<int>();
+if (earlyRequired)
+{
+    foreach (var th in reader.TypeDefinitions.Where(h => names.Def(reader, h) == "CrucibleUnlock.ModMain"))
+    foreach (var mh in reader.GetTypeDefinition(th).GetMethods())
+    {
+        var method = reader.GetMethodDefinition(mh);
+        if (reader.GetString(method.Name) != "OnLateInitializeMelon" || method.RelativeVirtualAddress == 0) continue;
+        var il = pe.GetMethodBody(method.RelativeVirtualAddress).GetILBytes() ?? Array.Empty<byte>();
+        for (int cursor = 0; cursor < il.Length;)
+        {
+            int offset = cursor;
+            ushort opcode = il[cursor++];
+            if (opcode == 0xfe) opcode = (ushort)(0xfe00 | il[cursor++]);
+            var code = opcodes[opcode];
+            int bytes = code.OperandType switch
+            {
+                OperandType.InlineNone => 0,
+                OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+                OperandType.InlineVar => 2,
+                OperandType.InlineI8 or OperandType.InlineR => 8,
+                OperandType.InlineSwitch => checked(4 + 4 * BitConverter.ToInt32(il, cursor)),
+                _ => 4
+            };
+            if (code == OpCodes.Call && code.OperandType == OperandType.InlineMethod)
+            {
+                string called = names.Entity(reader, MetadataTokens.EntityHandle(BitConverter.ToInt32(il, cursor)));
+                if (called.StartsWith("CrucibleUnlock.ThirdTrialEntry::Install(", StringComparison.Ordinal)) entryOffsets.Add(offset);
+                if (called.StartsWith("CrucibleUnlock.RitualViewRepair::PrepareHelpers(", StringComparison.Ordinal)) earlyPrepareOffsets.Add(offset);
+                if (called.StartsWith("CrucibleUnlock.EnemyRestorationRuntime::Install(", StringComparison.Ordinal)) restorationOffsets.Add(offset);
+            }
+            cursor += bytes;
+        }
+    }
+    Require(entryOffsets.Count == 1 && earlyPrepareOffsets.Count == 1 && restorationOffsets.Count == 1 &&
+        entryOffsets[0] < earlyPrepareOffsets[0] && earlyPrepareOffsets[0] < restorationOffsets[0],
+        "Expected loader Entry.Install -> Ritual.PrepareHelpers -> EnemyRestoration.Install lexical call order.");
+    Require(preflightGraph, "Early loader preparation does not replace the required Ritual.Install preflight call.");
+}
 Require(!AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name?.StartsWith("Il2Cpp", StringComparison.OrdinalIgnoreCase) == true ||
     a.GetName().Name?.StartsWith("Unity", StringComparison.OrdinalIgnoreCase) == true), "An Il2Cpp/Unity assembly is loaded into the audit process.");
 string hash;
@@ -147,12 +196,16 @@ var report = new { input = inputPath, sha256 = hash, metadata_only = true, targe
     callback_locals = callbackLocals, callback_calls_helper = callsHelper, native_enumerator_reference_count = enumeratorReferences,
     il2cpp_array_getenumerator_reference_count = arrayEnumeratorReferences, install_preparemethod_il_offsets = prepareOffsets,
     native_array_reference_count = nativeArrayReferences,
-    install_patch_il_offsets = patchOffsets, install_prepare_before_patch = prepareOffsets.Count > 0 && patchOffsets.Count > 0 && prepareOffsets.Max() < patchOffsets.Min(),
+    install_preflight_il_offsets = preflightOffsets, preflight_preparemethod_il_offsets = helperPrepareOffsets,
+    install_patch_il_offsets = patchOffsets, install_prepare_before_patch = eagerBeforePatch,
+    early_preflight_required = earlyRequired, loader_entry_il_offsets = entryOffsets,
+    loader_ritual_preflight_il_offsets = earlyPrepareOffsets, loader_restoration_il_offsets = restorationOffsets,
     method_count = allMethods.Length, methods = observations, passed = failures.Count == 0, failures,
     limitation = "This checks emitted IL shape only. It neither executes game DLLs nor proves the CoreCLR JIT crash is fixed." };
-if (args.Length == 2) File.WriteAllText(Path.GetFullPath(args[1]), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+if (args.Length >= 2) File.WriteAllText(Path.GetFullPath(args[1]), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
 Console.WriteLine($"Callback IL: {callbackBytes?.ToString() ?? "missing"} bytes; native Enumerator references: {enumeratorReferences}; array GetEnumerator references: {arrayEnumeratorReferences}; native array references: {nativeArrayReferences}; inspected methods: {allMethods.Length}.");
 Console.WriteLine("Install PrepareMethod offsets: " + string.Join(",", prepareOffsets.Select(x => $"IL_{x:x4}")) + "; Patch offsets: " + string.Join(",", patchOffsets.Select(x => $"IL_{x:x4}")) + ".");
+Console.WriteLine("Install PrepareHelpers offsets: " + string.Join(",", preflightOffsets.Select(x => $"IL_{x:x4}")) + "; PrepareHelpers PrepareMethod offsets: " + string.Join(",", helperPrepareOffsets.Select(x => $"IL_{x:x4}")) + ".");
 foreach (string failure in failures) Console.WriteLine("FAIL: " + failure);
 Console.WriteLine(failures.Count == 0 ? "PASS: exact callback ABI, short callback, NoInlining helper, no native arrays/collection enumerators and PrepareMethod before Patch; PE metadata only." : $"RED: {failures.Count} audit failures; PE metadata only.");
 Console.WriteLine("No game DLL execution; this result does not establish a live JIT fix.");

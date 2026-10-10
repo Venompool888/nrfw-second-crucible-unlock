@@ -30,25 +30,31 @@ namespace CrucibleUnlock
                 // Prepare the complete helper before exposing the detour. This
                 // verifies its JIT path at startup rather than postponing the
                 // previous first-compilation crash until a real offering.
-                if (startupLog == null) throw new ArgumentNullException(nameof(startupLog));
-                foreach (string name in new[] { nameof(FindOfferingTemplate), nameof(CopyResolver), nameof(RepairOffering) })
-                {
-                    // OnUpdate may not run before a fatal CLR type-load error.
-                    // Log preparation directly on this loader thread.
-                    startupLog("[ritual-view] preparing helper=" + name);
-                    var helper = typeof(RitualViewRepair).GetMethod(name,
-                        BindingFlags.NonPublic | BindingFlags.Static);
-                    if (helper == null) throw new InvalidOperationException("Offering helper missing: " + name);
-                    RuntimeHelpers.PrepareMethod(helper.MethodHandle);
-                    startupLog("[ritual-view] helper compilation ready=" + name);
-                }
-                startupLog("[ritual-view] offering helper compilation ready; transform traversal without native arrays");
+                PrepareHelpers(startupLog);
                 TrialRepairLog.Patch(h, typeof(EntityView), "GetActionView", new[] { typeof(ActionData), typeof(bool).MakeByRefType() },
                     typeof(RitualViewRepair), postfix: nameof(AfterGetActionView), returnType: typeof(ActionView));
                 _harmony = h; _enabled = true;
                 TrialRepairLog.Write("[ritual-view] installed missing bowl offering view repair; second always, third only when custom entry ready; first-bowl scene template only");
             }
             catch { _enabled = false; h.UnpatchSelf(); throw; }
+        }
+
+        // Separate eager compilation from registration so the same bodies can
+        // be compiled before the new enemy view detours change loader state.
+        // This does not enable the repair or touch scene/native object state.
+        public static void PrepareHelpers(Action<string> startupLog)
+        {
+            if (startupLog == null) throw new ArgumentNullException(nameof(startupLog));
+            foreach (string name in new[] { nameof(FindOfferingTemplate), nameof(CopyResolver), nameof(RepairOffering) })
+            {
+                startupLog("[ritual-view] preparing helper=" + name);
+                var helper = typeof(RitualViewRepair).GetMethod(name,
+                    BindingFlags.NonPublic | BindingFlags.Static);
+                if (helper == null) throw new InvalidOperationException("Offering helper missing: " + name);
+                RuntimeHelpers.PrepareMethod(helper.MethodHandle);
+                startupLog("[ritual-view] helper compilation ready=" + name);
+            }
+            startupLog("[ritual-view] offering helper compilation ready; transform traversal without native arrays");
         }
 
         // Keep the native detour callback small. The loader JITs this method on

@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Text.Json;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(CrucibleUnlock.ModMain), "Crucible Unlock", "0.9.16-third-trial-candidate-r11", "NRFW research", "")]
+[assembly: MelonInfo(typeof(CrucibleUnlock.ModMain), "Crucible Unlock", "0.9.16-third-trial-candidate-r12", "NRFW research", "")]
 [assembly: MelonGame("Moon Studios", "NoRestForTheWicked")]
 [assembly: MelonAdditionalDependencies("0Harmony")]
 
@@ -132,7 +132,7 @@ namespace CrucibleUnlock
                 "弩枪武器类别（动画）", "写入强化弩枪 WeaponStaticData.Class（原生偏移 0x128）：30=Crossbow、21=Greatbow、20=Bow、0=不写；重启生效");
 
             LoggerInstance.Msg("=====================================================");
-            LoggerInstance.Msg("Crucible Unlock 0.9.16-third-trial-candidate-r11 已加载");
+            LoggerInstance.Msg("Crucible Unlock 0.9.16-third-trial-candidate-r12 已加载");
             LoggerInstance.Msg($"MelonLoader: {typeof(MelonMod).Assembly.GetName().Version}");
             LoggerInstance.Msg($"CLR: {Environment.Version}  64bit={Environment.Is64BitProcess}");
             LoggerInstance.Msg($"mode = {_mode.Value}   目录 = {_baseDirectory}");
@@ -199,6 +199,11 @@ namespace CrucibleUnlock
                             ThirdTrialEntry.Install(ThirdTrialRuntime.ResolveReadyPlaylist,
                                 ()=>ThirdTrialRuntime.Enabled && EnemyRestorationRuntime.CurrentViewsReady,
                                 message=>LoggerInstance.Msg(message),message=>LoggerInstance.Error(message));
+                            if (_repairRitualAnimator.Value)
+                            {
+                                LoggerInstance.Msg("[ritual-view] early preflight before enemy restoration detours");
+                                RitualViewRepair.PrepareHelpers(message => LoggerInstance.Msg(message));
+                            }
                             EnemyRestorationRuntime.Install(_baseDirectory,attachSimulationHook:false);
                             ThirdTrialRuntime.Install();
                             ThirdTrialSpawning.Install(message=>LoggerInstance.Msg(message),message=>LoggerInstance.Error(message));
