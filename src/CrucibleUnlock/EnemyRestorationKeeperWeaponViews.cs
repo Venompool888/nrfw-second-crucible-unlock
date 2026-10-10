@@ -138,12 +138,16 @@ namespace CrucibleUnlock
                 ValidateReady(owner);
                 if (Core.AssetCtx?.Pointer != _context.Pointer || itemAsset.Pointer != _weapon.Pointer)
                     throw new InvalidOperationException("Keeper item wrapper/resolver identity changed.");
-                clone = _pool.CloneSync(_root, _root.transform);
+                // CloneSync uses this parent only in its non-separate-scene
+                // branch. Set it explicitly as well before the first native
+                // initialization, matching the official item spawn's Parent.
+                clone = _pool.CloneSync(_root, view.transform);
                 if (clone == null || clone.Pointer == _root.Pointer)
                     throw new InvalidOperationException("Official keeper weapon clone failed.");
                 cloneWeapon = clone.GetComponent(Il2CppType.Of<EnemyWeaponView>())?.TryCast<EnemyWeaponView>();
                 if (cloneWeapon == null || cloneWeapon.WeaponData.Id.Value != WeaponGuid)
                     throw new InvalidOperationException("Cloned keeper weapon root lost its native binding.");
+                clone.transform.SetParent(view.transform, false);
                 // The official pool callback performs this single state write.
                 cloneWeapon.OnInstantiatedFromPool();
                 if (!clone.activeSelf) clone.SetActive(true);
@@ -154,8 +158,12 @@ namespace CrucibleUnlock
                 if (view.MainWeaponView?.Pointer != cloneWeapon.Pointer)
                     throw new InvalidOperationException("Native item callback did not retain the cloned keeper weapon.");
                 VerifyEquippedActionViews(view, cloneWeapon);
+                int effectCount = VerifyMeleeEffects(view, cloneWeapon);
                 if (Interlocked.Exchange(ref _reportedSuccess, 1) == 0)
-                    TrialRepairLog.Write("[enemy-restoration] keeper weapon view equipped through native item callback; profile=" + owner.Key);
+                    TrialRepairLog.Write("[enemy-restoration] keeper weapon view equipped through native item callback; profile=" + owner.Key +
+                        "; meleeEffects=" + effectCount + "; character=" + view.Pointer +
+                        "; audio=" + (cloneWeapon.AudioCompanion?.Pointer ?? IntPtr.Zero) +
+                        "; soundHost=" + (cloneWeapon.AudioCompanion?.WeaponSoundHost?.Pointer ?? IntPtr.Zero));
             }
             catch (Exception error)
             {
@@ -237,22 +245,52 @@ namespace CrucibleUnlock
         private static void VerifyEquippedActionViews(HumanoidEnemyView owner, EnemyWeaponView weapon)
         {
             var map = owner.m_actionViewMap;
-            var views = weapon.m_actionViews;
-            if (map == null || views == null)
+            if (map == null)
                 throw new InvalidOperationException("Keeper native equip did not expose its action map/list.");
-            var found = new HashSet<long>();
+            var owned = CollectActionPointers(weapon);
+            // The official keeper prefab has two Thrust views with one GUID.
+            // Native registration chooses one map entry; validate that winner's
+            // ownership without changing the game's choice or the shared prefab.
+            foreach (var entry in owned)
+                if (!map.TryGetValue(new AssetGuid { Value = entry.Key }, out var mapped) ||
+                    mapped == null || !entry.Value.Contains(mapped.Pointer))
+                    throw new InvalidOperationException("Native keeper equip did not map its own ActionView " + entry.Key);
+            for (int i = 0; i < AttackGuids.Length; ++i)
+                if (!owned.ContainsKey(AttackGuids[i]))
+                    throw new InvalidOperationException("Native keeper equip omitted shipped attack " + AttackGuids[i]);
+        }
+
+        private static Dictionary<long, HashSet<IntPtr>> CollectActionPointers(EnemyWeaponView weapon)
+        {
+            var views = weapon?.m_actionViews;
+            if (views == null)
+                throw new InvalidOperationException("Keeper clone action view list cannot be verified.");
+            var owned = new Dictionary<long, HashSet<IntPtr>>();
             for (int i = 0; i < views.Count; ++i)
             {
                 var child = views[i];
                 var guid = child?.QuantumAsset?.AssetGuid.Value ?? 0;
-                if (guid == 0 || !found.Add(guid) ||
-                    !map.TryGetValue(new AssetGuid { Value = guid }, out var mapped) ||
-                    mapped?.Pointer != child.Pointer)
-                    throw new InvalidOperationException("Native keeper equip did not map its own ActionView " + guid);
+                if (guid == 0)
+                    throw new InvalidOperationException("Keeper clone action view has no GUID.");
+                if (!owned.TryGetValue(guid, out var pointers))
+                    owned.Add(guid, pointers = new HashSet<IntPtr>());
+                pointers.Add(child.Pointer);
             }
-            for (int i = 0; i < AttackGuids.Length; ++i)
-                if (!found.Contains(AttackGuids[i]))
-                    throw new InvalidOperationException("Native keeper equip omitted shipped attack " + AttackGuids[i]);
+            return owned;
+        }
+
+        private static int VerifyMeleeEffects(HumanoidEnemyView owner, EnemyWeaponView weapon)
+        {
+            // Init is one-shot and discovers its CharacterView from the parent
+            // hierarchy. Repeating Init or writing m_inited cannot safely repair
+            // a null owner; read back the native Equip result instead.
+            var effects = weapon.m_meleeEffects;
+            if (effects == null || effects.Count == 0)
+                throw new InvalidOperationException("Keeper native equip did not initialize its melee effects.");
+            for (int i = 0; i < effects.Count; ++i)
+                if (effects[i]?.m_characterView?.Pointer != owner.Pointer)
+                    throw new InvalidOperationException("Keeper melee effect did not bind its actual CharacterView at index " + i);
+            return effects.Count;
         }
 
         private static void CleanupFailedClone(HumanoidEnemyView owner, GameObject clone,
@@ -339,19 +377,12 @@ namespace CrucibleUnlock
         private static void VerifyNoForeignActionMappings(FailedClone pending)
         {
             var map = pending.Owner.m_actionViewMap;
-            var views = pending.Weapon.m_actionViews;
-            if (map == null || views == null)
+            if (map == null)
                 throw new InvalidOperationException("Keeper clone action map/list cannot be verified.");
-            for (int i = 0; i < views.Count; ++i)
-            {
-                var view = views[i];
-                var guid = view?.QuantumAsset?.AssetGuid.Value ?? 0;
-                if (guid == 0)
-                    throw new InvalidOperationException("Keeper clone action view has no GUID.");
-                if (map.TryGetValue(new AssetGuid { Value = guid }, out var mapped) &&
-                    mapped?.Pointer != view.Pointer)
-                    throw new InvalidOperationException("A foreign ActionView replaced keeper clone GUID " + guid);
-            }
+            foreach (var entry in CollectActionPointers(pending.Weapon))
+                if (map.TryGetValue(new AssetGuid { Value = entry.Key }, out var mapped) &&
+                    (mapped == null || !entry.Value.Contains(mapped.Pointer)))
+                    throw new InvalidOperationException("A foreign ActionView replaced keeper clone GUID " + entry.Key);
         }
 
         private static void DetachOwnedActionViews(FailedClone pending)

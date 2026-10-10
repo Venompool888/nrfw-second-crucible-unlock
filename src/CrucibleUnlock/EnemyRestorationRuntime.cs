@@ -142,6 +142,7 @@ namespace CrucibleUnlock
             _lastReadyViewContext=IntPtr.Zero;
             EnemyRestorationKeeperWeaponViews.StopWithoutUnityReads();
             EnemyRestorationReactionViews.StopWithoutUnityReads();
+            EnemyRestorationAudioDiagnostics.StopWithoutUnityReads();
         }
 
         private static void AfterSimulationInit(Frame __0)
@@ -308,6 +309,7 @@ namespace CrucibleUnlock
             lock (ViewSnapshotGate) ViewSnapshots.Clear();
             EnemyRestorationKeeperWeaponViews.StopWithoutUnityReads();
             EnemyRestorationReactionViews.StopWithoutUnityReads();
+            EnemyRestorationAudioDiagnostics.StopWithoutUnityReads();
             // Do not touch native objects or unpatch hooks during process teardown.
         }
     }

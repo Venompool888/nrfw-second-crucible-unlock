@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net6.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable><LangVersion>latest</LangVersion></PropertyGroup>
+ <PropertyGroup><ReactionSource Condition="'$(ReactionSource)' == ''">../../src/CrucibleUnlock/EnemyRestorationReactionViews.cs</ReactionSource></PropertyGroup>
  <ItemGroup>
-  <Compile Include="../../src/CrucibleUnlock/EnemyRestorationReactionViews.cs" Link="EnemyRestorationReactionViews.cs" />
+  <Compile Remove="baseline/**/*.cs" />
+  <Compile Include="$(ReactionSource)" Link="EnemyRestorationReactionViews.cs" />
   <Compile Include="../../src/CrucibleUnlock/EnemyRestorationCatalog.cs" Link="EnemyRestorationCatalog.cs" />
  </ItemGroup>
 </Project>

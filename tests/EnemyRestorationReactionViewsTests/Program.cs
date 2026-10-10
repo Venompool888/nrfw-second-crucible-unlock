@@ -25,7 +25,9 @@ internal static class Program
    ActionView.FailInitialize=ActionView.FailReturn=ActionView.WrongRegistration=false;
    MoonReference<MoonAnimator>.BadCopy=MoonReference<MoonAnimator>.BadResolve=false;
    MoonReference<Il2CppMoon.Wwise.SoundHost>.BadCopy=MoonReference<Il2CppMoon.Wwise.SoundHost>.BadResolve=false;
-   EnemyRestorationOwnerScope.Profile=new EnemyRestorationProfile{Key=key};EnemyRestorationOwnerScope.Allowed=true;
+   WwiseWeaponAnimator.BadCompanion=WwiseWeaponAnimator.BadHost=false;
+   long weaponGuid=key=="dead_tide_great_curved_sword"?1969620323811017082L:717510086814971040L;
+   EnemyRestorationOwnerScope.Profile=new EnemyRestorationProfile{Key=key,WeaponGuid=weaponGuid};EnemyRestorationOwnerScope.Allowed=true;
    Core.AssetCtx=Ctx;
    var definition=new MoonAnimatorDefinition{name="playerMoonAnimatorDefinition"};
    var sourceAnimator=new MoonAnimator{Definition=definition};
@@ -36,12 +38,26 @@ internal static class Program
    {
     Component item=i==0?new ForsakenAnimationPlayer{Animation=new ClipAnimation{name="parriedHitReact",AnimatorDefinition=definition},Animator=new MoonReference<MoonAnimator>(sourceAnimator)}:
       i==1?new WeaponPreviewAnimator{WeaponRig=new GameObject().transform}:
-      i==12?new WwiseSoundAnimator{MoonSoundHost=new MoonReference<Il2CppMoon.Wwise.SoundHost>(new Il2CppMoon.Wwise.SoundHost())}:new Component();
+      i==12?new WwiseSoundAnimator{MoonSoundHost=new MoonReference<Il2CppMoon.Wwise.SoundHost>(new Il2CppMoon.Wwise.SoundHost())}:
+      i>=2&&i<=4?new QuantumTimeScaleAnimator():i==5?new WwiseVoiceAnimator():i>=6&&i<=9?new WwiseFootstepAnimator():new WwiseFoleyAnimator();
     item.gameObject=new GameObject();item.gameObject.Component=item;item.transform.SetParent(sourceGo.transform,false,false);
     Template.Timeline.EntityRecords.Add(new TimelineRecord{TimelineItem=item});
    }
-   Owner=new HumanoidEnemyView{EntityRef=new EntityRef{Raw=45},CharacterAnimator=new MoonAnimator{Definition=definition},MainWeaponView=new EnemyWeaponView{gameObject=new GameObject()}};
+   Owner=new HumanoidEnemyView{EntityRef=new EntityRef{Raw=45},CharacterAnimator=new MoonAnimator{Definition=definition},MainWeaponView=new EnemyWeaponView{gameObject=new GameObject(),WeaponData=new AssetRef{Id=new AssetGuid{Value=weaponGuid}}}};
    Owner.gameObject=new GameObject();Owner.gameObject.Component=Owner;
+   var blockedGo=new GameObject("blockedAttackHitReaction");
+   var blocked=new TimelineActionView{gameObject=blockedGo,Timeline=new MoonTimeline(),MainAnimatorRef=new MoonReference<MoonAnimator>(sourceAnimator)};blockedGo.Component=blocked;
+   var blockedAsset=new HitReactionDataAsset{AssetGuid=new AssetGuid{Value=1496781608746759672L},View=blocked};blocked.QuantumAsset=blockedAsset;Ctx.BlockedSource=blockedAsset;
+   for(int i=0;i<13;++i)
+   {
+    Component item=i==0?new ForsakenAnimationPlayer{Animation=new ClipAnimation{name="blockedHitReact",AnimatorDefinition=definition},Animator=new MoonReference<MoonAnimator>(sourceAnimator)}:
+      i==1?new WeaponPreviewAnimator{WeaponRig=new GameObject().transform}:
+      i==2?new WwiseWeaponAnimator{MoonSoundHost=new MoonReference<Il2CppMoon.Wwise.SoundHost>(null),UseWeaponSoundHost=true}:
+      i==3||i==4?new WwiseFoleyAnimator():i==5?new QuantumTimeScaleAnimator():i==6||i==12?new WwiseVoiceAnimator():
+      i==11?new WwiseSoundAnimator{MoonSoundHost=new MoonReference<Il2CppMoon.Wwise.SoundHost>(new Il2CppMoon.Wwise.SoundHost())}:new WwiseFootstepAnimator();
+    item.gameObject=new GameObject();item.gameObject.Component=item;item.transform.SetParent(blockedGo.transform,false,false);
+    blocked.Timeline.EntityRecords.Add(new TimelineRecord{TimelineItem=item});
+   }
   }
   public bool Ensure()=>EnemyRestorationReactionViews.Ensure(Ctx,Catalog);
   public ActionView Repair()=>EnemyRestorationReactionViews.TryRepair(Owner,Action,Catalog);
@@ -143,6 +159,72 @@ internal static class Program
    Throws(()=>EnemyRestorationReactionViews.Release(f.Owner),"missing map cannot prove detached");Check(UO.Destroyed==destroyed,"missing map keeps copy for retry");
    f.Owner.m_actionViewMap=map;EnemyRestorationReactionViews.Release(f.Owner);Check(f.Owner.Registered==null && UO.Destroyed==destroyed+1,"map restoration cleanup succeeds");
   }
+  BlockedTests();
   Console.WriteLine("EnemyRestorationReactionViews pure orchestration tests: "+checks+" passed.");
+ }
+ private static readonly AssetGuid Blocked=new AssetGuid{Value=1496781608746759672L};
+ private static ActionView RepairBlocked(Fixture f)=>EnemyRestorationReactionViews.TryRepair(f.Owner,new ActionData{Guid=Blocked},f.Catalog);
+ private static void BlockedTests()
+ {
+  foreach(var key in new[]{"keeper_sword_shield_left","keeper_sword_shield_right","dead_tide_great_curved_sword"})
+  {
+   var f=new Fixture(key);Check(f.Ensure(),"both canonical sources ready "+key);
+   var parry=f.Repair();var blocked=(TimelineActionView)RepairBlocked(f);
+   Check(blocked!=null,"canonical blocked fallback repairs scoped recoil "+key);
+   Check(f.Owner.m_actionViewMap[Blocked]==blocked&&f.Owner.Registered==parry,"owner keeps simultaneous independent reaction map entries");
+   var source=(TimelineActionView)((HitReactionDataAsset)f.Ctx.BlockedSource).View;
+   var anim=(ForsakenAnimationPlayer)blocked.Timeline.EntityRecords[0].TimelineItem;
+   Check(anim.Animation.name=="blockedHitReact"&&anim.Animation==((ForsakenAnimationPlayer)source.Timeline.EntityRecords[0].TimelineItem).Animation,"original blocked clip retained");
+   Check(anim.Animator.SafeResolve(null)==f.Owner.CharacterAnimator,"blocked animator retargeted");
+   Check(((WeaponPreviewAnimator)blocked.Timeline.EntityRecords[1].TimelineItem).WeaponRig==f.Owner.MainWeaponView.transform,"blocked weapon rig retargeted");
+   Check(((WwiseSoundAnimator)blocked.Timeline.EntityRecords[11].TimelineItem).MoonSoundHost.SafeResolve(null)==f.Owner.MainWeaponView.AudioCompanion.WeaponSoundHost,"blocked sound host retargeted");
+   Check(((WwiseWeaponAnimator)blocked.Timeline.EntityRecords[2].TimelineItem).MoonSoundHost.SafeResolve(null)==f.Owner.MainWeaponView.AudioCompanion.WeaponSoundHost,"blocked weapon sound host retargeted");
+   Check(((WwiseWeaponAnimator)source.Timeline.EntityRecords[2].TimelineItem).MoonSoundHost.SafeResolve(null)==null,"blocked source weapon reference unchanged");
+   int clones=UO.Instantiated;Check(RepairBlocked(f)==blocked&&f.Repair()==parry&&UO.Instantiated==clones,"two reaction idempotency independent");
+   int destroyed=UO.Destroyed;EnemyRestorationReactionViews.StopWithoutUnityReads();EnemyRestorationReactionViews.Release(f.Owner);
+   Check(parry.Returned&&blocked.Returned&&f.Owner.m_actionViewMap.Count==0&&UO.Destroyed==destroyed+2,"both reaction copies release after context stop");
+  }
+  foreach(var key in new[]{"inquisitor_halberd","inquisitor_greatsword","inquisitor_bruiser","keeper_greatsword","dead_tide_curved_sword","dead_tide_crossbow","dead_tide_bruiser"})
+  {
+   var f=new Fixture(key);Check(f.Ensure(),"blocked excluded fixture ready");int clones=UO.Instantiated;
+   Check(RepairBlocked(f)==null&&UO.Instantiated==clones,"excluded weapon recoil cannot clone "+key);
+  }
+  foreach(var mutation in new[]{"profileWeapon","equippedWeapon","scope"})
+  {
+   var f=new Fixture();Check(f.Ensure(),"blocked gate fixture ready");
+   if(mutation=="profileWeapon")EnemyRestorationOwnerScope.Profile.WeaponGuid=9;
+   if(mutation=="equippedWeapon")f.Owner.MainWeaponView.WeaponData=new AssetRef{Id=new AssetGuid{Value=9}};
+   if(mutation=="scope")EnemyRestorationOwnerScope.Allowed=false;
+   int clones=UO.Instantiated;Check(RepairBlocked(f)==null&&UO.Instantiated==clones,"blocked exact owner/weapon guard "+mutation);
+  }
+  {
+   var f=new Fixture();f.Ctx.BlockedSource=null;Check(!f.Ensure(),"pending blocked source keeps shared readiness closed");Check(f.Repair()==null,"partial source readiness cannot publish parry");
+  }
+  {
+   var f=new Fixture();var t=(TimelineActionView)((HitReactionDataAsset)f.Ctx.BlockedSource).View;t.Timeline.EntityRecords[2].TimelineItem=new WwiseSoundAnimator{gameObject=t.Timeline.EntityRecords[2].TimelineItem.gameObject,MoonSoundHost=new MoonReference<Il2CppMoon.Wwise.SoundHost>(null)};
+   Throws(()=>f.Ensure(),"blocked weapon track shape changed");
+  }
+  {
+   var f=new Fixture();Check(f.Ensure(),"two-cleanup fixture ready");var a=f.Repair();var b=RepairBlocked(f);var foreign=new ActionView();f.Owner.m_actionViewMap[Blocked]=foreign;
+   int destroyed=UO.Destroyed;EnemyRestorationReactionViews.Release(f.Owner);Check(f.Owner.Registered==null&&f.Owner.m_actionViewMap[Blocked]==foreign&&UO.Destroyed==destroyed+2,"two cleanup preserves one foreign replacement");
+  }
+  {
+   var f=new Fixture();Check(f.Ensure(),"two partial-cleanup fixture ready");f.Repair();RepairBlocked(f);f.Owner.FailUnregister=f.Owner.FailGuidUnregister=true;
+   int destroyed=UO.Destroyed;Throws(()=>EnemyRestorationReactionViews.Release(f.Owner),"both reaction cleanup failure");Check(UO.Destroyed==destroyed&&f.Owner.m_actionViewMap.Count==2,"both uncertain map copies retained");
+   f.Owner.FailUnregister=f.Owner.FailGuidUnregister=false;EnemyRestorationReactionViews.Release(f.Owner);Check(UO.Destroyed==destroyed+2&&f.Owner.m_actionViewMap.Count==0,"both cleanup records independently retry");
+  }
+  foreach(var fault in new[]{"companionResolve","hostResolve","repeatCompanion","repeatHost"})
+  {
+   var f=new Fixture();Check(f.Ensure(),"weapon-audio exact binding fixture ready "+fault);
+   TimelineActionView copy=null;
+   if(fault.StartsWith("repeat"))copy=(TimelineActionView)RepairBlocked(f);
+   if(fault=="companionResolve")WwiseWeaponAnimator.BadCompanion=true;
+   if(fault=="hostResolve")WwiseWeaponAnimator.BadHost=true;
+   if(fault=="repeatCompanion")((WwiseWeaponAnimator)copy.Timeline.EntityRecords[2].TimelineItem).m_cachedWeaponCompanion=new WwiseWeaponCompanion();
+   if(fault=="repeatHost")((WwiseWeaponAnimator)copy.Timeline.EntityRecords[2].TimelineItem).m_cachedSoundHost=new Il2CppMoon.Wwise.SoundHost();
+   int clones=UO.Instantiated;Throws(()=>RepairBlocked(f),"weapon-audio rejects foreign or unresolved binding "+fault);
+   Check(fault.StartsWith("repeat")?UO.Instantiated==clones:f.Owner.m_actionViewMap.Count==0,"weapon-audio failure cannot publish incorrect view "+fault);
+   WwiseWeaponAnimator.BadCompanion=WwiseWeaponAnimator.BadHost=false;EnemyRestorationReactionViews.Release(f.Owner);
+  }
  }
 }

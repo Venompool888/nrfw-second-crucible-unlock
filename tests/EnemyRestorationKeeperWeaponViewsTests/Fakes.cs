@@ -26,7 +26,14 @@ namespace UnityEngine
     public class Transform : Component
     {
         public Transform root;
+        public Transform parent;
+        public bool ThrowDuringSetParent;
         public GameObject gameObject;
+        public void SetParent(Transform value, bool worldPositionStays)
+        {
+            if (ThrowDuringSetParent) throw new InvalidOperationException("native SetParent failed");
+            parent = value;
+        }
     }
     public class GameObject : Object
     {
@@ -61,7 +68,14 @@ namespace Il2CppMoon.Pooling
     {
         public static PoolingSystem Active;
         public UnityEngine.GameObject NextClone;
-        public UnityEngine.GameObject CloneSync(UnityEngine.GameObject root, UnityEngine.Transform parent) => NextClone;
+        public UnityEngine.GameObject LastSource;
+        public UnityEngine.Transform LastParent;
+        public UnityEngine.GameObject CloneSync(UnityEngine.GameObject root, UnityEngine.Transform parent)
+        {
+            LastSource = root;
+            LastParent = parent;
+            return NextClone; // The separate-scene native branch ignores parent.
+        }
     }
 }
 namespace Il2Cpp
@@ -89,17 +103,24 @@ namespace Il2CppMoon.Forsaken
     }
     public class HumanoidEnemyView : EntityView
     {
+        public HumanoidEnemyView() { transform = new UnityEngine.GameObject("keeper-owner").transform; }
         public EnemyWeaponView MainWeaponView;
         public bool ThrowDuringEquip;
         public bool ThrowAfterHandAssignment;
+        public bool KeepFirstRegistration;
         public long SkipRegistrationGuid;
         public void OnItemViewInstantiated(UnityEngine.GameObject clone, Il2Cpp.EnemyItemDataBaseAsset item, bool mainHand)
         {
             var weapon = clone.Weapon;
             weapon.m_enemyView = this;
+            weapon.m_meleeEffects[0].Init(clone.transform.parent?.Pointer == transform.Pointer ? this : null);
             for (int i = 0; i < weapon.m_actionViews.Count; ++i)
                 if (weapon.m_actionViews[i].QuantumAsset.AssetGuid.Value != SkipRegistrationGuid)
-                    m_actionViewMap[weapon.m_actionViews[i].QuantumAsset.AssetGuid] = weapon.m_actionViews[i];
+                {
+                    var guid = weapon.m_actionViews[i].QuantumAsset.AssetGuid;
+                    if (!KeepFirstRegistration || !m_actionViewMap.ContainsKey(guid))
+                        m_actionViewMap[guid] = weapon.m_actionViews[i];
+                }
             weapon.RegisteredActions = 7;
             if (ThrowDuringEquip) throw new InvalidOperationException("partial native Equip failure");
             MainWeaponView = weapon;
@@ -109,9 +130,12 @@ namespace Il2CppMoon.Forsaken
     public class WeaponDataRef { public Il2CppQuantum.AssetGuid Id; }
     public class EnemyWeaponView : UnityEngine.Component
     {
+        public EnemyWeaponView() { m_meleeEffects.Add(new Effects.MeleeEffects()); }
         public WeaponDataRef WeaponData = new();
         public EntityView m_enemyView;
         public List<ActionView> m_actionViews = new();
+        public List<Effects.MeleeEffects> m_meleeEffects = new();
+        public Il2Cpp.WwiseWeaponCompanion AudioCompanion = new();
         public int RegisteredActions;
         public int UnequipCalls;
         public bool ThrowFirstUnequip;
@@ -131,6 +155,27 @@ namespace Il2CppMoon.Forsaken
             RegisteredActions = 0;
             m_enemyView = null;
         }
+    }
+}
+namespace Il2CppMoon.Forsaken.Effects
+{
+    public class MeleeEffects : UnityEngine.Component
+    {
+        public Il2CppMoon.Forsaken.EntityView m_characterView;
+        public bool Initialized;
+        public void Init(Il2CppMoon.Forsaken.EntityView owner)
+        {
+            if (Initialized) return;
+            m_characterView = owner;
+            Initialized = true;
+        }
+    }
+}
+namespace Il2Cpp
+{
+    public class WwiseWeaponCompanion : UnityEngine.Object
+    {
+        public UnityEngine.Object WeaponSoundHost = new();
     }
 }
 namespace CrucibleUnlock

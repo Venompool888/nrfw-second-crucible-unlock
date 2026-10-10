@@ -5,6 +5,7 @@ using System.Threading;
 using Il2Cpp;
 using Il2CppMoon.Forsaken;
 using Il2CppQuantum;
+using UnityEngine;
 using PatchOwner = HarmonyLib.Harmony;
 using EntityView = Il2CppMoon.Forsaken.EntityView;
 
@@ -14,11 +15,11 @@ namespace CrucibleUnlock
     // Owner proof and item/timeline lifecycle work live in isolated helpers.
     internal static class EnemyRestorationActionHooks
     {
-        private static int _equipFailure, _reactionFailure, _cleanupFailure, _keeperCleanupFailure;
+        private static int _equipFailure, _reactionFailure, _cleanupFailure, _keeperCleanupFailure, _audioFailure;
 
         internal static void Install(PatchOwner owner)
         {
-            _equipFailure = _reactionFailure = _cleanupFailure = _keeperCleanupFailure = 0;
+            _equipFailure = _reactionFailure = _cleanupFailure = _keeperCleanupFailure = _audioFailure = 0;
             Prepare(typeof(EnemyRestorationKeeperWeaponViews), nameof(EnemyRestorationKeeperWeaponViews.TryEquip));
             Prepare(typeof(EnemyRestorationKeeperWeaponViews), nameof(EnemyRestorationKeeperWeaponViews.Release));
             Prepare(typeof(EnemyRestorationReactionViews), nameof(EnemyRestorationReactionViews.TryRepair));
@@ -26,6 +27,8 @@ namespace CrucibleUnlock
             Prepare(typeof(EnemyRestorationActionHooks), nameof(Equip));
             Prepare(typeof(EnemyRestorationActionHooks), nameof(Repair));
             Prepare(typeof(EnemyRestorationActionHooks), nameof(Release));
+            Prepare(typeof(EnemyRestorationAudioDiagnostics), nameof(EnemyRestorationAudioDiagnostics.ObserveEquipment));
+            Prepare(typeof(EnemyRestorationActionHooks), nameof(Audio));
             TrialRepairLog.Patch(owner, typeof(HumanoidEnemyView), "OnItemAssetResolved",
                 new[] { typeof(EnemyItemDataBaseAsset), typeof(bool) },
                 typeof(EnemyRestorationActionHooks), prefix: nameof(BeforeItemAssetResolved));
@@ -36,7 +39,10 @@ namespace CrucibleUnlock
                 typeof(EnemyRestorationActionHooks), prefix: nameof(BeforeHumanoidReturned));
             TrialRepairLog.Patch(owner, typeof(EntityView), "OnDestroy", Type.EmptyTypes,
                 typeof(EnemyRestorationActionHooks), prefix: nameof(BeforeEntityDestroyed));
-            TrialRepairLog.Write("[enemy-animation] installed scoped keeper equipment and sword parry hooks; isolated helpers prepared");
+            TrialRepairLog.Patch(owner, typeof(HumanoidEnemyView), "OnItemViewInstantiated",
+                new[] { typeof(GameObject), typeof(EnemyItemDataBaseAsset), typeof(bool) },
+                typeof(EnemyRestorationActionHooks), postfix: nameof(AfterItemViewInstantiated));
+            TrialRepairLog.Write("[enemy-animation] installed scoped keeper equipment, sword reactions and audio diagnostics; isolated helpers prepared");
         }
 
         private static void Prepare(Type type, string name)
@@ -70,8 +76,28 @@ namespace CrucibleUnlock
         private static void AfterGetActionView(EntityView __instance, ActionData __0, ref ActionView __result)
         {
             if (!EnemyRestorationRuntime.CurrentViewsReady || __instance == null || __result != null ||
-                __0 == null || __0.Guid.Value != EnemyRestorationReactionViews.ParryGuid) return;
+                __0 == null || (__0.Guid.Value != EnemyRestorationReactionViews.ParryGuid &&
+                __0.Guid.Value != EnemyRestorationReactionViews.BlockedGuid)) return;
             Repair(__instance, __0, ref __result);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void AfterItemViewInstantiated(HumanoidEnemyView __instance, GameObject __0,
+            EnemyItemDataBaseAsset __1, bool __2)
+        {
+            if (!EnemyRestorationRuntime.CurrentViewsReady || !__2 || __instance == null || __0 == null || __1 == null) return;
+            Audio(__instance, __0, __1, __2);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void Audio(HumanoidEnemyView view, GameObject clone, EnemyItemDataBaseAsset item, bool mainHand)
+        {
+            try { EnemyRestorationAudioDiagnostics.ObserveEquipment(view, clone, item, mainHand, EnemyRestorationRuntime.Catalog); }
+            catch (Exception error)
+            {
+                if (Interlocked.Exchange(ref _audioFailure, 1) == 0)
+                    TrialRepairLog.Write("[enemy-animation] audio wiring diagnostic error: " + error);
+            }
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]

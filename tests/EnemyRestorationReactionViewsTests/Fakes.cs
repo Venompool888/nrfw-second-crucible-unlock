@@ -30,7 +30,10 @@ namespace UnityEngine
      Component c=r.TimelineItem;
      Component n=c is ForsakenAnimationPlayer a?new ForsakenAnimationPlayer{Animation=a.Animation,Animator=a.Animator}:
        c is WeaponPreviewAnimator p?new WeaponPreviewAnimator{WeaponRig=p.WeaponRig}:
-       c is WwiseSoundAnimator s?new WwiseSoundAnimator{MoonSoundHost=s.MoonSoundHost}:new Component();
+       c is WwiseSoundAnimator s?new WwiseSoundAnimator{MoonSoundHost=s.MoonSoundHost}:
+       c is WwiseWeaponAnimator w?new WwiseWeaponAnimator{MoonSoundHost=w.MoonSoundHost,UseWeaponSoundHost=w.UseWeaponSoundHost}:
+       c is WwiseFoleyAnimator?new WwiseFoleyAnimator():c is WwiseVoiceAnimator?new WwiseVoiceAnimator():
+       c is WwiseFootstepAnimator?new WwiseFootstepAnimator():c is QuantumTimeScaleAnimator?new QuantumTimeScaleAnimator():new Component();
      var child=new GameObject();n.gameObject=child;child.Component=n;child.transform.SetParent(ForeignTrack?source.transform:go.transform,false,false);
      copy.Timeline.EntityRecords.Add(new TimelineRecord{TimelineItem=n});
     }
@@ -65,10 +68,11 @@ namespace Il2Cpp
  public class HitReactionDataAsset:AssetBase {public ActionView View;}
  public class RuntimeAssetResolutionContext:FakeNative
  {
-  public AssetBase Source;
-  public bool TryFindWrapperImpl(Il2CppQuantum.AssetGuid g,out AssetBase value,bool load){value=Source;return Source!=null;}
+  public AssetBase Source,BlockedSource;
+  public bool TryFindWrapperImpl(Il2CppQuantum.AssetGuid g,out AssetBase value,bool load){value=g.Value==1496781608746759672L?BlockedSource:Source;return value!=null;}
  }
- public class EnemyWeaponView:UnityEngine.Component {public WwiseWeaponCompanion AudioCompanion=new WwiseWeaponCompanion();}
+ public struct AssetRef {public Il2CppQuantum.AssetGuid Id;}
+ public class EnemyWeaponView:UnityEngine.Component {public AssetRef WeaponData;public WwiseWeaponCompanion AudioCompanion=new WwiseWeaponCompanion();}
  public class WwiseWeaponCompanion:FakeNative {public Il2CppMoon.Wwise.SoundHost WeaponSoundHost=new Il2CppMoon.Wwise.SoundHost();}
 }
 namespace Il2CppMoon
@@ -91,6 +95,17 @@ namespace Il2CppMoon.Timeline
  public class TimelineRecord {public UnityEngine.Component TimelineItem;}
  public class MoonTimeline:FakeNative {public List<TimelineRecord> EntityRecords=new List<TimelineRecord>();}
  public class WwiseSoundAnimator:UnityEngine.Component {public MoonReference<Il2CppMoon.Wwise.SoundHost> MoonSoundHost;}
+ public class WwiseWeaponAnimator:UnityEngine.Component
+ {
+  public MoonReference<Il2CppMoon.Wwise.SoundHost> MoonSoundHost;public bool UseWeaponSoundHost;
+  public Il2Cpp.WwiseWeaponCompanion m_cachedWeaponCompanion;public Il2CppMoon.Wwise.SoundHost m_cachedSoundHost;
+  public static bool BadCompanion,BadHost;
+  public Il2Cpp.WwiseWeaponCompanion EffectiveWeaponCompanion=>BadCompanion?null:m_cachedWeaponCompanion;
+  public Il2CppMoon.Wwise.SoundHost EffectiveSoundHost=>BadHost?null:m_cachedSoundHost??(m_cachedSoundHost=UseWeaponSoundHost?EffectiveWeaponCompanion?.WeaponSoundHost:MoonSoundHost?.SafeResolve(null));
+ }
+ public class WwiseFoleyAnimator:UnityEngine.Component {}
+ public class WwiseVoiceAnimator:UnityEngine.Component {}
+ public class WwiseFootstepAnimator:UnityEngine.Component {}
 }
 namespace Il2CppMoon.Forsaken
 {
@@ -100,7 +115,7 @@ namespace Il2CppMoon.Forsaken
   public Il2CppQuantum.EntityRef EntityRef;public bool FailUnregister,FailGuidUnregister;
   public Dictionary<Il2CppQuantum.AssetGuid,ActionView> m_actionViewMap=new Dictionary<Il2CppQuantum.AssetGuid,ActionView>();
   public ActionView Registered {get{m_actionViewMap.TryGetValue(new Il2CppQuantum.AssetGuid{Value=CrucibleUnlock.EnemyRestorationReactionViews.ParryGuid},out var value);return value;}set{var key=new Il2CppQuantum.AssetGuid{Value=CrucibleUnlock.EnemyRestorationReactionViews.ParryGuid};if(value==null)m_actionViewMap.Remove(key);else m_actionViewMap[key]=value;}}
-  public void UnregisterActionView(ActionView view){if(FailUnregister)throw new InvalidOperationException("unregister");if(Registered==view)Registered=null;}
+  public void UnregisterActionView(ActionView view){if(FailUnregister)throw new InvalidOperationException("unregister");if(m_actionViewMap.TryGetValue(view.QuantumAsset.AssetGuid,out var current)&&current==view)m_actionViewMap.Remove(view.QuantumAsset.AssetGuid);}
   public void UnregisterActionView(Il2CppQuantum.AssetGuid guid){if(FailGuidUnregister)throw new InvalidOperationException("unregister guid");m_actionViewMap.Remove(guid);}
  }
  public class HumanoidEnemyView:EntityView
@@ -114,7 +129,8 @@ namespace Il2CppMoon.Forsaken
   public virtual void OnInstantiatedFromPool()
   {
    var p=transform.parent;while(p!=null && !(p.gameObject.Component is EntityView))p=p.parent;
-   EntityOwner=(EntityView)p.gameObject.Component;EntityOwner.Registered=WrongRegistration?new ActionView():this;
+   EntityOwner=(EntityView)p.gameObject.Component;EntityOwner.m_actionViewMap[QuantumAsset.AssetGuid]=WrongRegistration?new ActionView():this;
+   if(this is TimelineActionView timeline)foreach(var record in timeline.Timeline.EntityRecords)if(record.TimelineItem is WwiseWeaponAnimator audio){audio.m_cachedWeaponCompanion=null;audio.m_cachedSoundHost=null;}
    if(FailInitialize)throw new InvalidOperationException("initialize");
   }
   public virtual void OnReturnedToPool(){Returned=true;if(FailReturn)throw new InvalidOperationException("return");}
@@ -122,6 +138,7 @@ namespace Il2CppMoon.Forsaken
  public class TimelineActionView:ActionView {public MoonTimeline Timeline;public MoonTimeline EffectiveTimeline=>Timeline;}
  public class ForsakenAnimationPlayer:UnityEngine.Component {public MoonReference<MoonAnimator> Animator;public ClipAnimation Animation;public ClipAnimation EffectiveAnimation=>Animation;}
  public class WeaponPreviewAnimator:UnityEngine.Component {public UnityEngine.Transform WeaponRig;}
+ public class QuantumTimeScaleAnimator:UnityEngine.Component {}
 }
 namespace CrucibleUnlock
 {

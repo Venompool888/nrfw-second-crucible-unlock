@@ -157,3 +157,27 @@ Release0warning0error，DLL `50adfa0a34b4f6d0121fa4199a889f01d641b2616ed7c81a39a
 R12源码commit `a0af450a94475b94a1cae136f0d2a09ae4511269`，zip `d5a0873d7a48de93ff8362bea39903d37042508b6357bb4f42e171cf77665309`（1537872bytes）。05:31:34 UTC备份切换、05:31:43 UTC按已有授权Steam启动，当前PID13668。05:32:56 UTC（启动后约75秒）本次早期三helper prepare/ready、enemy-animation installed、晚期三helper再次prepare/ready、RitualViewRepair installed及临时解锁初始化完成；进程仍存活且Responding=true，本次启动后未见1023/1000/1001事件。此观察支持顺序候选绕过本轮启动故障，不能唯一归因共享target或保证重启总成功。
 
 Latest仍等simulation views publication，Player到SteamLogin/IntroSequence；没有入世界、TREE/SIM/PUBLISH/VIEWS ready、剑招架来源ready、献祭/实际敌人生成的新记录，实际动作尚待用户游玩。最新快照见 [R12新会话日志](../../artifacts/third-launch/log-review-r12.md)，安装和原0.9.17回滚记录 `artifacts/third-launch/installation-r12-20261010T053134717Z/`。不把NoPool/MissingActionView未触发记成通过，runtime_verified保持false。未合main。
+
+## R12 后续游玩：十类敌人已生成，继续补特效与声音
+
+用户完成本轮游玩，报告其余敌人的动作基本齐全，一只敌人仍可能缺特效，声音也可能不完整。完整 R12 会话为 2026-10-10 05:31:49–06:05:10 UTC；实际安装 DLL SHA256 与冻结 R12 一致，正常 shutdown，退出后无游戏进程，本次启动后无 Windows 1000/1001/1023 崩溃事件。10 个战斗 profile 各输出一组 verified=True 的 REPLACED/RESULT，祭坛与第三入口实际触发。每种 profile 的有界日志不等于总敌人数，仍不把动作基本正常当作所有攻击、声音、奖励或多人验收。
+
+完整日志有 8 次 keeper 大剑武器 `MeleeEffects: No CharacterView found in parent`，并有 8 次 thrust/scissorAttack 共用 GUID `710057211704157313` 的官方动作字典重复键。mod 自己的武器校验也误以为每个视图必须有不同 GUID，报同编号映射失败；该阶段 MainWeaponView 已接管 clone，原实现没有停用或销毁已接管武器，不能把校验误报直接称为特效丢失原因。静态出货根确有两个不同视图共用这个 GUID，应保留官方字典选择，仅核对映射对象确属当前 clone。特效角色归属另行核验。
+
+本轮另有 1 次 Missing ActionView、5 次 Quantum View 加载失败；装备空引用与 NoPool 均 0。之前 R9 的大量缺动作报错明显减少。Wwise 没有直接 Bank/Event 错误，但日志缺少敌人声音播放回执；玩家弩的音频记录不能证明敌人声音完整。继续在原任务分支核对并修复，完整验收保持待定，未合 main。
+
+证据：[R12 完整游玩复核](../../artifacts/third-launch/r12-playthrough-evidence/report.md)。
+
+## R13：大剑守卫特效归属、剑类格挡反应与音频诊断
+
+本版从同一第三试炼任务分支继续修复 R12 游玩发现，不混入正式 main 0.9.17；保持十类敌人、竞技场、房间推进、奖励和 R12 献祭完整预编译顺序。
+
+按出货装备路径的 Parent=owner.transform，把 Keeper 大剑克隆在原生池初始化、激活、Equip 之前明确挂到实际角色；装备后逐个读取 MeleeEffects.m_characterView 核对实际 owner。原组件 Init 是一次性的，未清空或改写其初始化标志。出货 Thrust 的两个视图共用 GUID，改为接受当前克隆内该 GUID 的原生映射 winner，不改官方选择，也不把重复键误报称为特效原因。
+
+为左右剑盾守卫和亡潮大弯刀补接出货 enemySwordBlockedAttackHitReaction：使用原始 blockedHitReact clip、独立13轨与当前武器声音组件，范围由三种配置的直接 Weapon.RecoilReaction、当前装备 GUID 和私有 NPC 归属同时限定。弹反和格挡按 owner+GUID 分别保留与清理。WwiseWeaponAnimator 原生池回调清空缓存之后，只给克隆组件绑定实际武器 companion 并读回验证；32字节缓存 SoundHost 值句柄没有被当作对象引用赋 null。
+
+新增装备完成后的只读音频诊断，每个 profile 最多一次，核对角色、主手、声音组件、SoundHost 与音频 owner。非零指针及 ownerMatch 只能证明绑定存在，不能证明某次攻击发声或音库完整；日志没有直接 Bank/Event 错误，少音原因仍待本版用户游玩日志结合具体动作确认。
+
+最终 Release 构建 0警告/0错误，实际源码托管依赖假实现共432项通过（Keeper38、Hooks41、Runtime108、Reaction222、Audio23）；第三钩子13回调/12目标 ABI、献祭顺序/71字节回调/无原生数组枚举、已知不安全 interop 与流程 policy 均通过。冻结 R12 真实反应源码在新增格挡用例中按预期失败；独立复核无剩余可执行缺陷。静态/假实现检查不执行游戏 DLL，也不算本版实机验证。发行 DLL SHA256：46686ca520a3754e7821b6c7e22f9e236ddb015a58b114bdebacb39f0f8144f8。
+
+源码、构建与证据详见任务 artifacts/third-launch/r13-final-checks.json、r13-keeper-review/r13-final-review.md、r12-audio-review/reaction-weapon-animator-cache-abi.md、r12-vfx-review/r13-canonical-blocked-reaction.md。测试包与后续安装/启动状态以 dist/third-trial-20261010-r13/verification.json 和 current-installation.json 为准。未合 main，声音/特效完整性仍待用户实机确认。

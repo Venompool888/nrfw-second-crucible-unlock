@@ -144,6 +144,11 @@ namespace CrucibleUnlock
         { FakeRuntime.Reads.Read(); ++Calls; return Ready; }
         public static void StopWithoutUnityReads() { ++Stops; }
     }
+    static class EnemyRestorationAudioDiagnostics
+    {
+        public static int Stops;
+        public static void StopWithoutUnityReads() { ++Stops; }
+    }
     static class EnemyRestorationWeaponViews
     {
         public static bool Ready;

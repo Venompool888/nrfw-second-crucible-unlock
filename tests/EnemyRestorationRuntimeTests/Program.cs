@@ -152,6 +152,8 @@ static class Program
         TrialRepairLog.ResetResourceManager(); Check(!EnemyRestorationRuntime.CurrentViewsReady, "Actual reset hook clears readiness synchronously");
         Check(EnemyRestorationKeeperWeaponViews.Stops == 1 && EnemyRestorationReactionViews.Stops == 1,
             "R10: resolver reset withdraws both animation templates without retaining retired context");
+        Check(EnemyRestorationAudioDiagnostics.Stops == 1,
+            "R13: resolver reset clears audio report limits without native reads");
         EnemyRestorationViews.LutReady = false;
         var second = Context(); LoaderUpdate();
         Check(!EnemyRestorationRuntime.CurrentViewsReady && ReferenceEquals(EnemyRestorationViews.LastContext, second), "Resolver swap reads new Core.AssetCtx and waits for LUT");
@@ -219,6 +221,8 @@ static class Program
         LoaderUpdate(); Check(FakeRuntime.Reads.Unity == reads && !EnemyRestorationRuntime.CurrentViewsReady, "Explicit shutdown also performs no Unity reads");
         Check(EnemyRestorationKeeperWeaponViews.Stops == 2 && EnemyRestorationReactionViews.Stops == 2,
             "R10: shutdown withdraws helper readiness without native teardown reads");
+        Check(EnemyRestorationAudioDiagnostics.Stops == 2,
+            "R13: shutdown clears audio diagnostics without native reads");
         FakeRuntime.Reads.Forbidden = false;
 
         EnemyRestorationRuntime.Install("managed-fixture", attachSimulationHook: false);

@@ -109,13 +109,21 @@ Check(UnityEngine.Object.Destroyed.Contains(thirdClone) && PendingCount() == 0,
     "Pre-callback clone failure destroys clone without Unequip");
 Check(thirdClone.Weapon.UnequipCalls == 0, "No native Unequip before native callback");
 
-var (fourthItem, _, fourthClone) = Prepare(throwFirstUnequip: false);
+var (fourthItem, fourthPool, fourthClone) = Prepare(throwFirstUnequip: false);
 var fourthOwner = new HumanoidEnemyView();
 int successBefore = TrialRepairLog.Messages.Count(x => x.Contains("keeper weapon view equipped"));
 Check(EnemyRestorationKeeperWeaponViews.TryEquip(fourthOwner, fourthItem, true, catalog) &&
     fourthOwner.m_actionViewMap.Count == attacks.Length &&
     TrialRepairLog.Messages.Count(x => x.Contains("keeper weapon view equipped")) == successBefore + 1,
     "Successful callback validates every cloned ActionView map entry before logging success");
+Check(fourthClone.transform.parent?.Pointer == fourthOwner.transform.Pointer &&
+    fourthClone.Weapon.m_meleeEffects[0].m_characterView?.Pointer == fourthOwner.Pointer,
+    "Keeper clone has official owner parent before native first MeleeEffects.Init");
+Check(fourthClone.Weapon.AudioCompanion.WeaponSoundHost != null,
+    "Native weapon companion/host remains available for diagnostics");
+Check(fourthPool.LastParent.Pointer == fourthOwner.transform.Pointer &&
+    fourthPool.LastSource.transform.parent == null,
+    "Clone source remains unmodified and owner parent is also supplied to non-separate-scene cloning");
 
 var (fifthItem, _, fifthClone) = Prepare(throwFirstUnequip: false);
 var fifthOwner = new HumanoidEnemyView { SkipRegistrationGuid = attacks[0] };
@@ -124,6 +132,68 @@ Check(EnemyRestorationKeeperWeaponViews.TryEquip(fifthOwner, fifthItem, true, ca
     fifthOwner.MainWeaponView?.Pointer == fifthClone.Weapon.Pointer &&
     TrialRepairLog.Messages.Count(x => x.Contains("keeper weapon view equipped")) == successBefore,
     "Missing native ActionView mapping is detected without destroying transferred ownership");
+
+// The shipped keeper root contains two different Thrust ActionViews with one
+// GUID. Native registration has one dictionary winner; both belong to this clone.
+foreach (bool firstWins in new[] { false, true })
+{
+    var (duplicateItem, _, duplicateClone) = Prepare(throwFirstUnequip: false);
+    var duplicate = new ActionView
+    {
+        QuantumAsset = Core.AssetCtx.Wrappers[attacks[3]], transform = duplicateClone.transform
+    };
+    duplicateClone.Weapon.m_actionViews.Add(duplicate);
+    var duplicateOwner = new HumanoidEnemyView { KeepFirstRegistration = firstWins };
+    successBefore = TrialRepairLog.Messages.Count(x => x.Contains("keeper weapon view equipped"));
+    Check(EnemyRestorationKeeperWeaponViews.TryEquip(duplicateOwner, duplicateItem, true, catalog) &&
+        TrialRepairLog.Messages.Count(x => x.Contains("keeper weapon view equipped")) == successBefore + 1,
+        "Shipped duplicate Thrust accepts either native clone-owned winner: first=" + firstWins);
+    var winner = duplicateOwner.m_actionViewMap[new AssetGuid { Value = attacks[3] }];
+    Check(winner.Pointer == (firstWins ? duplicateClone.Weapon.m_actionViews[3].Pointer : duplicate.Pointer) &&
+        duplicateOwner.MainWeaponView.Pointer == duplicateClone.Weapon.Pointer && duplicateClone.activeSelf,
+        "Verification preserves native registration choice and equipped clone: first=" + firstWins);
+
+    var verify = typeof(EnemyRestorationKeeperWeaponViews).GetMethod("VerifyEquippedActionViews",
+        BindingFlags.NonPublic | BindingFlags.Static);
+    duplicateOwner.m_actionViewMap[new AssetGuid { Value = attacks[3] }] = new ActionView
+    {
+        QuantumAsset = Core.AssetCtx.Wrappers[attacks[3]]
+    };
+    bool foreignRejected = false;
+    try { verify.Invoke(null, new object[] { duplicateOwner, duplicateClone.Weapon }); }
+    catch (TargetInvocationException error) { foreignRejected = error.InnerException is InvalidOperationException; }
+    Check(foreignRejected, "Same GUID on a foreign ActionView still fails ownership validation");
+}
+
+var (duplicatePartialItem, _, duplicatePartialClone) = Prepare(throwFirstUnequip: false);
+duplicatePartialClone.Weapon.m_actionViews.Add(new ActionView
+{
+    QuantumAsset = Core.AssetCtx.Wrappers[attacks[3]], transform = duplicatePartialClone.transform
+});
+var duplicatePartialOwner = new HumanoidEnemyView { ThrowDuringEquip = true };
+Check(EnemyRestorationKeeperWeaponViews.TryEquip(duplicatePartialOwner, duplicatePartialItem, true, catalog),
+    "Partial native Equip with shipped duplicate remains scoped and intercepted");
+Check(duplicatePartialClone.Weapon.UnequipCalls == 1 && duplicatePartialOwner.m_actionViewMap.Count == 0 &&
+    UnityEngine.Object.Destroyed.Contains(duplicatePartialClone) && PendingCount() == 0,
+    "Clone-owned duplicate winner permits native rollback without false foreign-pointer failure");
+
+var (parentFailureItem, _, parentFailureClone) = Prepare(throwFirstUnequip: false);
+parentFailureClone.transform.ThrowDuringSetParent = true;
+var parentFailureOwner = new HumanoidEnemyView();
+Check(EnemyRestorationKeeperWeaponViews.TryEquip(parentFailureOwner, parentFailureItem, true, catalog) &&
+    parentFailureOwner.MainWeaponView == null && parentFailureClone.Weapon.m_enemyView == null &&
+    UnityEngine.Object.Destroyed.Contains(parentFailureClone) && PendingCount() == 0,
+    "Parenting failure closes and destroys only the untransferred clone before native Equip");
+
+var (staleEffectItem, _, staleEffectClone) = Prepare(throwFirstUnequip: false);
+staleEffectClone.Weapon.m_meleeEffects[0].Init(null); // Native Init is one-shot.
+var staleEffectOwner = new HumanoidEnemyView();
+successBefore = TrialRepairLog.Messages.Count(x => x.Contains("keeper weapon view equipped"));
+EnemyRestorationKeeperWeaponViews.TryEquip(staleEffectOwner, staleEffectItem, true, catalog);
+Check(TrialRepairLog.Messages.Count(x => x.Contains("keeper weapon view equipped")) == successBefore &&
+    staleEffectOwner.MainWeaponView?.Pointer == staleEffectClone.Weapon.Pointer &&
+    !UnityEngine.Object.Destroyed.Contains(staleEffectClone),
+    "Already-initialized null effects are detected without resetting native state or destroying native ownership");
 
 Check(!AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name.StartsWith("Il2Cpp") || a.GetName().Name.StartsWith("Unity")),
     "No game DLL loaded in managed fake harness");
