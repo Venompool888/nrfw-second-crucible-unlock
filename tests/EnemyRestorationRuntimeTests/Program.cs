@@ -64,6 +64,7 @@ static class Program
         string source = args.Length == 0 ? "../../src/CrucibleUnlock/EnemyRestorationRuntime.cs" : args[0];
         EnemyRestorationRuntime.Install("managed-fixture", attachSimulationHook: false);
         Check(BuildGuard.Checks == 1, "Actual Install invokes build guard");
+        Check(EnemyRestorationActionHooks.Installs == 1, "R10: view hooks install within module owner transaction");
         Check(EnemyRestorationRuntime.Catalog.Profiles.Length == 10, "Actual embedded catalog has all ten profiles");
         Check(!TrialRepairLog.Hooks.Any(h => h.TargetType == typeof(RuntimeAssetResolutionContext) && h.Method == "Update"),
             "Install must not depend on the uncalled RuntimeAssetResolutionContext.Update hook");
@@ -86,9 +87,23 @@ static class Program
         LoaderUpdate();
         Check(!EnemyRestorationRuntime.CurrentViewsReady && EnemyRestorationViews.Calls == 1, "LUT wait visits actual pump and remains unavailable");
         Check(first.m_assetByGuid.Count == 0, "LUT wait does not invent views");
-        EnemyRestorationViews.LutReady = true; LoaderUpdate();
+        EnemyRestorationViews.LutReady = true; EnemyRestorationWeaponViews.Ready = false; LoaderUpdate();
+        Check(!EnemyRestorationRuntime.CurrentViewsReady && EnemyRestorationWeaponViews.Calls == 1,
+            "R10: character views alone cannot open third route while private weapon wrappers wait");
+        Check(first.m_assetByGuid.Count == 10, "Weapon wrapper wait preserves only the ten completed character views");
+        EnemyRestorationWeaponViews.Ready = true; EnemyRestorationKeeperWeaponViews.Ready = false; LoaderUpdate();
+        Check(!EnemyRestorationRuntime.CurrentViewsReady && EnemyRestorationKeeperWeaponViews.Calls == 1 && EnemyRestorationReactionViews.Calls == 0,
+            "R10: three private wrappers cannot open route before keeper true item root is available");
+        EnemyRestorationKeeperWeaponViews.Ready = true; EnemyRestorationReactionViews.Ready = false; LoaderUpdate();
+        Check(!EnemyRestorationRuntime.CurrentViewsReady && EnemyRestorationReactionViews.Calls == 1,
+            "R10: route remains closed until sword parry source clip/timeline is available");
+        EnemyRestorationReactionViews.Ready = true; LoaderUpdate();
         Check(EnemyRestorationRuntime.CurrentViewsReady, "Loader pump retries and publishes ready");
-        Check(first.m_assetByGuid.Count == 10 && first.m_loadedWrappers.Count == 10, "All ten views/wrappers available before ready");
+        Check(first.m_assetByGuid.Count == 13 && first.m_loadedWrappers.Count == 13, "All ten character and three private weapon wrappers available before ready");
+        var publishedWeapons = EnemyRestorationWeaponViews.LastWeapons;
+        Check(publishedWeapons != null && publishedWeapons.Length == 10 && EnemyRestorationRuntime.Catalog.Profiles.Select((p,i) =>
+            p.BlockedActions.Length == 0 ? publishedWeapons[i] == null : ReferenceEquals(publishedWeapons[i],simulation.DynamicAssetDB.Assets[p.PrivateWeaponGuid])).All(v=>v),
+            "R10: weapon publication uses exact three simulation clones; seven unmodified weapons are absent");
         Check(EnemyRestorationViews.LastViews != null && EnemyRestorationViews.LastViews.Length == 10 &&
             EnemyRestorationViews.LastViews.Select((v,i) => ReferenceEquals(v,simulation.DynamicAssetDB.Assets[EnemyRestorationRuntime.Catalog.Profiles[i].ViewGuid])).All(v=>v),
             "Ensure receives the exact ten simulation objects rather than Unity-created duplicates");
@@ -104,6 +119,11 @@ static class Program
         simulation.DynamicAssetDB.Assets[collisionGuid] = new EntityViewData { Guid=retained.Guid, Path=retained.Path };
         Check(RejectsPublication(simulation), "Same manager cannot republish a different tenth view pointer");
         simulation.DynamicAssetDB.Assets[collisionGuid] = retained;
+        var privateGuid = EnemyRestorationRuntime.Catalog.Profiles[1].PrivateWeaponGuid;
+        var retainedWeapon = simulation.DynamicAssetDB.Assets[privateGuid];
+        simulation.DynamicAssetDB.Assets[privateGuid] = new EnemyWeaponData { Guid=retainedWeapon.Guid,Path=retainedWeapon.Path };
+        Check(RejectsPublication(simulation), "R10: same manager cannot republish different private weapon pointer");
+        simulation.DynamicAssetDB.Assets[privateGuid] = retainedWeapon;
         Check(TrialRepairLog.Messages.Count(m => m.Contains("VIEWS READY")) == 1, "One first-context ready record");
         int calls = EnemyRestorationViews.Calls; LoaderUpdate();
         Check(EnemyRestorationRuntime.CurrentViewsReady && EnemyRestorationViews.Calls == calls + 1, "Healthy same context remains ready and is strictly revalidated");
@@ -112,6 +132,9 @@ static class Program
         Global.Resolve = guid => guid.Value == profiles[9].ViewGuid ? new AssetObject { Guid = guid } : first.m_assetByGuid.GetValueOrDefault(guid);
         LoaderUpdate(); Check(!EnemyRestorationRuntime.CurrentViewsReady, "Tenth global lookup pointer mismatch blocks complete readiness");
         Use(first); LoaderUpdate(); Check(EnemyRestorationRuntime.CurrentViewsReady, "Global mismatch is retryable");
+        Global.Resolve = guid => guid.Value == privateGuid ? new EnemyWeaponData { Guid = guid } : first.m_assetByGuid.GetValueOrDefault(guid);
+        LoaderUpdate(); Check(!EnemyRestorationRuntime.CurrentViewsReady, "R10: private weapon global lookup pointer mismatch blocks readiness");
+        Use(first); LoaderUpdate(); Check(EnemyRestorationRuntime.CurrentViewsReady, "Private weapon global mismatch is retryable");
         Global.Resolve = _ => throw new InvalidOperationException("New resolver not loaded");
         LoaderUpdate(); Check(!EnemyRestorationRuntime.CurrentViewsReady, "Global lookup exception blocks readiness without permanent disable");
         Use(first); LoaderUpdate(); Check(EnemyRestorationRuntime.CurrentViewsReady, "Global lookup exception retries on later loader update");
@@ -123,15 +146,17 @@ static class Program
         Check(!EnemyRestorationRuntime.CurrentViewsReady && EnemyRestorationViews.Calls == calls && retired.m_assetByGuid.Count == 0,
             "Resolver identity changes before Ensure: retired context receives no validation or writes");
         LoaderUpdate();
-        Check(EnemyRestorationRuntime.CurrentViewsReady && ReferenceEquals(EnemyRestorationViews.LastContext, racedCurrent) && racedCurrent.m_assetByGuid.Count == 10,
+        Check(EnemyRestorationRuntime.CurrentViewsReady && ReferenceEquals(EnemyRestorationViews.LastContext, racedCurrent) && racedCurrent.m_assetByGuid.Count == 13,
             "Identity race does not permanently disable module; next update readies current resolver");
 
         TrialRepairLog.ResetResourceManager(); Check(!EnemyRestorationRuntime.CurrentViewsReady, "Actual reset hook clears readiness synchronously");
+        Check(EnemyRestorationKeeperWeaponViews.Stops == 1 && EnemyRestorationReactionViews.Stops == 1,
+            "R10: resolver reset withdraws both animation templates without retaining retired context");
         EnemyRestorationViews.LutReady = false;
         var second = Context(); LoaderUpdate();
         Check(!EnemyRestorationRuntime.CurrentViewsReady && ReferenceEquals(EnemyRestorationViews.LastContext, second), "Resolver swap reads new Core.AssetCtx and waits for LUT");
         EnemyRestorationViews.LutReady = true; LoaderUpdate();
-        Check(EnemyRestorationRuntime.CurrentViewsReady && second.m_assetByGuid.Count == 10, "Resolver swap becomes ready with ten new views");
+        Check(EnemyRestorationRuntime.CurrentViewsReady && second.m_assetByGuid.Count == 13, "Resolver swap becomes ready with ten character and three weapon wrappers");
         Check(TrialRepairLog.Messages.Count(m => m.Contains("VIEWS READY")) == 3, "One ready record for each first/raced/second successful context");
         Use(null); LoaderUpdate(); Check(!EnemyRestorationRuntime.CurrentViewsReady, "Loss of active context clears a prior ready flag");
         Use(second); LoaderUpdate(); Check(EnemyRestorationRuntime.CurrentViewsReady, "Current context restoration can retry");
@@ -176,6 +201,12 @@ static class Program
         Check(RejectsPublication(missing),"Incomplete tenth simulation view rejected");
         var badPath=Simulation(); badPath.DynamicAssetDB.Assets[profiles[9].ViewGuid].Path="foreign";
         Check(RejectsPublication(badPath),"Wrong simulation view path rejected");
+        var missingWeapon=Simulation(); missingWeapon.DynamicAssetDB.Assets.Remove(profiles[1].PrivateWeaponGuid);
+        Check(RejectsPublication(missingWeapon), "R10: missing canonical private weapon prevents publication");
+        var badWeaponPath=Simulation(); badWeaponPath.DynamicAssetDB.Assets[profiles[8].PrivateWeaponGuid].Path="foreign";
+        Check(RejectsPublication(badWeaponPath), "R10: incorrect private weapon path rejected");
+        var badWeaponType=Simulation(); badWeaponType.DynamicAssetDB.Assets[profiles[9].PrivateWeaponGuid]=new EntityViewData {Guid=new(){Value=profiles[9].PrivateWeaponGuid},Path=profiles[9].Path("weapon")};
+        Check(RejectsPublication(badWeaponType), "R10: incorrect private weapon asset type rejected");
         Core.ResourceManager=nextSimulation.Context.ResourceManager;
         Use(nextContext);
 
@@ -186,6 +217,8 @@ static class Program
         LoaderUpdate(); Check(FakeRuntime.Reads.Unity == reads && !EnemyRestorationRuntime.CurrentViewsReady, "Disabled pump performs no Unity reads");
         EnemyRestorationRuntime.StopWithoutUnityReads();
         LoaderUpdate(); Check(FakeRuntime.Reads.Unity == reads && !EnemyRestorationRuntime.CurrentViewsReady, "Explicit shutdown also performs no Unity reads");
+        Check(EnemyRestorationKeeperWeaponViews.Stops == 2 && EnemyRestorationReactionViews.Stops == 2,
+            "R10: shutdown withdraws helper readiness without native teardown reads");
         FakeRuntime.Reads.Forbidden = false;
 
         EnemyRestorationRuntime.Install("managed-fixture", attachSimulationHook: false);
@@ -203,7 +236,7 @@ static class Program
         var standaloneContext=Context();
         typeof(EnemyRestorationRuntime).GetMethod("AfterSimulationInit",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new object[]{standalone});
         LoaderUpdate();
-        Check(EnemyRestorationRuntime.CurrentViewsReady&&standaloneContext.m_assetByGuid.Count==10&&standalone.InstanceDataStorage.m_storageEntityViewData.m_storage.Count==0,
+        Check(EnemyRestorationRuntime.CurrentViewsReady&&standaloneContext.m_assetByGuid.Count==13&&standalone.InstanceDataStorage.m_storageEntityViewData.m_storage.Count==0,
             "Actual standalone AfterSimulationInit publishes registered views without requiring third-trial storage");
         EnemyRestorationRuntime.StopWithoutUnityReads();
         Check(missingPumps == 0, "Actual runtime must expose the loader-driven PumpCurrentViews entry");

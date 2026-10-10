@@ -13,7 +13,11 @@ var hooks=new[] {
  new Spec("Il2Cppmoon.quantum.forsaken",Q+"InfiniteDungeonDirector","SelectNextPlaylist",Q+"InfiniteDungeonPlaylist",new[]{Q+"Frame"},"ThirdTrialEntry","AfterSelectNextPlaylist",false),
  new Spec("Il2Cppmoon.quantum.forsaken",Q+"InfiniteDungeonRoguelitePlaylistRuleDirector","UpdateActiveRun","Void",new[]{Q+"Frame"},"ThirdTrialRuntime","BeforeRuleUpdate",true),
  new Spec("Il2Cppmoon.quantum.forsaken",Q+"DynamicNpcSpawnerData","Spawn",Q+"EntityRef",new[]{Q+"Frame",Q+"EntityRef",Q+"AssetRefNpcData","Il2CppPhoton.Deterministic.FPVector3","Il2CppPhoton.Deterministic.FP",Q+"EnemyDifficulty","System.Int64","System.String"},"ThirdTrialSpawning","BeforeSpawn",true),
- new Spec("Il2Cppmoon.quantum.forsaken",Q+"DynamicNpcSpawnerData","Spawn",Q+"EntityRef",new[]{Q+"Frame",Q+"EntityRef",Q+"AssetRefNpcData","Il2CppPhoton.Deterministic.FPVector3","Il2CppPhoton.Deterministic.FP",Q+"EnemyDifficulty","System.Int64","System.String"},"ThirdTrialSpawning","AfterSpawn",false)
+ new Spec("Il2Cppmoon.quantum.forsaken",Q+"DynamicNpcSpawnerData","Spawn",Q+"EntityRef",new[]{Q+"Frame",Q+"EntityRef",Q+"AssetRefNpcData","Il2CppPhoton.Deterministic.FPVector3","Il2CppPhoton.Deterministic.FP",Q+"EnemyDifficulty","System.Int64","System.String"},"ThirdTrialSpawning","AfterSpawn",false),
+ new Spec("Il2Cpp__forsaken","Il2CppMoon.Forsaken.HumanoidEnemyView","OnItemAssetResolved","Void",new[]{"Il2Cpp.EnemyItemDataBaseAsset","System.Boolean"},"EnemyRestorationActionHooks","BeforeItemAssetResolved",true),
+ new Spec("Il2Cpp__forsaken","Il2CppMoon.Forsaken.EntityView","GetActionView","Il2CppMoon.Forsaken.ActionView",new[]{Q+"ActionData","System.Boolean&"},"EnemyRestorationActionHooks","AfterGetActionView",false),
+ new Spec("Il2Cpp__forsaken","Il2CppMoon.Forsaken.HumanoidEnemyView","OnReturnedToPool","Void",Array.Empty<string>(),"EnemyRestorationActionHooks","BeforeHumanoidReturned",true),
+ new Spec("Il2Cpp__forsaken","Il2CppMoon.Forsaken.EntityView","OnDestroy","Void",Array.Empty<string>(),"EnemyRestorationActionHooks","BeforeEntityDestroyed",true)
 };
 using var pluginFile=File.OpenRead(args[1]);using var pluginPe=new PEReader(pluginFile);var plugin=pluginPe.GetMetadataReader();
 foreach(var hook in hooks) {
@@ -62,6 +66,49 @@ if(!rootChecks.Contains("UnityEngine.GameObject.GetComponent") ||
  !rootChecks.Any(c=>c.EndsWith(".TryCast<Il2CppMoon.Forsaken.HumanoidEnemyView>")))
  throw new Exception("Enemy prefab root lacks native EntityView and HumanoidEnemyView component validation.");
 Console.WriteLine("PASS: enemy prefab roots validate native EntityView and HumanoidEnemyView through non-generic Unity GetComponent.");
+var weaponEnsure = PluginMethod("CrucibleUnlock.EnemyRestorationWeaponViews", "Ensure");
+var weaponSignature = plugin.GetMethodDefinition(weaponEnsure).DecodeSignature(provider,(object)null);
+if (!weaponSignature.ParameterTypes.SequenceEqual(new[]{"Il2Cpp.RuntimeAssetResolutionContext","CrucibleUnlock.EnemyRestorationCatalog",Q+"EnemyWeaponData[]"}) ||
+    !Calls(pump).Contains("CrucibleUnlock.EnemyRestorationWeaponViews.Ensure"))
+ throw new Exception("Main-thread pump does not require canonical private weapon wrappers before readiness.");
+var weaponType=plugin.TypeDefinitions.Single(t=>provider.GetTypeFromDefinition(plugin,t,0)=="CrucibleUnlock.EnemyRestorationWeaponViews");
+var weaponCalls=plugin.GetTypeDefinition(weaponType).GetMethods().Where(h=>plugin.GetMethodDefinition(h).RelativeVirtualAddress!=0).SelectMany(Calls).ToArray();
+if(weaponCalls.Contains(Q+"EnemyWeaponData..ctor") || weaponCalls.Any(c=>c.EndsWith(".LoadOpResult")))
+ throw new Exception("Unity private weapon registration constructs simulation data or activates a prefab while loading.");
+var weaponRootChecks=Calls(PluginMethod("CrucibleUnlock.EnemyRestorationWeaponViews","VerifyRoot"));
+if(!weaponRootChecks.Contains("UnityEngine.GameObject.GetComponent") ||
+ !weaponRootChecks.Any(c=>c.EndsWith(".TryCast<Il2Cpp.EnemyWeaponView>")))
+ throw new Exception("Private weapon root is not validated through native EnemyWeaponView.");
+Console.WriteLine("PASS: private weapon wrappers require canonical simulation data and native item roots; no duplicate data or activating load result.");
+foreach(string helper in new[]{"EnemyRestorationKeeperWeaponViews","EnemyRestorationReactionViews"})
+ if(!Calls(pump).Contains("CrucibleUnlock."+helper+".Ensure"))
+  throw new Exception("Pump does not gate animation source readiness: "+helper);
+var animationInstall = Calls(PluginMethod("CrucibleUnlock.EnemyRestorationRuntime","Install"));
+if(!animationInstall.Contains("CrucibleUnlock.EnemyRestorationActionHooks.Install"))
+ throw new Exception("Animation hooks not installed within enemy module transaction.");
+var ownerCalls=Calls(PluginMethod("CrucibleUnlock.EnemyRestorationOwnerScope","TryGetProfile"));
+if(!ownerCalls.Contains(Q+"EntityRefExtensions.Get<"+Q+"NpcAttachmentComponent>") ||
+ ownerCalls.Any(c=>c.Contains("Frame")&&c.EndsWith(".Get<"+Q+"NpcAttachmentComponent>")) ||
+ ownerCalls.Contains(Q+"NpcAttachmentComponent..ctor") || ownerCalls.Any(c=>c.EndsWith(".get_QuantumAsset")))
+ throw new Exception("Enemy owner proof does not use current native attachment pointers.");
+foreach(string callback in new[]{"BeforeItemAssetResolved","AfterGetActionView","BeforeHumanoidReturned","BeforeEntityDestroyed"}) {
+ var handle=PluginMethod("CrucibleUnlock.EnemyRestorationActionHooks",callback);
+ var definition=plugin.GetMethodDefinition(handle);
+ if((definition.ImplAttributes & System.Reflection.MethodImplAttributes.NoInlining)==0 ||
+ pluginPe.GetMethodBody(definition.RelativeVirtualAddress).GetILBytes().Length>120)
+  throw new Exception("Animation detour callback is not short and isolated: "+callback);
+}
+var animationHooks=plugin.TypeDefinitions.Single(t=>provider.GetTypeFromDefinition(plugin,t,0)=="CrucibleUnlock.EnemyRestorationActionHooks");
+var helperCalls=plugin.GetTypeDefinition(animationHooks).GetMethods().Where(h=>plugin.GetMethodDefinition(h).RelativeVirtualAddress!=0).SelectMany(Calls).ToArray();
+if(!helperCalls.Contains("System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod"))
+ throw new Exception("Animation hooks lack startup helper compilation.");
+foreach(string type in new[]{"EnemyRestorationActionHooks","EnemyRestorationKeeperWeaponViews","EnemyRestorationReactionViews","EnemyRestorationOwnerScope"}) {
+ var h=plugin.TypeDefinitions.Single(t=>provider.GetTypeFromDefinition(plugin,t,0)=="CrucibleUnlock."+type);
+ var calls=plugin.GetTypeDefinition(h).GetMethods().Where(m=>plugin.GetMethodDefinition(m).RelativeVirtualAddress!=0).SelectMany(Calls);
+ if(calls.Any(c=>c.Contains("Il2Cpp")&&c.EndsWith(".GetEnumerator")))
+  throw new Exception("Animation helper traverses a native enumerator: "+type);
+}
+Console.WriteLine("PASS: keeper/parry readiness, current native owner proof, four short NoInlining animation callbacks, startup PrepareMethod and indexed interop traversal.");
 var viewSignature=plugin.GetMethodDefinition(viewEnsure).DecodeSignature(provider,(object)null);
 if(!viewSignature.ParameterTypes.SequenceEqual(new[]{"Il2Cpp.RuntimeAssetResolutionContext","CrucibleUnlock.EnemyRestorationCatalog",Q+"EntityViewData[]"}))
  throw new Exception("Unity view registration does not require the canonical simulation views.");
@@ -93,7 +140,7 @@ if(Calls(PluginMethod("CrucibleUnlock.ThirdTrialSpawning","GeneratedEntryMatches
  throw new Exception("Generated entry null guard invokes native QListPtr equality with a null object.");
 Console.WriteLine("PASS: spawner reads four component pointers through official EntityRefExtensions.Get; no boxed Frame.Get component reads or raw-pointer object wrappers.");
 Console.WriteLine("PASS: generated entry null guard does not call native QListPtr equality.");
-Console.WriteLine("PASS: 8 third-trial callbacks on 7 native targets and required embedded manifests/blood resources; PE metadata only.");
+Console.WriteLine("PASS: 12 third-trial callbacks on 11 native targets and required embedded manifests/blood resources; PE metadata only.");
 
 MethodDefinitionHandle PluginMethod(string type, string method) {
  var t=plugin.TypeDefinitions.Single(t=>provider.GetTypeFromDefinition(plugin,t,0)==type);

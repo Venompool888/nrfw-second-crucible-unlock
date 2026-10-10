@@ -88,6 +88,7 @@ namespace Il2CppQuantum
     class AssetObject : FakeRuntime.NativeObject { public AssetGuid Guid; public string Path; }
     class NpcData : AssetObject { public AssetRefEntityData EntityDataAssetRef { get; set; } public AssetRefControllerData ControllerDataAssetRef { get; set; } }
     class EntityViewData : AssetObject { }
+    class EnemyWeaponData : AssetObject { }
     class DynamicAssetDatabase
     {
         public readonly Dictionary<long,AssetObject> Assets = new();
@@ -113,9 +114,54 @@ namespace CrucibleUnlock
         public static List<AssetObject> Register(EnemyRestorationCatalog catalog, EnemyRestorationNativeBackend backend)
         {
             foreach (var p in catalog.Profiles)
+            {
                 if (!backend.Frame.DynamicAssetDB.Assets.ContainsKey(p.ViewGuid))
                     backend.Frame.DynamicAssetDB.Assets.Add(p.ViewGuid, new EntityViewData { Guid = new() { Value = p.ViewGuid }, Path = p.Path("view") });
+                if (p.BlockedActions.Length > 0 && !backend.Frame.DynamicAssetDB.Assets.ContainsKey(p.PrivateWeaponGuid))
+                    backend.Frame.DynamicAssetDB.Assets.Add(p.PrivateWeaponGuid, new EnemyWeaponData { Guid = new() { Value = p.PrivateWeaponGuid }, Path = p.Path("weapon") });
+            }
             return backend.Frame.DynamicAssetDB.Assets.Values.ToList();
+        }
+    }
+    static class EnemyRestorationActionHooks
+    {
+        public static int Installs;
+        public static void Install(HarmonyLib.Harmony owner) { ++Installs; }
+    }
+    static class EnemyRestorationKeeperWeaponViews
+    {
+        public static bool Ready = true;
+        public static int Calls, Stops;
+        public static bool Ensure(Il2Cpp.RuntimeAssetResolutionContext ctx, EnemyRestorationCatalog catalog)
+        { FakeRuntime.Reads.Read(); ++Calls; return Ready; }
+        public static void StopWithoutUnityReads() { ++Stops; }
+    }
+    static class EnemyRestorationReactionViews
+    {
+        public static bool Ready = true;
+        public static int Calls, Stops;
+        public static bool Ensure(Il2Cpp.RuntimeAssetResolutionContext ctx, EnemyRestorationCatalog catalog)
+        { FakeRuntime.Reads.Read(); ++Calls; return Ready; }
+        public static void StopWithoutUnityReads() { ++Stops; }
+    }
+    static class EnemyRestorationWeaponViews
+    {
+        public static bool Ready;
+        public static int Calls;
+        public static EnemyWeaponData[] LastWeapons;
+        public static bool Ensure(Il2Cpp.RuntimeAssetResolutionContext ctx, EnemyRestorationCatalog catalog, EnemyWeaponData[] weapons)
+        {
+            FakeRuntime.Reads.Read(); ++Calls; LastWeapons = weapons;
+            if (!Ready) return false;
+            for (int i = 0; i < catalog.Profiles.Length; ++i)
+            {
+                var p = catalog.Profiles[i];
+                if (p.BlockedActions.Length == 0) continue;
+                var guid = new AssetGuid { Value = p.PrivateWeaponGuid };
+                if (!ctx.m_assetByGuid.ContainsKey(guid)) ctx.m_assetByGuid.Add(guid, weapons[i]);
+                if (!ctx.m_loadedWrappers.ContainsKey(guid)) ctx.m_loadedWrappers.Add(guid, new Il2Cpp.FakeWrapper { Guid = guid });
+            }
+            return true;
         }
     }
     static class EnemyRestorationViews

@@ -113,3 +113,21 @@ R8 Player还累计2465次missing EntityView，随后too many exceptions终止，
 R9 source `a886af5edbb3254cae17ba69ef66bbeaf1a04dd2`，DLL `a5cd6b761978b4f09b5645107c4798f661fca80e645eb0fa3d9e68421239d796`，zip `4acd2fd3c40bf09d2a237853b7cfda2747dfa7c5b02f410820e5ed1a923b44d3`（1527220bytes）。最终17组离线检查全通过、Release0warning0error；Views127、storage226、Spawn66、runtime87、thirdRuntime423、entry33、presentation41、catalog53及policy/thirdABI/bowgun/JIT/unsafe/四dependency stubs通过。19:24:15 UTC备份切换，19:24:40 UTC按已有授权Steam启动，PID15040。完整备份与试玩前原0.9.17回滚为 `artifacts/third-launch/installation-r9-20261009T192415973Z/`；新会话 [R9日志](../../artifacts/third-launch/log-review-r9.md) 核对RESULT与异常。实际外观/武器/动作、十房/奖励/死亡重进由用户验证，不合main。
 
 R9启动观察截至19:27:03 UTC：本次banner/hash/buildguard/hooks及helper compilation ready通过，PID仍Responding。Latest停于19:24:55 UTC等待simulation publication；Player最后19:25:05 UTC IntroSequence，尚无world/TREE/SIM/PUBLISH/VIEWS/entry/spawn记录。未观察到明确失败，但未触发不等于初始化或刷怪验收。当前安装状态为等待用户进入世界和第三首房；回滚配置hash已核对实际启动后prefs文件更新。
+
+## R9 后续游玩与动作表现缺口
+
+用户已到显示第十层，报告整体正常、部分敌人动作不全。本次同一R9日志04:05 UTC进入世界、04:27:58 UTC正常退出，十棵树及视图、第三入口/献祭就绪；前九种类型有REPLACED/RESULT且全部verified=True，日志为有界诊断而非总实例计数。休息房每五战斗房插入，显示楼层不等于战斗类型序号；第十战斗类型、奖励及死亡重进仍待验证。
+
+完整 [游玩日志复核](../../artifacts/third-launch/r9-ten-floor-evidence/report.md) 保存原日志/hash/逐项计数：50次MissingActionView/17个动作，19次装备wrapper回调NRE、4次Quantum View加载失败、6次未登记武器prefab错误。大剑审判者与弩手动作已有出货ActionView，但私有模拟武器缺Unity EnemyWeaponDataAsset wrapper；大剑守卫的官方weapon wrapper另引用未在WorldLUT登记的PrefabRef。R10继续在本任务分支修复接线，不以QDB记录存在或空AnimatorController证明动画出货，不使用角色根充当武器。未合main。
+
+## R10：武器与招架视图接线
+
+为三个已裁掉不可用攻击的私有模拟武器补Unity EnemyWeaponDataAsset wrapper，保留exact canonical pointer、Guid/Path和裁后moveset；复制对应原武器PrefabRef，通过非泛型官方加载和实际EnemyWeaponView根验证。七个未修改的官方武器不纳入此桥，原prefab WeaponData保持原GUID供碰撞配置读取。十character+三private weapon wrapper全部读回同模拟pointer才继续ready。冻结真实R9 Runtime源码为RED对照，新Runtime额外门控守卫与招架模板；同一context的asset identity改变、manager/context竞态及关闭后Unity访问均有回归。
+
+守卫原weapon GUID4494428972466418711的PrefabRef不在WorldLUT，但QDB bundle保留真正 `enemyKeeperGreatSwordViewVariant` / EnemyWeaponView以及七个攻击子ActionView。桥从七个官方MeleeAttackDataAsset.View回溯到同一真实武器根；只给第三私有keeper NPC用官方PoolingSystem.CloneSync和HumanoidEnemyView.OnItemViewInstantiated装备。原actor `humanoidEnemyKeeperGreatSwordViewVariant` 是角色根，不可当武器。未修改全局pool索引/bitset/queues。装备原生callback中途失败时核对MainWeaponView实际ownership，未接管副本用官方Unequip取消自己的ActionView，再清理；已交原生持有的副本沿官方生命周期。
+
+左右剑盾守卫与亡潮大弯刀的ParriedHitReaction指向同一动作2122162585542657617，原角色/武器映射无该视图。资源中有官方parriedHitReact clip与13轨TimelineActionView子树；只在原GetActionView结果为空时复制这个子树，独立复制Animator/Sound引用并重绑当前CharacterAnimator、MainWeaponView.transform与WeaponSoundHost。Rig定义须与角色同pointer；所有timeline item须在克隆层级。走官方OnInstantiatedFromPool/注册，回池前或OnDestroy取消注册/OnReturned/deactivate/Destroy，每步异常独立清理；源子树与source resolver不改。
+
+Unity侧范围由当前PredictedFrame/EntityRef的原生NpcAttachmentComponent证明，组件unboxed144bytes、EntityViewDataRef索引+16/NpcDataRef索引+24均int32。官方EntityRefExtensions.Get AOT599544，storage索引1based；双私有GUID、lookup索引、DynamicAssetDB同pointer和NPC Host/Controller/View/Team引用必须全部匹配，不使用prefab QuantumAsset推断当前敌人。四个短NoInlining回调、隔离helper启动前PrepareMethod、全部interop索引遍历；同一主模块Harmony事务安装，context reset/停止无Unity读取撤回template。
+
+独立复核见 [私有武器桥](../../artifacts/third-launch/r10-weapon-bridge-review.md) 与 [owner/守卫/招架](../../artifacts/third-launch/r10-owner-keeper-reaction-review.md)。构建、离线结果和安装状态以R10冻结verification/current-installation为准；准备/接线日志有界记录，不能代替用户确认可见动作。四条Quantum View加载失败尚未全部证实因果；显示第十层、实际第十战斗类型、最终奖励及死亡重进应分别记录。任务未合main。

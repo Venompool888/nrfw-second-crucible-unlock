@@ -27,7 +27,10 @@ namespace CrucibleUnlock
             internal readonly object Manager;
             internal readonly EntityViewData[] Views;
             internal readonly IntPtr[] ViewPointers;
-            internal SimulationViewSnapshot(object manager, EntityViewData[] views, IntPtr[] pointers) { Manager = manager; Views = views; ViewPointers = pointers; }
+            internal readonly EnemyWeaponData[] Weapons;
+            internal readonly IntPtr[] WeaponPointers;
+            internal SimulationViewSnapshot(object manager, EntityViewData[] views, IntPtr[] pointers, EnemyWeaponData[] weapons, IntPtr[] weaponPointers)
+            { Manager = manager; Views = views; ViewPointers = pointers; Weapons = weapons; WeaponPointers = weaponPointers; }
         }
         internal static bool CurrentViewsReady => _enabled && _currentViewsReady;
         internal static EnemyRestorationCatalog Catalog => _catalog;
@@ -45,6 +48,7 @@ namespace CrucibleUnlock
                         typeof(EnemyRestorationRuntime), postfix: nameof(AfterSimulationInit));
                 TrialRepairLog.Patch(owner, typeof(Il2CppMoon.Playmode.InitializeQuantumAssetDatabase), "InitializeResourceManager",
                     new[] { typeof(Il2CppMoon.TheLoop.ViewFrame) }, typeof(EnemyRestorationRuntime), prefix: nameof(BeforeResourceManagerReset));
+                EnemyRestorationActionHooks.Install(owner);
                 _catalog = catalog;
                 _lastReadyViewContext = IntPtr.Zero;
                 _reportedFailure = 0;
@@ -78,6 +82,12 @@ namespace CrucibleUnlock
             if (manager == null || manager.Pointer == IntPtr.Zero) throw new InvalidOperationException("Simulation resource manager is unavailable.");
             var views = new EntityViewData[_catalog.Profiles.Length];
             var viewPointers = new IntPtr[views.Length];
+            // Only pruned weapons have private simulation assets. Their Unity
+            // wrappers must resolve these exact objects, including the filtered
+            // moveset; the seven untouched static weapons keep official wrappers.
+            var weapons = new EnemyWeaponData[views.Length];
+            var weaponPointers = new IntPtr[views.Length];
+            int privateWeapons = 0;
             for (int i = 0; i < views.Length; i++)
             {
                 var profile = _catalog.Profiles[i];
@@ -93,6 +103,15 @@ namespace CrucibleUnlock
                 }
                 views[i] = view;
                 viewPointers[i] = view.Pointer;
+                if (profile.BlockedActions.Length > 0)
+                {
+                    var weapon = frame.DynamicAssetDB.FindAsset(new AssetGuid { Value = profile.PrivateWeaponGuid })?.TryCast<EnemyWeaponData>();
+                    if (weapon == null || weapon.Pointer == IntPtr.Zero || weapon.Guid.Value != profile.PrivateWeaponGuid || weapon.Path != profile.Path("weapon"))
+                        throw new InvalidOperationException("Simulation private weapon mismatch: " + profile.Key);
+                    weapons[i] = weapon;
+                    weaponPointers[i] = weapon.Pointer;
+                    ++privateWeapons;
+                }
             }
             var managerPointer = manager.Pointer;
             lock (ViewSnapshotGate)
@@ -103,12 +122,14 @@ namespace CrucibleUnlock
                     for (int i = 0; i < views.Length; i++)
                         if (existing.ViewPointers[i] != viewPointers[i])
                             throw new InvalidOperationException("Simulation view identity changed for the same resource manager.");
+                        else if (existing.WeaponPointers[i] != weaponPointers[i])
+                            throw new InvalidOperationException("Simulation private weapon identity changed for the same resource manager.");
                     return;
                 }
-                ViewSnapshots.Add(managerPointer, new SimulationViewSnapshot(manager, views, viewPointers));
+                ViewSnapshots.Add(managerPointer, new SimulationViewSnapshot(manager, views, viewPointers, weapons, weaponPointers));
             }
             TrialRepairLog.Write("[enemy-restoration] SIMULATION VIEWS PUBLISHED profiles=" + views.Length +
-                "; manager=" + managerPointer + "; storageChecked=" + requireStorage.ToString().ToLowerInvariant());
+                "; privateWeapons=" + privateWeapons + "; manager=" + managerPointer + "; storageChecked=" + requireStorage.ToString().ToLowerInvariant());
         }
 
         internal static bool IsSimulationViewsReady(Frame frame) => CurrentViewsReady && frame != null &&
@@ -119,6 +140,8 @@ namespace CrucibleUnlock
             _currentViewsReady=false;
             _readyViewManager=IntPtr.Zero;
             _lastReadyViewContext=IntPtr.Zero;
+            EnemyRestorationKeeperWeaponViews.StopWithoutUnityReads();
+            EnemyRestorationReactionViews.StopWithoutUnityReads();
         }
 
         private static void AfterSimulationInit(Frame __0)
@@ -174,8 +197,33 @@ namespace CrucibleUnlock
                     ReportViewWait(2, "current resolver changed");
                     return;
                 }
-                if (EnemyRestorationViews.Ensure(ctx, _catalog, snapshot.Views))
+                if (!EnemyRestorationViews.Ensure(ctx, _catalog, snapshot.Views))
                 {
+                    _currentViewsReady = false;
+                    ReportViewWait(8, "official pooled prefab LUT");
+                    return;
+                }
+                if (Il2CppMoon.Forsaken.Core.AssetCtx?.Pointer != ctx.Pointer ||
+                    Il2CppMoon.Forsaken.Core.ResourceManager?.Pointer != managerPointer)
+                {
+                    _currentViewsReady = false;
+                    ReportViewWait(2, "current resolver changed");
+                    return;
+                }
+                if (EnemyRestorationWeaponViews.Ensure(ctx, _catalog, snapshot.Weapons))
+                {
+                    if (!EnemyRestorationKeeperWeaponViews.Ensure(ctx, _catalog))
+                    {
+                        _currentViewsReady = false;
+                        ReportViewWait(64, "official keeper weapon template");
+                        return;
+                    }
+                    if (!EnemyRestorationReactionViews.Ensure(ctx, _catalog))
+                    {
+                        _currentViewsReady = false;
+                        ReportViewWait(128, "official sword parry reaction template");
+                        return;
+                    }
                     bool current=true;
                     try
                     {
@@ -186,6 +234,11 @@ namespace CrucibleUnlock
                             if(!ctx.m_assetByGuid.TryGetValue(guid,out var data) || data==null ||
                                 !ctx.m_loadedWrappers.TryGetValue(guid,out var wrapper) || wrapper==null ||
                                 data.Pointer != snapshot.ViewPointers[i] || wrapper.AssetObject?.Pointer!=data.Pointer) { current=false; break; }
+                            if (p.BlockedActions.Length == 0) continue;
+                            var weaponGuid = new AssetGuid { Value = p.PrivateWeaponGuid };
+                            if (!ctx.m_assetByGuid.TryGetValue(weaponGuid,out var weapon) || weapon == null ||
+                                !ctx.m_loadedWrappers.TryGetValue(weaponGuid,out var weaponWrapper) || weaponWrapper == null ||
+                                weapon.Pointer != snapshot.WeaponPointers[i] || weaponWrapper.AssetObject?.Pointer != weapon.Pointer) { current=false; break; }
                         }
                     }
                     catch { current=false; }
@@ -199,13 +252,13 @@ namespace CrucibleUnlock
                     {
                         _lastReadyViewContext = ctx.Pointer;
                         TrialRepairLog.Write("[enemy-restoration] VIEWS READY profiles=" + _catalog.Profiles.Length +
-                            "; manager=" + managerPointer + "; retained prefab GUID/name pairs verified; no inherited donor costume");
+                            "; manager=" + managerPointer + "; character/private weapon wrappers, keeper weapon and sword parry templates verified; official costume settings retained");
                     }
                 }
                 else
                 {
                     _currentViewsReady = false;
-                    ReportViewWait(8, "official pooled prefab LUT");
+                    ReportViewWait(32, "official private weapon views");
                 }
             }
             catch (Exception error) { Fail("Unity view resolution", error); }
@@ -253,6 +306,8 @@ namespace CrucibleUnlock
             _currentViewsReady = false;
             _readyViewManager = IntPtr.Zero;
             lock (ViewSnapshotGate) ViewSnapshots.Clear();
+            EnemyRestorationKeeperWeaponViews.StopWithoutUnityReads();
+            EnemyRestorationReactionViews.StopWithoutUnityReads();
             // Do not touch native objects or unpatch hooks during process teardown.
         }
     }
