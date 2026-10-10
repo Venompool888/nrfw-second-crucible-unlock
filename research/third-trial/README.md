@@ -1,6 +1,6 @@
 # 第三试炼恢复敌人候选
 
-当前已安装 R13，源码 f8327558a1e99fa07582bb9924f1dd6e66d61abe，按本轮既有授权于 2026-10-10 06:33:00 UTC 通过 Steam 启动。R12 用户游玩已记录十类敌人 verified 刷新，动作基本完整；R13 补大剑守卫特效归属与剑类格挡反应，并添加只读音频诊断。R13 实机特效/声音仍待用户确认。最新状态见 [安装记录](../../artifacts/third-launch/current-installation.json)，下列旧版文字为历史证据。
+当前已安装 R14，源码 07979e1d3e76cf02993fc8f2b83ff86932ed78ff，按本轮既有授权于 2026-10-10 06:50:56 UTC 通过 Steam 启动。R13 实机发现 Keeper 装备调用双参数 SetParent 占位接口而丢失武器，R14只换成可用原生三参数接口并增加占位引用审计；音效没有新增或完成验收。R12 十类敌人刷新历史证据保留。最新状态见 [安装记录](../../artifacts/third-launch/current-installation.json)，下列旧版文字为历史证据。
 
 R6历史安装：R5实机第三献祭、路线和模型/战斗缓存已通过，刷怪在首回调因误把新NPC spawner当原始出生点而封闭。R6保持原8byte Spawn接口，通过Identity.Scope回源并交叉核对两份IntegrationGroup，再沿原白名单/房间归属改NPC参数；postfix有限记录原生保存的NPCref及返回entity，预测/确认帧分别记录，诊断不改变生成或控制。原生时序见 [R5刷怪来源证据](../../artifacts/third-launch/r5-empty-room-native-review.md)。最终真实源码刷怪回归50项通过（冻结R5同harness50项/37失败），其它Runtime87/Views101/ThirdRuntime423/storage154/entry33/presentation41和policy通过，7目标8callback及弩枪/JIT/unsafe/stub审计通过，Release0警告0错误。实际敌人、清层、奖励和重进须R6新会话用户验证。
 
@@ -197,3 +197,7 @@ R14只把该调用换为出货原生三参数SetParent(parent,false,false)，保
 Release0警告0错误，新跑五套实际源码托管检查433项全部通过；第三13回调/12目标、献祭早/晚完整准备顺序和71字节回调/无原生数组枚举、已知unsafe及流程policy通过，独立源码复核无可操作问题。DLL SHA256 39835bd42d16aff082e1c0f79afa0443ea4d1b3384659b3f405d7972ff4cc3be。R13失败包/日志和R12可游玩包保留，不合main。
 
 四条R13装备音频记录owner=0不能认定缺声原因：原生OnEquip先设武器收起，后续UpdateEquipment拔刀才进入OnUnsheathed/SetOwnerParameters。攻击声音另有WeaponSoundHostIsReady门控，装备时非空host/event不证明实际就绪或播放。静态复核已更正此前“装备立即拔刀”的误述；R14不强改Owner或音频事件，声音完整性未修复/未验收。详细生命周期见 artifacts/third-launch/r13-playthrough-regression-evidence/regression-review/r13-audio-lifecycle-review.md。
+
+R14 已于 2026-10-10 06:50 UTC 备份切换，06:50:56 UTC 按既有授权Steam启动，PID18616；源码07979e1d3e76cf02993fc8f2b83ff86932ed78ff，冻结zip SHA256 d192fcbaeb8b0a8be6c105300d5e74bb52bf3a89676d988650ce5f2d0a46f253（1541540bytes）。当前插件/配置、其他插件、登记和R13失败日志已备份校验；原游戏文件及其他三个插件hash保持，原0.9.17与完整配置回滚记录为 artifacts/third-launch/installation-r14-20261010T065005692Z/rollback.ps1。
+
+启动后38秒和101秒的两份快照中，实际R14版本/hash/buildguard匹配，进程alive/responding，早期与晚期三helper各ready，恢复模块与献祭钩子installed，本观察窗无fatal/error/exception或1000/1001/1023事件。仍等待simulation views publication，TREE/SIMULATION/VIEWS READY与world entry、实际spawn/音频均未触发，不能称玩法或武器显示通过。报告 artifacts/third-launch/log-review-r14.md，runtime_verified保持false。源码及工作目录保留在原任务分支，未合main；音效未新增/未验收。
