@@ -1,0 +1,10 @@
+{
+  "source": "C:\\Users\\venom\\OneDrive\\Desktop\\NRFW\\research\\third-trial-restored-enemies-20261010\\tests\\ThirdTrialRuntimeTests\\R4ThirdTrialRuntime.snapshot",
+  "source_sha256": "4aea5041b744aaf53f88bee02d0083b7ac10d088d9f9a0b6fc4d9dd8c6729fab",
+  "actual_source_compiled": true,
+  "managed_fakes_only": true,
+  "checks": 12,
+  "passed": false,
+  "failure": "System.Exception: Actual Third AfterInit publishes once only after full storage and playlist bootstrap\r\n   at Program.Check(Boolean v, String why) in C:\\Users\\venom\\OneDrive\\Desktop\\NRFW\\research\\third-trial-restored-enemies-20261010\\tests\\ThirdTrialRuntimeTests\\Program.cs:line 10\r\n   at Program.Run() in C:\\Users\\venom\\OneDrive\\Desktop\\NRFW\\research\\third-trial-restored-enemies-20261010\\tests\\ThirdTrialRuntimeTests\\Program.cs:line 101\r\n   at Program.Main(String[] args) in C:\\Users\\venom\\OneDrive\\Desktop\\NRFW\\research\\third-trial-restored-enemies-20261010\\tests\\ThirdTrialRuntimeTests\\Program.cs:line 88",
+  "limitation": "Actual ThirdRuntime/storage source with managed publisher fake verifies complete-bootstrap ordering, not native runtime publication or rendering."
+}

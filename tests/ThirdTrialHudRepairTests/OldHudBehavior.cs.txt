@@ -1,0 +1,9 @@
+namespace CrucibleUnlock {
+ internal static class ThirdTrialHudRepair {
+  internal static void Install() { }
+  internal static void Dispose() { }
+  internal static void StopWithoutUnityReads() { }
+  private static bool BeforeUpdateCurrentFloor(Il2CppMoon.Forsaken.PlayerCrucibleHUD __instance) => true;
+  private static void BeforeReleaseHud(Il2CppMoon.Forsaken.PlayerCrucibleHUD __instance) { }
+ }
+}

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net6.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
+  <PropertyGroup><RuntimeSource Condition="'$(RuntimeSource)' == ''">../../src/CrucibleUnlock/ThirdTrialRuntime.cs</RuntimeSource></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(RuntimeSource)" Link="ThirdTrialRuntime.cs" />
+    <Compile Include="../../src/CrucibleUnlock/ThirdTrialStorageBackend.cs" Link="ThirdTrialStorageBackend.cs" />
+    <Compile Include="../../src/CrucibleUnlock/ThirdTrialStoragePolicy.cs" Link="ThirdTrialStoragePolicy.cs" />
+    <Compile Include="../../src/CrucibleUnlock/ThirdTrialFailurePolicy.cs" Link="ThirdTrialFailurePolicy.cs" />
+    <Compile Include="../../src/CrucibleUnlock/ThirdTrialCatalog.cs" Link="ThirdTrialCatalog.cs" />
+    <Compile Include="../../src/CrucibleUnlock/EnemyRestorationCatalog.cs" Link="EnemyRestorationCatalog.cs" />
+    <EmbeddedResource Include="../../research/enemy-restoration/bindings.json" LogicalName="NRFW.EnemyRestoration.Bindings.json" />
+    <EmbeddedResource Include="../../research/third-trial/rooms.json" LogicalName="NRFW.ThirdTrial.Rooms.json" />
+    <EmbeddedResource Include="SecondPlaylist.json" LogicalName="NRFW.Tests.SecondPlaylist.json" />
+  </ItemGroup>
+</Project>

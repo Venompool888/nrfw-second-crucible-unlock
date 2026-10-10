@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <SpawnSource Condition="'$(SpawnSource)' == ''">../../src/CrucibleUnlock/ThirdTrialSpawning.cs</SpawnSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" /><Compile Include="Fakes.cs" />
+    <Compile Include="$(SpawnSource)" Link="ThirdTrialSpawning.cs" />
+    <Compile Include="../../src/CrucibleUnlock/ThirdTrialSpawningPolicy.cs" Link="ThirdTrialSpawningPolicy.cs" />
+    <Compile Include="../../src/CrucibleUnlock/ThirdTrialCatalog.cs" Link="ThirdTrialCatalog.cs" />
+    <Compile Include="../../src/CrucibleUnlock/EnemyRestorationCatalog.cs" Link="EnemyRestorationCatalog.cs" />
+    <EmbeddedResource Include="../../research/third-trial/rooms.json" LogicalName="NRFW.ThirdTrial.Rooms.json" />
+    <EmbeddedResource Include="../../research/enemy-restoration/bindings.json" LogicalName="NRFW.EnemyRestoration.Bindings.json" />
+  </ItemGroup>
+</Project>

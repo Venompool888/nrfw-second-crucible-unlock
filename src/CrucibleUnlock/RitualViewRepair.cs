@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Reflection;
+using Il2CppInterop.Runtime;
 using PatchOwner = HarmonyLib.Harmony;
 using Il2CppMoon;
 using Il2CppMoon.Forsaken;
@@ -10,31 +13,64 @@ using UObject = UnityEngine.Object;
 
 namespace CrucibleUnlock
 {
-    // The installed second bowl has no offering ActionView, resolver links or blood decals.
+    // The installed second and third bowls have no offering ActionView, resolver links or blood decals.
     // Reuse the first bowl's scene-owned presentation without changing Quantum actions/assets.
-    internal static class RitualViewRepair
+    internal static partial class RitualViewRepair
     {
         private const int AnimatorLink = -1965569097, LeftHandLink = 897781494;
         private static PatchOwner _harmony;
         private static bool _enabled;
         private static int _errors;
 
-        public static void Install()
+        public static void Install(Action<string> startupLog)
         {
             var h = new PatchOwner("NRFW.CrucibleUnlock.RitualView");
             try
             {
+                // Prepare the complete helper before exposing the detour. This
+                // verifies its JIT path at startup rather than postponing the
+                // previous first-compilation crash until a real offering.
+                PrepareHelpers(startupLog);
                 TrialRepairLog.Patch(h, typeof(EntityView), "GetActionView", new[] { typeof(ActionData), typeof(bool).MakeByRefType() },
                     typeof(RitualViewRepair), postfix: nameof(AfterGetActionView), returnType: typeof(ActionView));
                 _harmony = h; _enabled = true;
-                TrialRepairLog.Write("[ritual-view] installed missing second-bowl offering view repair; first-bowl scene template only");
+                TrialRepairLog.Write("[ritual-view] installed missing bowl offering view repair; second always, third only when custom entry ready; first-bowl scene template only");
             }
             catch { _enabled = false; h.UnpatchSelf(); throw; }
         }
 
+        // Separate eager compilation from registration so the same bodies can
+        // be compiled before the new enemy view detours change loader state.
+        // This does not enable the repair or touch scene/native object state.
+        public static void PrepareHelpers(Action<string> startupLog)
+        {
+            if (startupLog == null) throw new ArgumentNullException(nameof(startupLog));
+            foreach (string name in new[] { nameof(FindOfferingTemplate), nameof(CopyResolver), nameof(RepairOffering) })
+            {
+                startupLog("[ritual-view] preparing helper=" + name);
+                var helper = typeof(RitualViewRepair).GetMethod(name,
+                    BindingFlags.NonPublic | BindingFlags.Static);
+                if (helper == null) throw new InvalidOperationException("Offering helper missing: " + name);
+                RuntimeHelpers.PrepareMethod(helper.MethodHandle);
+                startupLog("[ritual-view] helper compilation ready=" + name);
+            }
+            startupLog("[ritual-view] offering helper compilation ready; transform traversal without native arrays");
+        }
+
+        // Keep the native detour callback small. The loader JITs this method on
+        // ordinary hero ActionView lookups too, before any bowl is considered.
+        [MethodImpl(MethodImplOptions.NoInlining)]
         private static void AfterGetActionView(EntityView __instance, ActionData __0, ref ActionView __result)
         {
             if (!_enabled || __instance == null || __result != null || __0 == null || __0.Guid.Value != TrialRepairPolicy.OfferingGuid) return;
+            TrialRepairLog.Write("[ritual-view] missing offering matched; entering isolated view helper");
+            RepairOffering(__instance, __0, ref __result);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void RepairOffering(EntityView __instance, ActionData __0, ref ActionView __result)
+        {
+            TrialRepairLog.Write("[ritual-view] offering helper entered");
             GameObject root = null;
             var decals = new List<GameObject>();
             GeneralInteractableView bowl = null;
@@ -45,7 +81,9 @@ namespace CrucibleUnlock
             try
             {
                 bowl = __instance.TryCast<GeneralInteractableView>();
-                if (bowl == null || bowl.Data?.Name != "secondStatueBowlInteraction" ||
+                bool third = bowl?.Data?.Name == "thirdStatueBowlInteraction";
+                bool thirdReady = third && ThirdTrialEntry.CurrentViewsReady;
+                if (bowl == null || (bowl.Data?.Name != "secondStatueBowlInteraction" && !thirdReady) ||
                     bowl.DataAsset.Id.Value != RitualViewPolicy.BowlDataGuid || !bowl.IsBoundToEntity) return;
 
                 GeneralInteractableView first = null;
@@ -55,35 +93,32 @@ namespace CrucibleUnlock
                 // Limit discovery to the sibling statues in this loaded room.
                 var statues = bowl.transform.parent?.parent;
                 if (statues == null) throw new InvalidOperationException("Missing statue hierarchy");
-                foreach (var candidate in statues.GetComponentsInChildren<GeneralInteractableView>(true))
-                {
-                    if (candidate == null || candidate.Data?.Name != "firstStatueBowlInteraction" ||
-                        candidate.DataAsset.Id.Value != RitualViewPolicy.BowlDataGuid || !candidate.IsBoundToEntity) continue;
-                    foreach (var view in candidate.GetComponentsInChildren<InteractionView>(true))
-                        if (view != null && view.QuantumAsset?.AssetGuid.Value == TrialRepairPolicy.OfferingGuid)
-                        { first = candidate; template = view; ++count; }
-                }
+                count = FindOfferingTemplate(statues, out first, out template);
                 bool sameScene = first != null && first.gameObject.scene.handle == bowl.gameObject.scene.handle;
-                if (!RitualViewPolicy.ShouldCreate(__0.Guid.Value, bowl.DataAsset.Id.Value, bowl.Data.Name, true,
-                    bowl.IsBoundToEntity, count, sameScene)) throw new InvalidOperationException("Offering template count=" + count);
+                bool allowed = third
+                    ? RitualViewPolicy.ShouldCreateThird(__0.Guid.Value, bowl.DataAsset.Id.Value, bowl.Data.Name, true,
+                        bowl.IsBoundToEntity, count, sameScene, thirdReady)
+                    : RitualViewPolicy.ShouldCreate(__0.Guid.Value, bowl.DataAsset.Id.Value, bowl.Data.Name, true,
+                        bowl.IsBoundToEntity, count, sameScene);
+                if (!allowed) throw new InvalidOperationException("Offering template count=" + count);
 
                 stage = "copy-resolver";
                 original = bowl.m_dataResolver;
                 if (original?.SerializedDataItems != null && original.SerializedDataItems.Count != 0)
-                    throw new InvalidOperationException("Second bowl resolver is no longer empty");
+                    throw new InvalidOperationException("Target bowl resolver is no longer empty");
                 installed = CopyResolver(first, bowl);
                 bowl.m_dataResolver = installed;
 
                 // Keep the new hierarchy inactive until every external reference is retargeted.
                 stage = "parent-inactive-root";
-                root = new GameObject("NRFW_SecondBowlOffering");
+                root = new GameObject(third ? "NRFW_ThirdBowlOffering" : "NRFW_SecondBowlOffering");
                 root.SetActive(false);
                 // Moon's Unity build only exports the three-argument overload; the two-argument
                 // generated method is a literal NotSupportedException (unstripping failed) stub.
                 root.transform.SetParent(bowl.transform, false, false);
                 stage = "clone-view";
                 var cloneObject = UObject.Instantiate(template.gameObject, root.transform, false);
-                cloned = cloneObject.GetComponent<InteractionView>();
+                cloned = cloneObject.GetComponent(Il2CppType.Of<InteractionView>())?.TryCast<InteractionView>();
                 if (cloned == null || cloned.Pointer == template.Pointer) throw new InvalidOperationException("Offering clone missing");
                 stage = "bind-view";
                 cloned.Interactable = new MoonReference<IInteractableView>(bowl.Cast<IInteractableView>());
@@ -111,10 +146,13 @@ namespace CrucibleUnlock
                     decalMap.Add(source.gameObject.Pointer, copy);
                 }
                 stage = "adapt-blood-route";
-                bool bloodAligned = RitualBloodRoute.TryApply(firstModel, decalMap);
+                bool bloodAligned = RitualBloodRoute.TryApply(firstModel, decalMap, third);
                 stage = "bind-tracks";
-                foreach (var record in records)
+                // Generated IL2CPP List<T>.Enumerator is a projected native
+                // generic value type. Avoid importing it through the CLR JIT.
+                for (int recordIndex = 0; recordIndex < records.Count; ++recordIndex)
                 {
+                    var record = records[recordIndex];
                     var item = record?.TimelineItem;
                     if (item == null) continue;
                     var component = item.TryCast<Component>();
@@ -153,7 +191,7 @@ namespace CrucibleUnlock
                 registering = true;
                 bowl.RegisterActionView(cloned);
                 __result = cloned;
-                TrialRepairLog.Write("[ritual-view] CREATED bowl=" + bowl.EntityRef.Raw + "; view=" + cloned.Pointer +
+                TrialRepairLog.Write("[ritual-view] CREATED target=" + bowl.Data.Name + "; bowl=" + bowl.EntityRef.Raw + "; view=" + cloned.Pointer +
                     "; template=" + template.Pointer + "; tracks=9; handVfx=2; bowlDecals=" + decals.Count + "; bloodRouteAligned=" + bloodAligned + "; original timeline retained");
             }
             catch (Exception e)
@@ -176,6 +214,7 @@ namespace CrucibleUnlock
             }
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
         private static DynamicDataResolver CopyResolver(GeneralInteractableView first, GeneralInteractableView second)
         {
             var source = first.m_dataResolver?.SerializedDataItems;
@@ -185,8 +224,10 @@ namespace CrucibleUnlock
                 SerializedDataItems = new Il2CppSystem.Collections.Generic.List<DynamicDataResolver.SerializedDynamicDataLinkItem>()
             };
             int mask = 0;
-            foreach (var item in source)
+            // Indexed access avoids the generated nested native enumerator.
+            for (int sourceIndex = 0; sourceIndex < source.Count; ++sourceIndex)
             {
+                var item = source[sourceIndex];
                 var data = item.DataLinkItem;
                 int field = item.Guid == AnimatorLink ? 0 : item.Guid == LeftHandLink ? 2 : -1;
                 if (data == null || field == -1 || data.ClassID != 1016 || data.FieldID != field ||

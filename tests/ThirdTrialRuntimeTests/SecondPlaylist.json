@@ -1,0 +1,152 @@
+{
+  "Guid": {
+    "Value": 1509816363606571268
+  },
+  "Path": "",
+  "PlaylistType": 2,
+  "Entries": [
+    {
+      "RandomizedFromType": false,
+      "SpecificFloor": {
+        "Id": {
+          "Value": 402881206395237272
+        }
+      },
+      "FloorType": 4,
+      "Nuggets": [
+        {
+          "Id": {
+            "Value": 738488087421578882
+          }
+        }
+      ]
+    },
+    {
+      "RandomizedFromType": false,
+      "SpecificFloor": {
+        "Id": {
+          "Value": 402881206395237272
+        }
+      },
+      "FloorType": 0,
+      "Nuggets": [
+        {
+          "Id": {
+            "Value": 4168046500656966451
+          }
+        }
+      ]
+    },
+    {
+      "RandomizedFromType": false,
+      "SpecificFloor": {
+        "Id": {
+          "Value": 402881206395237272
+        }
+      },
+      "FloorType": 0,
+      "Nuggets": [
+        {
+          "Id": {
+            "Value": 1895530167724632230
+          }
+        }
+      ]
+    },
+    {
+      "RandomizedFromType": false,
+      "SpecificFloor": {
+        "Id": {
+          "Value": 402881206395237272
+        }
+      },
+      "FloorType": 0,
+      "Nuggets": [
+        {
+          "Id": {
+            "Value": 4088593489119459626
+          }
+        }
+      ]
+    },
+    {
+      "RandomizedFromType": false,
+      "SpecificFloor": {
+        "Id": {
+          "Value": 402881206395237272
+        }
+      },
+      "FloorType": 0,
+      "Nuggets": [
+        {
+          "Id": {
+            "Value": 347037536032162506
+          }
+        }
+      ]
+    },
+    {
+      "RandomizedFromType": false,
+      "SpecificFloor": {
+        "Id": {
+          "Value": 402881206395237272
+        }
+      },
+      "FloorType": 0,
+      "Nuggets": [
+        {
+          "Id": {
+            "Value": 4566086479376758879
+          }
+        }
+      ]
+    },
+    {
+      "RandomizedFromType": false,
+      "SpecificFloor": {
+        "Id": {
+          "Value": 402881206395237272
+        }
+      },
+      "FloorType": 0,
+      "Nuggets": [
+        {
+          "Id": {
+            "Value": 494262534656620643
+          }
+        }
+      ]
+    },
+    {
+      "RandomizedFromType": true,
+      "SpecificFloor": {
+        "Id": {
+          "Value": 0
+        }
+      },
+      "FloorType": 4,
+      "Nuggets": []
+    }
+  ],
+  "SpawnPoint": {
+    "Id": {
+      "Value": 463908442262102715
+    }
+  },
+  "DisableLootDrops": true,
+  "LootDropModifier": {
+    "RawValue": 65536
+  },
+  "DisableHealingItemsUsage": false,
+  "DisableExperienceGain": false,
+  "RespiteRoomRange": {
+    "X": 5,
+    "Y": 5
+  },
+  "Identifier": {
+    "Path": "",
+    "Guid": {
+      "Value": 1509816363606571268
+    }
+  }
+}

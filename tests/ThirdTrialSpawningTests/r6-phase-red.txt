@@ -1,0 +1,3 @@
+FAIL: Has=true/Get=null class projection fails closed with exact component phase diagnostic
+FAIL: Null native runtime-entry projection preserves phase and full stack rather than generic NRE message
+Actual ThirdTrialSpawning tests: 52 checks; 2 failures; no game DLLs.

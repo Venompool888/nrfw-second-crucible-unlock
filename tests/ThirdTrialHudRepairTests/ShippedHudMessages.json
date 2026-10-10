@@ -1,0 +1,380 @@
+{
+  "bundle_sha256": "3c41fb36d6c6cd64845532c3d9d0e59316ee5018f8a40e7b724ab1cc03d7dcba",
+  "component_path_id": -8848418488552910758,
+  "floorMessages": [
+    {
+      "index": 0,
+      "object": {
+        "cab": "CAB-fdc51b115548f0b7186d2c250b087e8d",
+        "path_id": -2014472875064157573,
+        "type": "Moon.Forsaken.LocalizedMessage",
+        "name": "FloorNr01",
+        "tree": {
+          "m_GameObject": {
+            "m_FileID": 0,
+            "m_PathID": 0
+          },
+          "m_Enabled": 1,
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 1794304564032213063
+          },
+          "m_Name": "FloorNr01",
+          "Id": "ui.boonScreen.FloorNr01",
+          "English": "I",
+          "French": "I",
+          "Italian": "I",
+          "German": "I",
+          "Spanish": "I",
+          "BrazilianPortuguese": "I",
+          "TraditionalChinese": "I",
+          "SimplifiedChinese": "I",
+          "Korean": "I",
+          "Russian": "I",
+          "Japanese": "I",
+          "Polish": "I"
+        }
+      }
+    },
+    {
+      "index": 1,
+      "object": {
+        "cab": "CAB-fdc51b115548f0b7186d2c250b087e8d",
+        "path_id": -7457331489629928678,
+        "type": "Moon.Forsaken.LocalizedMessage",
+        "name": "FloorNr02",
+        "tree": {
+          "m_GameObject": {
+            "m_FileID": 0,
+            "m_PathID": 0
+          },
+          "m_Enabled": 1,
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 1794304564032213063
+          },
+          "m_Name": "FloorNr02",
+          "Id": "ui.boonScreen.FloorNr02",
+          "English": "II",
+          "French": "II",
+          "Italian": "II",
+          "German": "II",
+          "Spanish": "II",
+          "BrazilianPortuguese": "II",
+          "TraditionalChinese": "II",
+          "SimplifiedChinese": "II",
+          "Korean": "II",
+          "Russian": "II",
+          "Japanese": "II",
+          "Polish": "II"
+        }
+      }
+    },
+    {
+      "index": 2,
+      "object": {
+        "cab": "CAB-fdc51b115548f0b7186d2c250b087e8d",
+        "path_id": 2320698844668505655,
+        "type": "Moon.Forsaken.LocalizedMessage",
+        "name": "FloorNr03",
+        "tree": {
+          "m_GameObject": {
+            "m_FileID": 0,
+            "m_PathID": 0
+          },
+          "m_Enabled": 1,
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 1794304564032213063
+          },
+          "m_Name": "FloorNr03",
+          "Id": "ui.boonScreen.FloorNr03",
+          "English": "III",
+          "French": "III",
+          "Italian": "III",
+          "German": "III",
+          "Spanish": "III",
+          "BrazilianPortuguese": "III",
+          "TraditionalChinese": "III",
+          "SimplifiedChinese": "III",
+          "Korean": "III",
+          "Russian": "III",
+          "Japanese": "III",
+          "Polish": "III"
+        }
+      }
+    },
+    {
+      "index": 3,
+      "object": {
+        "cab": "CAB-fdc51b115548f0b7186d2c250b087e8d",
+        "path_id": -7697270320071557964,
+        "type": "Moon.Forsaken.LocalizedMessage",
+        "name": "FloorNr04",
+        "tree": {
+          "m_GameObject": {
+            "m_FileID": 0,
+            "m_PathID": 0
+          },
+          "m_Enabled": 1,
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 1794304564032213063
+          },
+          "m_Name": "FloorNr04",
+          "Id": "ui.boonScreen.FloorNr04",
+          "English": "IV",
+          "French": "IV",
+          "Italian": "IV",
+          "German": "IV",
+          "Spanish": "IV",
+          "BrazilianPortuguese": "IV",
+          "TraditionalChinese": "IV",
+          "SimplifiedChinese": "IV",
+          "Korean": "IV",
+          "Russian": "IV",
+          "Japanese": "IV",
+          "Polish": "IV"
+        }
+      }
+    },
+    {
+      "index": 4,
+      "object": {
+        "cab": "CAB-fdc51b115548f0b7186d2c250b087e8d",
+        "path_id": 6767548160986497398,
+        "type": "Moon.Forsaken.LocalizedMessage",
+        "name": "FloorNr05",
+        "tree": {
+          "m_GameObject": {
+            "m_FileID": 0,
+            "m_PathID": 0
+          },
+          "m_Enabled": 1,
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 1794304564032213063
+          },
+          "m_Name": "FloorNr05",
+          "Id": "ui.boonScreen.FloorNr05",
+          "English": "V",
+          "French": "V",
+          "Italian": "V",
+          "German": "V",
+          "Spanish": "V",
+          "BrazilianPortuguese": "V",
+          "TraditionalChinese": "V",
+          "SimplifiedChinese": "V",
+          "Korean": "V",
+          "Russian": "V",
+          "Japanese": "V",
+          "Polish": "V"
+        }
+      }
+    },
+    {
+      "index": 5,
+      "object": {
+        "cab": "CAB-fdc51b115548f0b7186d2c250b087e8d",
+        "path_id": 3075985439328067685,
+        "type": "Moon.Forsaken.LocalizedMessage",
+        "name": "FloorNr06",
+        "tree": {
+          "m_GameObject": {
+            "m_FileID": 0,
+            "m_PathID": 0
+          },
+          "m_Enabled": 1,
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 1794304564032213063
+          },
+          "m_Name": "FloorNr06",
+          "Id": "ui.boonScreen.FloorNr06",
+          "English": "VI",
+          "French": "VI",
+          "Italian": "VI",
+          "German": "VI",
+          "Spanish": "VI",
+          "BrazilianPortuguese": "VI",
+          "TraditionalChinese": "VI",
+          "SimplifiedChinese": "VI",
+          "Korean": "VI",
+          "Russian": "VI",
+          "Japanese": "VI",
+          "Polish": "VI"
+        }
+      }
+    },
+    {
+      "index": 6,
+      "object": {
+        "cab": "CAB-fdc51b115548f0b7186d2c250b087e8d",
+        "path_id": -8219695828350493554,
+        "type": "Moon.Forsaken.LocalizedMessage",
+        "name": "FloorNr07",
+        "tree": {
+          "m_GameObject": {
+            "m_FileID": 0,
+            "m_PathID": 0
+          },
+          "m_Enabled": 1,
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 1794304564032213063
+          },
+          "m_Name": "FloorNr07",
+          "Id": "ui.boonScreen.FloorNr07",
+          "English": "VII",
+          "French": "VII",
+          "Italian": "VII",
+          "German": "VII",
+          "Spanish": "VII",
+          "BrazilianPortuguese": "VII",
+          "TraditionalChinese": "VII",
+          "SimplifiedChinese": "VII",
+          "Korean": "VII",
+          "Russian": "VII",
+          "Japanese": "VII",
+          "Polish": "VII"
+        }
+      }
+    },
+    {
+      "index": 7,
+      "object": {
+        "cab": "CAB-fdc51b115548f0b7186d2c250b087e8d",
+        "path_id": 5265382352336500476,
+        "type": "Moon.Forsaken.LocalizedMessage",
+        "name": "FloorNr08",
+        "tree": {
+          "m_GameObject": {
+            "m_FileID": 0,
+            "m_PathID": 0
+          },
+          "m_Enabled": 1,
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 1794304564032213063
+          },
+          "m_Name": "FloorNr08",
+          "Id": "ui.boonScreen.FloorNr08",
+          "English": "VIII",
+          "French": "VIII",
+          "Italian": "VIII",
+          "German": "VIII",
+          "Spanish": "VIII",
+          "BrazilianPortuguese": "VIII",
+          "TraditionalChinese": "VIII",
+          "SimplifiedChinese": "VIII",
+          "Korean": "VIII",
+          "Russian": "VIII",
+          "Japanese": "VIII",
+          "Polish": "VIII"
+        }
+      }
+    },
+    {
+      "index": 8,
+      "object": {
+        "cab": "CAB-fdc51b115548f0b7186d2c250b087e8d",
+        "path_id": 1312712109385675295,
+        "type": "Moon.Forsaken.LocalizedMessage",
+        "name": "FloorNr09",
+        "tree": {
+          "m_GameObject": {
+            "m_FileID": 0,
+            "m_PathID": 0
+          },
+          "m_Enabled": 1,
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 1794304564032213063
+          },
+          "m_Name": "FloorNr09",
+          "Id": "ui.boonScreen.FloorNr09",
+          "English": "IX",
+          "French": "IX",
+          "Italian": "IX",
+          "German": "IX",
+          "Spanish": "IX",
+          "BrazilianPortuguese": "IX",
+          "TraditionalChinese": "IX",
+          "SimplifiedChinese": "IX",
+          "Korean": "IX",
+          "Russian": "IX",
+          "Japanese": "IX",
+          "Polish": "IX"
+        }
+      }
+    },
+    {
+      "index": 9,
+      "object": {
+        "cab": "CAB-fdc51b115548f0b7186d2c250b087e8d",
+        "path_id": -7640111806775959083,
+        "type": "Moon.Forsaken.LocalizedMessage",
+        "name": "FloorNr10",
+        "tree": {
+          "m_GameObject": {
+            "m_FileID": 0,
+            "m_PathID": 0
+          },
+          "m_Enabled": 1,
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 1794304564032213063
+          },
+          "m_Name": "FloorNr10",
+          "Id": "ui.boonScreen.FloorNr10",
+          "English": "X",
+          "French": "X",
+          "Italian": "X",
+          "German": "X",
+          "Spanish": "X",
+          "BrazilianPortuguese": "X",
+          "TraditionalChinese": "X",
+          "SimplifiedChinese": "X",
+          "Korean": "X",
+          "Russian": "X",
+          "Japanese": "X",
+          "Polish": "X"
+        }
+      }
+    },
+    {
+      "index": 10,
+      "object": {
+        "cab": "CAB-fdc51b115548f0b7186d2c250b087e8d",
+        "path_id": -6052018871217778323,
+        "type": "Moon.Forsaken.LocalizedMessage",
+        "name": "FloorNr11",
+        "tree": {
+          "m_GameObject": {
+            "m_FileID": 0,
+            "m_PathID": 0
+          },
+          "m_Enabled": 1,
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 1794304564032213063
+          },
+          "m_Name": "FloorNr11",
+          "Id": "ui.boonScreen.FloorNr11",
+          "English": "XI",
+          "French": "XI",
+          "Italian": "XI",
+          "German": "XI",
+          "Spanish": "XI",
+          "BrazilianPortuguese": "XI",
+          "TraditionalChinese": "XI",
+          "SimplifiedChinese": "XI",
+          "Korean": "XI",
+          "Russian": "XI",
+          "Japanese": "XI",
+          "Polish": "XI"
+        }
+      }
+    }
+  ]
+}
