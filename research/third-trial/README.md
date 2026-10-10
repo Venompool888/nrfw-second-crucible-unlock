@@ -1,6 +1,16 @@
 # 第三试炼恢复敌人候选
 
-当前已安装 R14，源码 07979e1d3e76cf02993fc8f2b83ff86932ed78ff，按本轮既有授权于 2026-10-10 06:50:56 UTC 通过 Steam 启动。R13 实机发现 Keeper 装备调用双参数 SetParent 占位接口而丢失武器，R14只换成可用原生三参数接口并增加占位引用审计；音效没有新增或完成验收。R12 十类敌人刷新历史证据保留。最新状态见 [安装记录](../../artifacts/third-launch/current-installation.json)，下列旧版文字为历史证据。
+当前已安装 R14，源码 07979e1d3e76cf02993fc8f2b83ff86932ed78ff。用户报告已通关并在拾武器后死机；本次日志确认全十种敌人各一次 verified spawn/result，Keeper大剑一次 native equip 回调成功。07:19:15–07:19:34 UTC发生1365次 PlayerCrucibleHUD.UpdateCurrentFloor 越界，最后引擎因异常过多主动终止；实际拾取/最终完成动作未记录，不能由日志证明拾取因果或全部声音播放。详见[R14完整游玩审计](../../artifacts/third-launch/r14-playthrough-audit-evidence/report.md)。安装仍是R14，本轮只读审计未更换插件或启动游戏，最新状态见 [安装记录](../../artifacts/third-launch/current-installation.json)；下列旧版文字为历史证据。
+
+## R14 本次游玩、声音与HUD审计
+
+2026-10-10本次日志版本/banner/安装DLL hash一致，日志会话06:51–07:19 UTC，旧Player-prev不作本次证据。用户报告已通关；日志直接证明10种profile各一次verified生成，不提供最终完成或武器拾取动作记录。Keeper大剑一次native装备回调的meleeEffects=1、character/audio/soundHost非零。Missing ActionView=0、NoPool=0；仍有11次大剑守卫scissorAttack重复动作键，以及一次DamageBuildup空引用，尚未建立它们与声音问题或拾取的因果。
+
+HUD共有1365次越界，对应1365条HUD失败包装记录，不能相加成2730次；末尾明确因异常过多主动终止。本地原生代码与官方prefab交叉确认floorMessages/FloorImages各11项（I–XI），显示索引是CompletedFloors+SkippedFloors。文案访问先于奖励房类型检查；文案没有安全回退，图标有越界跳过。实际坏索引、当时generated playlist长度及HUD实例数组没有运行诊断，不能断言恰是第11层或拾取导致。详见[HUD静态审计](../../artifacts/third-launch/r14-hud-audit/static-review.md)与[本次日志](../../artifacts/third-launch/r14-playthrough-audit-evidence/report.md)。后续修复应只作用私有第三source与当前HUD实例，扩展自有文案并记录原生索引，不能改模拟进度或原始文案资产。
+
+十种有效CharacterType均有官方声音池：长戟审判者Inquisitors；大剑/巨锤审判者InquisitorBruiser；三种Keeper使用Raiders；三种普通DeadTide使用DeadTide；DeadTideBruiser使用专用池。十个角色prefab均有PrimarySoundHost、移动声音处理器与voice/foley/footstep轨道。全局aiVoice/VoiceEfforts事件GUID可在出货SoundbanksInfo解析。声音资源与配置存在，不代表本次声音播放已验证；未发现直接关联的剧情对白文本，不能据此断言没有录音/bark。详见[资源盘点](../../artifacts/third-launch/r14-voice-audit/asset-inventory.md)。
+
+原生FulfillVoiceAssignment#20909优先保留有效CustomVoiceSwitch；只有无效时才从NpcAttachmentComponent.CharacterType选全局池并写回该字段。巨锤审判者原模型仍带Bruiser开关，死潮壮汉原模型仍带AxeBruiser开关，故有效时绕过新身份声音池，这是接入时未适配的继承差异；它不证明静音。其余8种初始开关为空，部分共享同一普通/大剑模型池，所检查的回收/实例化/解绑方法无直接字段清理，旧声线复用为待验证风险。该声音分配路径直接读取已验证的模拟NPC附件，不需要私有NpcDataAsset Unity wrapper；不能把旧的wrapper加载失败直接归为声音缺失。完整原生调用、共享模型名单及未排除的间接回池重置见[声音接线审计](../../artifacts/third-launch/r14-voice-audit/runtime-wiring.md)。安装仍是R14，本轮未改生产代码、替换插件、启动游戏或合入main。
 
 R6历史安装：R5实机第三献祭、路线和模型/战斗缓存已通过，刷怪在首回调因误把新NPC spawner当原始出生点而封闭。R6保持原8byte Spawn接口，通过Identity.Scope回源并交叉核对两份IntegrationGroup，再沿原白名单/房间归属改NPC参数；postfix有限记录原生保存的NPCref及返回entity，预测/确认帧分别记录，诊断不改变生成或控制。原生时序见 [R5刷怪来源证据](../../artifacts/third-launch/r5-empty-room-native-review.md)。最终真实源码刷怪回归50项通过（冻结R5同harness50项/37失败），其它Runtime87/Views101/ThirdRuntime423/storage154/entry33/presentation41和policy通过，7目标8callback及弩枪/JIT/unsafe/stub审计通过，Release0警告0错误。实际敌人、清层、奖励和重进须R6新会话用户验证。
 
