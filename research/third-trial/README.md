@@ -131,3 +131,15 @@ R9启动观察截至19:27:03 UTC：本次banner/hash/buildguard/hooks及helper c
 Unity侧范围由当前PredictedFrame/EntityRef的原生NpcAttachmentComponent证明，组件unboxed144bytes、EntityViewDataRef索引+16/NpcDataRef索引+24均int32。官方EntityRefExtensions.Get AOT599544，storage索引1based；双私有GUID、lookup索引、DynamicAssetDB同pointer和NPC Host/Controller/View/Team引用必须全部匹配，不使用prefab QuantumAsset推断当前敌人。四个短NoInlining回调、隔离helper启动前PrepareMethod、全部interop索引遍历；同一主模块Harmony事务安装，context reset/停止无Unity读取撤回template。
 
 独立复核见 [私有武器桥](../../artifacts/third-launch/r10-weapon-bridge-review.md) 与 [owner/守卫/招架](../../artifacts/third-launch/r10-owner-keeper-reaction-review.md)。构建、离线结果和安装状态以R10冻结verification/current-installation为准；准备/接线日志有界记录，不能代替用户确认可见动作。四条Quantum View加载失败尚未全部证实因果；显示第十层、实际第十战斗类型、最终奖励及死亡重进应分别记录。任务未合main。
+
+R10源码 `10cc144ddac6ca4c7b4dcb4c628032c0b73e5b45`，DLL `66de7a46e5243e69598b53235a19f539f36bb5a2afdac5456d4ae430102290ad`，zip `c4e7f87c5645cd7d049023c694695463fe43cbdf47fc5fd8b0fea289fdd7f5a6`（1539151bytes）。05:09:53 UTC备份切换，05:10:08 UTC按本任务已有授权启动；05:10:21 UTC PID12736 CoreCLR 80131506/c0000005自动退出，第三路线没有触发。离线25组通过不构成实机成功，R10冻结包与失败证据保留。
+
+精确转储SHA256 `9ea4b9e4c116b187b12189b0d2c1c3c733c07c515ef63034bd33933113700b54` 的SOS调用栈为RuntimeHelpers.PrepareMethod→RitualViewRepair.Install。Ritual四方法与R9 canonical IL一致；故障在献祭helper预编译，不能认定新增动作钩子是根因。ActionHooks在更早的EnemyRestorationRuntime.Install内已返回，TrialRepairLog等OnUpdate才输出，日志缺行不说明它未执行。CoreCLR故障函数与R2相同，但转储未捕获具体MethodTable；两处闭合Il2CppArrayBase类型是静态候选，不能称唯一根因。详见 [R10新会话](../../artifacts/third-launch/log-review-r10.md)、[转储复核](../../artifacts/third-launch/r10-crash-evidence/native-jit-review.md) 和 [R9/R10对照](../../artifacts/third-launch/r10-startup-jit-review.md)。
+
+## R11：献祭模板发现不导入原生数组
+
+R11只替换献祭修复的组件发现路径与启动诊断，六份敌人武器/招架/owner/runtime接线源码与R10哈希相同。发现代码独立为partial [RitualViewRepair.Template.cs](../../src/CrucibleUnlock/RitualViewRepair.Template.cs)，用托管Stack与Transform.childCount/GetChild遍历根及inactive后代，通过非泛型GetComponent(Type)取目标组件；须满足已核出货盆层级每GO每目标类型至多一个组件的前提，不泛称任意场景的全组件枚举等价。嵌套第一盆仍重复计数，单模板/名字/GUID/bound/同场景策略保持；4096节点上限及组件异常均拒绝。克隆InteractionView查找也改为非泛型。
+
+FindOfferingTemplate、CopyResolver和完整RepairOffering均在Patch前PrepareMethod，三段启动日志直接由loader线程输出。保留预编译以避免把同类风险推迟至献祭；ModMain此前先flush已有诊断。所用非泛型GetComponent与Transform调用经生成PE元数据确认有真实runtime_invoke实现，未执行游戏DLL。
+
+Release0warning0error，DLL `7d2f63b7c1d8dc4f30a43791eef6e26e9a1c9a5a7512a3679c3d8b5c19ca0db6`；本版新跑13组通过：实际发现源码15项、policy含献祭/血流范围、Ritual PE、第三12回调/11原生target、unsafe及8组dependency stub。扩展Ritual PE检查冻结R10 RED8原生数组引用，R11 GREEN0；回调71ILbytes、0原生枚举器。未改模块的R10验证以源hash校验后引用，不计作本次新跑。离线结果不证明实机JIT或动画已修复；安装及新会话结果以current-installation为准。任务未合main。

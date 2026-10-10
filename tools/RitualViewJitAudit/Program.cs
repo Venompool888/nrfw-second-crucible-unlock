@@ -24,6 +24,7 @@ var failures = new List<string>();
 var observations = new List<object>();
 void Require(bool condition, string failure) { if (!condition) failures.Add(failure); }
 bool NativeEnumerator(string value) => value.Contains("Il2CppSystem.Collections.Generic.List`1+Enumerator", StringComparison.Ordinal);
+bool NativeArray(string value) => value.Contains("Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppArray", StringComparison.Ordinal);
 var rootTypes = reader.TypeDefinitions.Where(h => names.Def(reader, h) == target).ToArray();
 Require(rootTypes.Length == 1, "Expected one RitualViewRepair type.");
 var types = reader.TypeDefinitions.Where(h => names.Def(reader, h) == target || names.Def(reader, h).StartsWith(target + "+", StringComparison.Ordinal)).ToArray();
@@ -37,6 +38,7 @@ string[] callbackLocals = Array.Empty<string>();
 bool callsHelper = false;
 int enumeratorReferences = 0;
 int arrayEnumeratorReferences = 0;
+int nativeArrayReferences = 0;
 var prepareOffsets = new List<int>();
 var patchOffsets = new List<int>();
 var opcodes = typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static)
@@ -50,6 +52,8 @@ foreach (var handle in allMethods)
     string owner = names.Def(reader, method.GetDeclaringType());
     string location = owner + "::" + name;
     var signature = method.DecodeSignature(names, (object?)null);
+    if (NativeArray(signature.ReturnType) || signature.ParameterTypes.Any(NativeArray))
+    { nativeArrayReferences++; failures.Add("Native array method signature: " + location); }
     if (NativeEnumerator(signature.ReturnType) || signature.ParameterTypes.Any(NativeEnumerator))
     { enumeratorReferences++; failures.Add("Native List<T>.Enumerator method signature: " + location); }
     if (name == "AfterGetActionView")
@@ -76,6 +80,8 @@ foreach (var handle in allMethods)
         : reader.GetStandaloneSignature(body.LocalSignature).DecodeLocalSignature(names, (object?)null).ToArray();
     foreach (string local in locals.Where(NativeEnumerator))
     { enumeratorReferences++; failures.Add("Native List<T>.Enumerator local in " + location + ": " + local); }
+    foreach (string local in locals.Where(NativeArray))
+    { nativeArrayReferences++; failures.Add("Native array local in " + location + ": " + local); }
     if (name == "AfterGetActionView")
     {
         callbackBytes = il.Length; callbackLocals = locals;
@@ -107,6 +113,8 @@ foreach (var handle in allMethods)
         {
             int token = BitConverter.ToInt32(il, cursor);
             string described = names.Entity(reader, MetadataTokens.EntityHandle(token));
+            if (NativeArray(described))
+            { nativeArrayReferences++; failures.Add($"Native array token in {location} IL_{offset:x4} {code.Name}: {described}"); }
             if (NativeEnumerator(described))
             { enumeratorReferences++; failures.Add($"Native List<T>.Enumerator token in {location} IL_{offset:x4} {code.Name}: {described}"); }
             if (described.Contains("Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppArrayBase`1", StringComparison.Ordinal) &&
@@ -138,14 +146,15 @@ using (var sha = SHA256.Create()) hash = Convert.ToHexString(sha.ComputeHash(has
 var report = new { input = inputPath, sha256 = hash, metadata_only = true, target, callback_il_bytes = callbackBytes,
     callback_locals = callbackLocals, callback_calls_helper = callsHelper, native_enumerator_reference_count = enumeratorReferences,
     il2cpp_array_getenumerator_reference_count = arrayEnumeratorReferences, install_preparemethod_il_offsets = prepareOffsets,
+    native_array_reference_count = nativeArrayReferences,
     install_patch_il_offsets = patchOffsets, install_prepare_before_patch = prepareOffsets.Count > 0 && patchOffsets.Count > 0 && prepareOffsets.Max() < patchOffsets.Min(),
     method_count = allMethods.Length, methods = observations, passed = failures.Count == 0, failures,
     limitation = "This checks emitted IL shape only. It neither executes game DLLs nor proves the CoreCLR JIT crash is fixed." };
 if (args.Length == 2) File.WriteAllText(Path.GetFullPath(args[1]), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
-Console.WriteLine($"Callback IL: {callbackBytes?.ToString() ?? "missing"} bytes; native Enumerator references: {enumeratorReferences}; array GetEnumerator references: {arrayEnumeratorReferences}; inspected methods: {allMethods.Length}.");
+Console.WriteLine($"Callback IL: {callbackBytes?.ToString() ?? "missing"} bytes; native Enumerator references: {enumeratorReferences}; array GetEnumerator references: {arrayEnumeratorReferences}; native array references: {nativeArrayReferences}; inspected methods: {allMethods.Length}.");
 Console.WriteLine("Install PrepareMethod offsets: " + string.Join(",", prepareOffsets.Select(x => $"IL_{x:x4}")) + "; Patch offsets: " + string.Join(",", patchOffsets.Select(x => $"IL_{x:x4}")) + ".");
 foreach (string failure in failures) Console.WriteLine("FAIL: " + failure);
-Console.WriteLine(failures.Count == 0 ? "PASS: exact callback ABI, short callback, NoInlining helper, no native collection enumerators and PrepareMethod before Patch; PE metadata only." : $"RED: {failures.Count} audit failures; PE metadata only.");
+Console.WriteLine(failures.Count == 0 ? "PASS: exact callback ABI, short callback, NoInlining helper, no native arrays/collection enumerators and PrepareMethod before Patch; PE metadata only." : $"RED: {failures.Count} audit failures; PE metadata only.");
 Console.WriteLine("No game DLL execution; this result does not establish a live JIT fix.");
 return failures.Count == 0 ? 0 : 1;
 

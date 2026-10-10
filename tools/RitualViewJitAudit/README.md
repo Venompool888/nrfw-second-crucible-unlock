@@ -8,7 +8,7 @@ The gate checks the emitted callback, not source text:
 - Callback IL at most 128 bytes, no native generic collection locals and no exception/repair regions.
 - Direct call to the inspected `RepairOffering` method, whose implementation flags include NoInlining and exclude NoOptimization for this experiment.
 - No `Il2CppSystem.Collections.Generic.List<T>.Enumerator` in any RitualViewRepair method or descendant type method signature, decoded local, or instruction operand. MemberRef/MethodSpec signatures and nested TypeRef/TypeSpec owners are decoded, including GetEnumerator returns, Current and MoveNext calls. Managed `System.Collections.Generic.List<T>.Enumerator` is allowed.
-- No `Il2CppArrayBase<T>.GetEnumerator` MemberRef/MethodSpec instruction operands in those methods. Indexed native-array access remains allowed.
+- No native `Il2CppArray*` method signatures, locals or decoded instruction operands in those methods. R11 extends the earlier enumerator-only gate: indexed access also imports the closed array type during JIT.
 - Install calls RuntimeHelpers.PrepareMethod, and all such call offsets precede the first TrialRepairLog.Patch call offset in its emitted IL. This checks lexical IL order; it does not execute PrepareMethod or claim its runtime success.
 
 From the task worktree, use the project SDK at `../crucible-mod/.dotnet/dotnet.exe`. Set TEMP/TMP and DOTNET_CLI_HOME to task-local directories, and set DOTNET_GENERATE_ASPNET_CERTIFICATE=false and DOTNET_CLI_TELEMETRY_OPTOUT=1 before building/running.
@@ -45,3 +45,9 @@ Final R3 inspected build SHA256: `120bba2fa5dbb31f03c541d66b5d6812eaaac9decd63f8
 The detailed JSON reports record the input, hash, method tokens, implementation flags, local signatures, failures and scope limitation. AfterGetActionView remains token `0x06000245`; the new RepairOffering is `0x06000246` in this R3 build.
 
 **A green result does not establish that the CoreCLR JIT crash is fixed.** The offering helper remains a large body and still uses native collection types through indexed access. This tool does not execute the callback or helper, exercise Harmony, check native ABI, or validate offering/rollback behavior in a game session. Live crash confirmation requires the user to run the candidate and provide fresh evidence.
+
+## R11 extension after the R10 startup crash
+
+The R10 dump names `RuntimeHelpers.PrepareMethod -> RitualViewRepair.Install`, while its RepairOffering canonical IL matches R9. The dump does not identify the faulting MethodTable. The two closed native-array types are a candidate type-load trigger, even though the R3 enumerator gate passed. The extended gate rejects frozen R10 with eight references: two locals, two component queries, two item reads and two Length reads. R11 traverses the same shipped statue hierarchy with Transform childCount/GetChild and non-generic GetComponent(Type), including self and inactive children. The shipped layout must separately establish at most one target component per GameObject; this is not a general equivalence proof for arbitrary Unity hierarchies.
+
+All preparation remains before Patch. Startup logging is immediate because queued OnUpdate diagnostics can be lost if the CLR aborts first. Exact live compilation and actual offering/animation playback require a fresh candidate session.
