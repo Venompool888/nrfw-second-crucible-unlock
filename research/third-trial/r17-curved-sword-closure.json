@@ -1,0 +1,70 @@
+{
+  "weapon_guid": 4091733801493987324,
+  "source_database_sha256": "43b9d405c8b0aeb1d7fb6c1e013be6e77bb160c6bcae43b72f8d2f84071b7095",
+  "closure": {
+    "4091733801493987324": {
+      "name": "deadTideCurvedSwordData",
+      "type": "EnemyWeaponDataAsset"
+    },
+    "2122162585542657617": {
+      "name": "enemySwordParryReactionData",
+      "type": "HitReactionDataAsset"
+    },
+    "1496781608746759672": {
+      "name": "enemySwordBlockedAttackHitReaction",
+      "type": "HitReactionDataAsset"
+    },
+    "4383088163467854340": {
+      "name": "enemyCurvedSwordCollidersData",
+      "type": "WeaponColliderDataAsset"
+    },
+    "2839166351341991137": {
+      "name": "weaponColliderImpact2m",
+      "type": "WeaponColliderIDAsset"
+    },
+    "4388869135888560572": {
+      "name": "weaponColliderBlade",
+      "type": "WeaponColliderIDAsset"
+    },
+    "176382365953465557": {
+      "name": "deadTideCurvedSwordJumpPairedActionData",
+      "type": "PairedActionDataAsset"
+    },
+    "1642360384043530528": {
+      "name": "deadTideCurvedSwordHookGrabData",
+      "type": "PairedActionDataAsset"
+    },
+    "4543087894437613273": {
+      "name": "enemyCurvedSwordJumpOverAttackActionData",
+      "type": "MeleeAttackDataAsset"
+    },
+    "2180955105194453119": {
+      "name": "enemyCurvedSwordAttackAndDodgeActionData",
+      "type": "MeleeAttackDataAsset"
+    },
+    "4599671652222654125": {
+      "name": "enemyCurvedSwordCombo3ActionData",
+      "type": "MeleeAttackDataAsset"
+    },
+    "3875960684344364742": {
+      "name": "enemyCurvedSwordCombo2ActionData",
+      "type": "MeleeAttackDataAsset"
+    },
+    "3701591890120074505": {
+      "name": "enemyCurvedSwordCombo1CActionData",
+      "type": "MeleeAttackDataAsset"
+    },
+    "123740613226364892": {
+      "name": "enemyCurvedSwordCombo1BActionData",
+      "type": "MeleeAttackDataAsset"
+    },
+    "2197689478838040485": {
+      "name": "enemyCurvedSwordCombo1AActionData",
+      "type": "MeleeAttackDataAsset"
+    }
+  },
+  "missing": [],
+  "source_reader_sha256": "19e8d901757261f9c09c72de6659a69cbe5893c33e39110fe3a84f8fa0e01213",
+  "game_dlls_executed": false,
+  "game_started": false
+}

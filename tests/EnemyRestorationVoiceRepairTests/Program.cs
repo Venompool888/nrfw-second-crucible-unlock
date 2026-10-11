@@ -24,12 +24,22 @@ pools[121] = Pool(family121);
 pools[31] = Pool(inquisitor);
 pools[21] = Pool(keeper);
 pools[120] = Pool(deadTide);
+pools[118] = pools[119];
+var donorBruiserVoice = Voice(471, "source-bruiser-voice");
+var donorAxeVoice = Voice(431, "source-axe-bruiser-voice");
+var donorBanditVoice = Voice(51, "source-raider-voice");
+pools[47] = Pool(donorBruiserVoice);
+pools[43] = Pool(donorAxeVoice);
+pools[5] = Pool(donorBanditVoice);
 var catalog = new EnemyRestorationCatalog { Profiles = new EnemyRestorationProfile[10] };
-for (int i = 0; i < 10; ++i) catalog.Profiles[i] = new() { Index = i, Key = "profile" + i, CharacterType = 31 };
-catalog.Profiles[2].CharacterType = 119;
-catalog.Profiles[9].CharacterType = 121;
-catalog.Profiles[3].CharacterType = 21;
-catalog.Profiles[7].CharacterType = 120;
+var keys = new[] { "inquisitor_halberd", "inquisitor_greatsword", "inquisitor_bruiser", "keeper_greatsword",
+    "keeper_sword_shield_left", "keeper_sword_shield_right", "dead_tide_curved_sword",
+    "dead_tide_great_curved_sword", "dead_tide_crossbow", "dead_tide_bruiser" };
+var types = new[] { 31, 118, 119, 21, 21, 21, 120, 120, 120, 121 };
+var sources = new long[] { 1084336240379028843, 3492132779696034020, 1476551916947896192,
+    3492132779696034020, 864870403553114849, 864870403553114849, 2685015411955791552,
+    3492132779696034020, 2387481653164533623, 231941218437941599 };
+for (int i = 0; i < 10; ++i) catalog.Profiles[i] = new() { Index = i, Key = keys[i], CharacterType = types[i], NpcTemplateGuid = sources[i] };
 EnemyRestorationRuntime.Catalog = catalog;
 long nextView = 100;
 CharacterView View(int index, ulong entity, SwitchReference before)
@@ -48,23 +58,23 @@ EnemyRestorationVoiceRepair.ResumeAfterViewPublication();
 
 var bruiser = View(2, 201, donorBruiser);
 EnemyRestorationVoiceRepair.Apply(bruiser, catalog);
-Check(ReferenceEquals(bruiser.CustomVoiceSwitch, family119a), "Inquisitor bruiser donor switch replaced by official family");
-int calls = pools[119].Calls;
+Check(ReferenceEquals(bruiser.CustomVoiceSwitch, donorBruiserVoice), "Inquisitor bruiser uses available source Bruiser47 voice");
+int calls = pools[47].Calls;
 EnemyRestorationVoiceRepair.Apply(bruiser, catalog);
-Check(ReferenceEquals(bruiser.CustomVoiceSwitch, family119a) && pools[119].Calls == calls,
+Check(ReferenceEquals(bruiser.CustomVoiceSwitch, donorBruiserVoice) && pools[47].Calls == calls,
     "Repeated callback on same bind keeps selected variant");
 EnemyRestorationVoiceRepair.Release(bruiser);
 Check(ReferenceEquals(bruiser.CustomVoiceSwitch, donorBruiser), "Owned bruiser switch restored on release");
 
 var axe = View(9, 901, donorAxe);
 EnemyRestorationVoiceRepair.Apply(axe, catalog);
-Check(ReferenceEquals(axe.CustomVoiceSwitch, family121), "Dead-tide bruiser donor switch replaced by official family");
+Check(ReferenceEquals(axe.CustomVoiceSwitch, donorAxeVoice), "Dead-tide bruiser uses available source AxeBruiser43 voice");
 EnemyRestorationVoiceRepair.Release(axe);
 Check(ReferenceEquals(axe.CustomVoiceSwitch, donorAxe), "Dead-tide donor value restored");
 
 var shared = View(0, 1001, null);
 EnemyRestorationVoiceRepair.Apply(shared, catalog);
-Check(ReferenceEquals(shared.CustomVoiceSwitch, inquisitor), "Shared humanoid prefab first family selected");
+Check(ReferenceEquals(shared.CustomVoiceSwitch, donorBanditVoice), "Shared humanoid prefab uses source Bandit5 voice");
 shared.Profile = catalog.Profiles[3]; shared.EntityRef = new EntityRef { Raw = 1002 }; shared.PredictedFrame.AttachedType = 21;
 EnemyRestorationVoiceRepair.Apply(shared, catalog);
 Check(ReferenceEquals(shared.CustomVoiceSwitch, keeper), "Pooled shared prefab changes to next private family's voice");
@@ -83,11 +93,12 @@ Check(ReferenceEquals(foreign.CustomVoiceSwitch, deadTide), "Missing live attach
 
 var noPool = View(1, 3001, donorBruiser);
 EnemyRestorationVoiceRepair.Apply(noPool, catalog);
-Check(ReferenceEquals(noPool.CustomVoiceSwitch, inquisitor), "Official valid pool used for ordinary type");
+Check(ReferenceEquals(noPool.CustomVoiceSwitch, donorBanditVoice), "Official available donor pool used for greatsword Inquisitor");
 EnemyRestorationVoiceRepair.Release(noPool);
-noPool.Profile.CharacterType = 118; noPool.PredictedFrame.AttachedType = 118;
+pools.Remove(5);
 EnemyRestorationVoiceRepair.Apply(noPool, catalog);
-Check(ReferenceEquals(noPool.CustomVoiceSwitch, donorBruiser), "Absent pool fails without forced assignment");
+Check(ReferenceEquals(noPool.CustomVoiceSwitch, donorBruiser), "Absent donor pool fails without selecting known unavailable family");
+pools[5] = Pool(donorBanditVoice);
 
 var changed = View(2, 4001, donorBruiser);
 EnemyRestorationVoiceRepair.Apply(changed, catalog);
@@ -103,7 +114,7 @@ var after = View(2, 5001, donorBruiser);
 EnemyRestorationVoiceRepair.Apply(after, catalog);
 var callbacks = typeof(EnemyRestorationVoiceRepair).GetMethod("AfterFulfill", BindingFlags.Static|BindingFlags.NonPublic);
 callbacks?.Invoke(null, new object[] { after });
-Check(TrialRepairLog.Logs.Any(x => x.Contains("profile=profile2") && x.Contains("before=") && x.Contains("after=") && x.Contains("host=0x9")),
+Check(TrialRepairLog.Logs.Any(x => x.Contains("profile=inquisitor_bruiser") && x.Contains("before=") && x.Contains("after=") && x.Contains("host=0x9") && x.Contains("voiceType=47") && x.Contains("donor-fallback=true")),
     "Bounded post-native presence diagnostic records profile, switch, and host");
 int reads = CharacterView.VoiceReads;
 EnemyRestorationVoiceRepair.StopWithoutUnityReads();
@@ -129,6 +140,39 @@ EnemyRestorationVoiceRepair.Apply(after, catalog);
 Check(ReferenceEquals(after.CustomVoiceSwitch, keeper), "Retained lease restored on first bind after resume");
 EnemyRestorationVoiceRepair.Release(after);
 Check(ReferenceEquals(after.CustomVoiceSwitch, donorBruiser), "Resumed binding returns original donor switch");
+
+// Resource-backed regression: all seven silent families have dangling shipped
+// dialogue leaf targets, while these exact source NPC families have complete
+// target/media closure. Keep simulation CharacterType intact while selecting.
+var voiceTypes = new[] { 5, 5, 47, 21, 21, 21, 5, 5, 5, 43 };
+for (int i = 0; i < 10; ++i)
+{
+    var actor = View(i, (ulong)(7000+i), null);
+    var expected = pools[voiceTypes[i]].VoiceSwitchSelects[0];
+    EnemyRestorationVoiceRepair.Apply(actor, catalog);
+    Check(ReferenceEquals(actor.CustomVoiceSwitch, expected), "Exact room " + (i+1) + " available voice pool");
+    Check(actor.PredictedFrame.AttachedType == types[i] && actor.Profile.CharacterType == types[i], "Room " + (i+1) + " retains gameplay identity");
+    EnemyRestorationVoiceRepair.Release(actor);
+    Check(actor.CustomVoiceSwitch == null, "Room " + (i+1) + " pooled release restores empty voice");
+}
+Check(pools[31].Calls == 0 && pools[118].Calls == 0 && pools[120].Calls == 0 && pools[121].Calls == 0,
+    "Known unavailable special-family pools never selected for exact restored sources");
+var wrongDonor = View(0, 8100, null); wrongDonor.Profile.NpcTemplateGuid++;
+EnemyRestorationVoiceRepair.Apply(wrongDonor, catalog);
+Check(ReferenceEquals(wrongDonor.CustomVoiceSwitch, inquisitor), "Changed source template cannot receive donor fallback");
+EnemyRestorationVoiceRepair.Release(wrongDonor);wrongDonor.Profile.NpcTemplateGuid--;
+var wrongKey = View(0, 8101, null); wrongKey.Profile.Key = "unrelated-private-profile";
+EnemyRestorationVoiceRepair.Apply(wrongKey, catalog);
+Check(ReferenceEquals(wrongKey.CustomVoiceSwitch, inquisitor), "Different profile key cannot receive donor fallback");
+EnemyRestorationVoiceRepair.Release(wrongKey);wrongKey.Profile.Key = keys[0];
+var invalidDonor = View(9, 8102, donorAxe); donorAxeVoice.Valid=false;
+EnemyRestorationVoiceRepair.Apply(invalidDonor, catalog);
+Check(ReferenceEquals(invalidDonor.CustomVoiceSwitch, donorAxe), "Invalid donor selection leaves switch untouched");
+donorAxeVoice.Valid=true;
+var gated = View(6, 8103, donorBruiser);EnemyRestorationRuntime.CurrentViewsReady=false;
+EnemyRestorationVoiceRepair.Apply(gated, catalog);
+Check(ReferenceEquals(gated.CustomVoiceSwitch, donorBruiser), "Views readiness gate prevents donor mutation");
+EnemyRestorationRuntime.CurrentViewsReady=true;
 Check(!AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name.StartsWith("Il2Cpp") || a.GetName().Name.StartsWith("Unity")),
     "No game assemblies loaded by managed test");
 

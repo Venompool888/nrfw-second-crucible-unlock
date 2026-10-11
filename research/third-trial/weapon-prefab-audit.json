@@ -1,0 +1,79 @@
+{
+  "source_bundle": "D:\\SteamLibrary\\steamapps\\common\\NoRestForTheWicked\\NoRestForTheWicked_Data\\StreamingAssets\\aa\\StandaloneWindows64\\pooled_prefabs_assets_all_6a69bcea0a7415b4dd817ea36e029211.bundle",
+  "source_bundle_sha256": "3c41fb36d6c6cd64845532c3d9d0e59316ee5018f8a40e7b724ab1cc03d7dcba",
+  "cab_links": {
+    "qdb_asset_action_view_file_id_3": "CAB-fdc51b115548f0b7186d2c250b087e8d",
+    "pooled_quantum_asset_file_id_3": "CAB-23b29681441dac8ddd1bbf0ad4506e14",
+    "pooled_monoscript_file_id_1": "CAB-40ec4fad673cbf4044ce2b25089422f7"
+  },
+  "prefabs": [
+    {
+      "weapon_name": "deadTideCurvedSwordData",
+      "weapon_guid": 4091733801493987324,
+      "pooled_root": "deadTideCurvedSwordViewVariant",
+      "root_script_class": "EnemyWeaponView",
+      "root_weapon_data_guid": 4091733801493987324,
+      "right_hand_transform": -1285482010434152616,
+      "left_hand_transform": 4268215338085832536,
+      "preview_rig": -1624840080699566248,
+      "source_melee_action_guids": [
+        123740613226364892,
+        2180955105194453119,
+        2197689478838040485,
+        3701591890120074505,
+        3875960684344364742,
+        4543087894437613273,
+        4599671652222654125
+      ],
+      "matched_child_action_guids": [
+        123740613226364892,
+        2180955105194453119,
+        2197689478838040485,
+        3701591890120074505,
+        3875960684344364742,
+        4543087894437613273,
+        4599671652222654125
+      ],
+      "child_melee_views": 24,
+      "paired_action_views": [
+        {
+          "action_guid": 176382365953465557,
+          "pool_index": 4504,
+          "pool_name": "deadTideCurvedSwordJumpPairedActionView",
+          "container": "Assets/AddressableAssets/quantumPrefabs/characters/pairedActions/deadTideCurvedSwordJumpPairedActionView.prefab",
+          "root_type": "GameObject",
+          "root_component_classes": [
+            null,
+            "Moon.Timeline.MoonTimeline",
+            "PairedActionView"
+          ],
+          "root_component_quantum_guids": [
+            null,
+            null,
+            176382365953465557
+          ]
+        },
+        {
+          "action_guid": 1642360384043530528,
+          "pool_index": 2859,
+          "pool_name": "deadTideCurvedSwordHookPairedActionView",
+          "container": "Assets/AddressableAssets/quantumPrefabs/characters/pairedActions/deadTideCurvedSwordHookPairedActionView.prefab",
+          "root_type": "GameObject",
+          "root_component_classes": [
+            null,
+            "Moon.Timeline.MoonTimeline",
+            "PairedActionView"
+          ],
+          "root_component_quantum_guids": [
+            null,
+            null,
+            1642360384043530528
+          ]
+        }
+      ],
+      "source_pointer_same_as_child": 0,
+      "limits": "Matched child ActionView GUIDs and root bindings do not prove the borrowed character rig plays every animation in game."
+    }
+  ],
+  "detail": "artifacts/third-trial/weapon-prefab-audit-detail.json"
+}

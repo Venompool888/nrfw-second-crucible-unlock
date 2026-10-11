@@ -1,10 +1,10 @@
 # Candidate-only offline verification. Builds our code, executes managed fakes,
 # reads PE metadata; never loads game DLLs, installs a plugin or launches a game.
 [CmdletBinding()]
-param([string]$Dotnet = 'dotnet')
+param([string]$Dotnet = 'dotnet', [string]$Python = '../item-db/.venv/Scripts/python.exe')
 $ErrorActionPreference = 'Stop'
 $base = $PSScriptRoot
-$reportDir = Join-Path $base 'artifacts\third-launch\r15-repair\verification'
+$reportDir = Join-Path $base 'artifacts\third-launch\r17-repair\verification'
 $env:DOTNET_CLI_HOME = Join-Path $base '.dotnet-home'
 $env:NUGET_PACKAGES = Join-Path $base '.nuget'
 $env:TEMP = Join-Path $base '.tmp'
@@ -24,6 +24,14 @@ function RunOffline([string]$Name, [string[]]$Arguments) {
     $results.Add([pscustomobject]@{name=$Name;exit_code=$code;arguments=$Arguments;log=$log})
     $tail = ($output | Select-Object -Last 1) -as [string]
     Write-Output "$Name exit=$code : $tail"
+}
+function RunSourceAudit([string]$Name, [string]$Script) {
+    $output = & $Python $Script 2>&1
+    $code = $LASTEXITCODE
+    $log = Join-Path $reportDir ($Name + '.txt')
+    $output | Set-Content -LiteralPath $log -Encoding utf8
+    $results.Add([pscustomobject]@{name=$Name;exit_code=$code;arguments=@($Script);log=$log})
+    Write-Output "$Name exit=$code : $(($output | Select-Object -Last 1) -as [string])"
 }
 Push-Location -LiteralPath $base
 try {
@@ -47,6 +55,8 @@ try {
     RunOffline 'bowgun-input-metadata' @('run','--project','tools/BowgunInputMetadataGate/BowgunInputMetadataGate.csproj','-c','Release','--',$core,$audio)
     RunOffline 'third-trial-hooks' @('run','--project','tools/ThirdTrialHookAudit/ThirdTrialHookAudit.csproj','-c','Release','--',(Join-Path $base 'vendor/generated'),$core)
     RunOffline 'ritual-jit-order' @('run','--project','tools/RitualViewJitAudit/RitualViewJitAudit.csproj','-c','Release','--',$core,(Join-Path $reportDir 'ritual-jit-order.json'),'--require-early-preflight')
+    RunSourceAudit 'curved-sword-source' 'research/third-trial/audit_r17_curved_sword.py'
+    RunSourceAudit 'r17-bindings' 'research/third-trial/check_r17_bindings.py'
     $failed = @($results | Where-Object exit_code -ne 0)
     [pscustomobject]@{utc=[DateTime]::UtcNow.ToString('o');core_sha256=(Get-FileHash -LiteralPath $core -Algorithm SHA256).Hash.ToLowerInvariant();checks=$results;passed=($failed.Count -eq 0);game_started=$false;installed=$false;game_dlls_executed=$false} |
         ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $reportDir 'summary.json') -Encoding utf8

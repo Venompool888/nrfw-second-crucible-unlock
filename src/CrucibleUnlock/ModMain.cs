@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Text.Json;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(CrucibleUnlock.ModMain), "Crucible Unlock", "0.9.17-third-trial-candidate-r15", "NRFW research", "")]
+[assembly: MelonInfo(typeof(CrucibleUnlock.ModMain), "Crucible Unlock", "0.9.17-third-trial-candidate-r17", "NRFW research", "")]
 [assembly: MelonGame("Moon Studios", "NoRestForTheWicked")]
 [assembly: MelonAdditionalDependencies("0Harmony")]
 
@@ -108,7 +108,7 @@ namespace CrucibleUnlock
             _baseDirectory = Path.GetDirectoryName(typeof(ModMain).Assembly.Location) ?? AppDomain.CurrentDomain.BaseDirectory;
 
             LoggerInstance.Msg("=====================================================");
-            LoggerInstance.Msg("Crucible Unlock 0.9.17-third-trial-candidate-r15 已加载");
+            LoggerInstance.Msg("Crucible Unlock 0.9.17-third-trial-candidate-r17 已加载");
             LoggerInstance.Msg($"MelonLoader: {typeof(MelonMod).Assembly.GetName().Version}");
             LoggerInstance.Msg($"CLR: {Environment.Version}  64bit={Environment.Is64BitProcess}");
             LoggerInstance.Msg($"mode = {RuntimeMode}（内置）   目录 = {_baseDirectory}");
@@ -228,7 +228,7 @@ namespace CrucibleUnlock
             {
                 _motionSink = new MotionTraceSink(path);
                 var start = _motionSink.NewRecord("trace_started");
-                start.note = "CrucibleUnlock 0.9.17-third-trial-candidate-r15; build 22928553; hook-free motion sampling; ritual/progression hooks logged separately; phase2 target repair enabled=True; per-entity action target application reported in loader log; raw/interpolated/simulation-frame/teleport unknown";
+                start.note = "CrucibleUnlock 0.9.17-third-trial-candidate-r17; build 22928553; hook-free motion sampling; ritual/progression hooks logged separately; phase2 target repair enabled=True; per-entity action target application reported in loader log; raw/interpolated/simulation-frame/teleport unknown";
                 _motionSink.TryWrite(start);
                 BossMotionTrace.Install(_motionSink, message => LoggerInstance.Msg(message), message => LoggerInstance.Error(message));
                 _motionActive = true;

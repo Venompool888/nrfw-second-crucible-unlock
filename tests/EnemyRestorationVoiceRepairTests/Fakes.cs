@@ -95,7 +95,7 @@ namespace Il2Cpp
 }
 namespace CrucibleUnlock
 {
-    internal sealed class EnemyRestorationProfile { public int Index, CharacterType; public string Key; }
+    internal sealed class EnemyRestorationProfile { public int Index, CharacterType; public string Key; public long NpcTemplateGuid; }
     internal sealed class EnemyRestorationCatalog { public EnemyRestorationProfile[] Profiles; }
     internal static class EnemyRestorationRuntime { public static bool CurrentViewsReady = true; public static EnemyRestorationCatalog Catalog; }
     internal static class EnemyRestorationOwnerScope
