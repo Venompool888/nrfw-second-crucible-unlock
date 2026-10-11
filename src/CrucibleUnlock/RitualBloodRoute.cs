@@ -12,7 +12,7 @@ namespace CrucibleUnlock
         // Six maps, shared by this mod's second-bowl views for the process lifetime.
         // Textures are never attached to the native first bowl or its materials.
         private static readonly Dictionary<string, Texture2D> Textures = new Dictionary<string, Texture2D>();
-        private static RitualBloodRouteData.Layout _layout;
+        private static readonly Dictionary<string, RitualBloodRouteData.Layout> Layouts = new Dictionary<string, RitualBloodRouteData.Layout>();
         private sealed class TextureChange
         {
             internal CustomizedMaterial.MaterialPropertyTexture Property;
@@ -30,13 +30,17 @@ namespace CrucibleUnlock
             internal readonly List<TextureChange> Values = new List<TextureChange>();
         }
 
-        internal static bool TryApply(Transform firstModel, IReadOnlyDictionary<IntPtr, GameObject> copies)
+        internal static bool TryApply(Transform firstModel, IReadOnlyDictionary<IntPtr, GameObject> copies) =>
+            TryApply(firstModel, copies, false);
+        internal static bool TryApply(Transform firstModel, IReadOnlyDictionary<IntPtr, GameObject> copies, bool third)
         {
             var changes = new List<Change>();
             bool started = false;
             try
             {
-                var layout = _layout ??= RitualBloodRouteData.ReadLayout();
+                string prefix = third ? RitualBloodRouteData.ThirdPrefix : RitualBloodRouteData.Prefix;
+                if (!Layouts.TryGetValue(prefix, out var layout))
+                { layout = RitualBloodRouteData.ReadLayout(prefix); Layouts.Add(prefix, layout); }
                 // Prepare every texture and validate clone ownership before changing any view.
                 foreach (string name in new[] { "bloodFlowDecal_1", "bloodFlowDecal_2", "bloodFlowDecal_2 (1)" })
                 {
@@ -63,7 +67,7 @@ namespace CrucibleUnlock
                             throw new InvalidOperationException("Blood texture property missing or shared: " + map.Property);
                         var template = source.GetComponent<Renderer>()?.sharedMaterial?.GetTexture(map.Property);
                         if (template == null) throw new InvalidOperationException("Native blood map missing: " + map.Property);
-                        var texture = GetTexture(map);
+                        var texture = GetTexture(prefix, map);
                         change.Values.Add(new TextureChange { Property = property, Value = property.Value,
                             Enabled = property.Enabled, WasEnabled = property.m_wasEnabled,
                             Atlas = property.AtlasValue, AtlasUvs = property.AtlasUvs, NewValue = texture });
@@ -101,7 +105,7 @@ namespace CrucibleUnlock
                             throw new InvalidOperationException("Renderer retained first-bowl atlas UV coordinates");
                     }
                 }
-                TrialRepairLog.Write("[ritual-blood] APPLIED second-floor engraving projection; decals=3; maps=6; rendererTextureReadback=True; atlasUvReadback=True; native flow timing retained; visual acceptance pending");
+                TrialRepairLog.Write("[ritual-blood] APPLIED " + (third ? "third" : "second") + "-floor engraving projection; decals=3; maps=6; rendererTextureReadback=True; atlasUvReadback=True; native flow timing retained; visual acceptance pending");
                 return true;
             }
             catch (Exception error)
@@ -142,15 +146,15 @@ namespace CrucibleUnlock
             return null;
         }
 
-        private static Texture2D GetTexture(RitualBloodRouteData.Map map)
+        private static Texture2D GetTexture(string prefix, RitualBloodRouteData.Map map)
         {
             // The generated isDataSRGB getter reaches a stripped internal method.
             // Preserve m_ColorSpace from the exact original Texture2D assets, read
             // offline and validated with the embedded layout instead of invoking it.
             bool srgb = map.SourceColorSpace == 1;
-            string key = map.Resource + "/" + srgb;
+            string key = prefix + map.Resource + "/" + srgb;
             if (Textures.TryGetValue(key, out var cached) && cached != null) return cached;
-            byte[] pixels = RitualBloodRouteData.ReadPixels(map);
+            byte[] pixels = RitualBloodRouteData.ReadPixels(prefix, map);
             Texture2D texture = null;
             try
             {
@@ -159,7 +163,7 @@ namespace CrucibleUnlock
                 try { texture.LoadRawTextureData(handle.AddrOfPinnedObject(), pixels.Length); }
                 finally { handle.Free(); }
                 texture.Apply(false, true);
-                texture.name = "NRFW_SecondBowl_" + map.Resource;
+                texture.name = prefix + map.Resource;
                 texture.filterMode = FilterMode.Bilinear;
                 texture.wrapMode = TextureWrapMode.Clamp;
                 texture.hideFlags = HideFlags.DontUnloadUnusedAsset;

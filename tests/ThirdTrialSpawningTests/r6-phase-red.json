@@ -1,0 +1,13 @@
+{
+  "source": "C:\\Users\\venom\\OneDrive\\Desktop\\NRFW\\research\\third-trial-restored-enemies-20261010\\tests\\ThirdTrialSpawningTests\\R6ThirdTrialSpawning.snapshot",
+  "source_sha256": "b96a56b88f234e2c42aa9873446029fff48afe3ff47c88b49392fd885ccc6f00",
+  "actual_source_compiled": true,
+  "managed_fakes_only": true,
+  "checks": 52,
+  "passed": false,
+  "failures": [
+    "Has=true/Get=null class projection fails closed with exact component phase diagnostic",
+    "Null native runtime-entry projection preserves phase and full stack rather than generic NRE message"
+  ],
+  "limitation": "Native-shaped fixture component placement must be supported by separate static native evidence; no game DLLs are loaded or run."
+}

@@ -35,5 +35,12 @@ namespace CrucibleUnlock
             if (!string.Equals(actual, expected, StringComparison.Ordinal))
                 throw new InvalidOperationException("Build guard hash mismatch: " + Path.GetFileName(path));
         }
+
+        public static void VerifyEnemyDatabase(string modsDirectory)
+        {
+            string gameRoot=Directory.GetParent(Path.GetFullPath(modsDirectory))?.FullName
+                ?? throw new InvalidOperationException("Cannot resolve game directory.");
+            VerifyHash(Path.Combine(gameRoot,"NoRestForTheWicked_Data","StreamingAssets","quantumDatabase.bin"), EnemyRestorationCatalog.ExpectedQdbHash);
+        }
     }
 }

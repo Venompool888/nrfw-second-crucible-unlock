@@ -1,0 +1,23 @@
+FAIL: R5: Unity must wait for simulation-owned views before Ensure
+FAIL: R5: simulation-owned snapshot publisher must exist
+FAIL: Known manager without publication still cannot Ensure
+FAIL: Actual simulation snapshot can publish all ten views
+FAIL: LUT wait visits actual pump and remains unavailable
+FAIL: Ensure receives the exact ten simulation objects rather than Unity-created duplicates
+FAIL: Same manager/same pointers republish is idempotent
+FAIL: Published snapshot strongly retains manager even when no Frame/current Core reference remains
+FAIL: Snapshot retains no Frame or storage
+FAIL: Same manager cannot republish a different tenth view pointer
+FAIL: New manager cannot borrow previously published manager snapshot
+FAIL: Zero storage lookup index rejected before array access
+FAIL: Out-of-range storage lookup index rejected before array access
+FAIL: Tenth storage pointer mismatch prevents any snapshot publication
+FAIL: Failed storage publication remains waiting without Ensure
+FAIL: Complete exact storage pointers publish successfully
+FAIL: Ready frame is scoped to current manager, preventing retired frame readiness
+FAIL: Manager identity race before Ensure performs no writes
+FAIL: Manager changed after Ensure cannot publish readiness
+FAIL: Incomplete tenth simulation view rejected
+FAIL: Wrong simulation view path rejected
+FAIL: Fresh Install can republish after managed snapshot shutdown cleanup
+EnemyRestorationRuntime actual-source managed tests: 87 checks; 22 failures; 0 missing pump dispatches; 23 Ensure calls; no game DLLs.

@@ -57,6 +57,7 @@ internal static class Program
         TrialRepairPolicyTests.Run();
         RitualViewPolicyTests.Run();
         RoomReusePolicyTests.Run();
+        ThirdTrialSpawningPolicyTests.Run();
         RitualBloodRouteDataTests.Run();
         BossTraceDropTests.Run();
         BrokenVowBossPolicyTests.Run();

@@ -16,6 +16,7 @@
     <Compile Include="..\..\src\CrucibleUnlock\RoomReusePolicy.cs" Link="RoomReusePolicy.cs" />
     <Compile Include="..\..\src\CrucibleUnlock\RitualViewPolicy.cs" Link="RitualViewPolicy.cs" />
     <Compile Include="..\..\src\CrucibleUnlock\TrialRepairPolicy.cs" Link="TrialRepairPolicy.cs" />
+    <Compile Include="..\..\src\CrucibleUnlock\ThirdTrialSpawningPolicy.cs" Link="ThirdTrialSpawningPolicy.cs" />
     <Compile Include="..\..\src\CrucibleUnlock\BrokenWarrickMusicPolicy.cs" Link="BrokenWarrickMusicPolicy.cs" />
     <Compile Include="..\..\src\CrucibleUnlock\MotionTraceSink.cs" Link="MotionTraceSink.cs" />
     <Compile Include="..\..\src\CrucibleUnlock\MotionPresentationSnapshot.cs" Link="MotionPresentationSnapshot.cs" />

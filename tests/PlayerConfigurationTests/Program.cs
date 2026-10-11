@@ -12,7 +12,8 @@ internal static class Program
     {
         "verify-build", "music-guard", "runtime-unlock", "phase2-repair",
         "progression-repair", "trace-drop", "broken-vow", "trace-pickup",
-        "husk-name", "echo-cap", "bowgun-input", "ritual-animator", "ritual-view",
+        "husk-name", "echo-cap", "bowgun-input", "third-entry", "ritual-preflight",
+        "hud-preflight", "voice-preflight", "enemy-restoration", "third-runtime", "third-hud", "third-spawning", "ritual-animator", "ritual-view",
     };
 
     private static int Main()
@@ -75,6 +76,29 @@ internal static class Program
             mod.OnLateInitializeMelon();
             Equal("verify-build,music-guard,runtime-unlock,music-rollback", string.Join(",", Boundary.Calls));
             Assert(mod.LoggerInstance.Errors.Any(message => message.Contains("fixture runtime installation failed")), "install failure not reported");
+        });
+        Run("HUD installation failure seals third route while existing repairs still install", () =>
+        {
+            Boundary.RejectHud = true;
+            var mod = Initialize();
+            mod.OnLateInitializeMelon();
+            Assert(Boundary.Calls.Contains("third-fail"), "third failure not sealed");
+            Assert(Boundary.Calls.Contains("third-hud-stop") && Boundary.Calls.Contains("enemy-stop"), "restoration not stopped");
+            Assert(!Boundary.Calls.Contains("third-spawning"), "spawner installed after HUD failure");
+            Assert(Boundary.Calls.Contains("ritual-view") && Boundary.Calls.Contains("ritual-animator"), "accepted ritual repairs skipped");
+            Assert(mod.LoggerInstance.Errors.Any(message => message.Contains("fixture HUD installation failed")), "HUD install failure not reported");
+        });
+        Run("loader pumps current restoration views before ordinary update", () =>
+        {
+            var mod = Initialize();
+            mod.OnUpdate();
+            Equal("enemy-pump,third-flush,bowgun-update", string.Join(",", Boundary.Calls));
+        });
+        Run("quit stops new helpers without native cleanup calls", () =>
+        {
+            var mod = Initialize();
+            mod.OnApplicationQuit();
+            Equal("third-hud-stop,third-entry-stop,third-spawning-stop,third-runtime-stop,enemy-stop,third-flush,phase2-stop", string.Join(",", Boundary.Calls));
         });
         Console.WriteLine("Player configuration tests: " + (_tests - _failures) + "/" + _tests + " passed (managed entry point only; no game DLL execution)");
         return _failures == 0 ? 0 : 1;

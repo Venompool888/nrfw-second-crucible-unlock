@@ -1,0 +1,10 @@
+{
+  "source": "C:\\Users\\venom\\OneDrive\\Desktop\\NRFW\\research\\third-trial-restored-enemies-20261010\\src\\CrucibleUnlock\\ThirdTrialSpawning.cs",
+  "source_sha256": "fb7d0f81ac16814d37c0366c7909515b3d4fcf84b2b9f7727396023e95f568c5",
+  "actual_source_compiled": true,
+  "managed_fakes_only": true,
+  "checks": 62,
+  "passed": true,
+  "failures": [],
+  "limitation": "Real blittable buffers model native component sizes/offsets; unsupported Frame.Get specializations throw. Does not execute official native pointer methods or prove live R7 spawn/argument writeback; no game DLLs."
+}

@@ -1,0 +1,14 @@
+{
+  "source": "C:\\Users\\venom\\OneDrive\\Desktop\\NRFW\\research\\third-trial-restored-enemies-20261010\\src\\CrucibleUnlock\\EnemyRestorationRuntime.cs",
+  "source_sha256": "356d2f15946a19257006611227221939d62b5502a7e25553289c0a26f3a898f2",
+  "actual_source_compiled": true,
+  "managed_fakes_only": true,
+  "checks": 51,
+  "loader_updates": 20,
+  "missing_pump_dispatches": 0,
+  "ensure_calls": 13,
+  "ready_records": 5,
+  "passed": true,
+  "failures": [],
+  "limitation": "Exercises actual runtime Install/pump with managed Core/View/Harmony fakes. Does not execute game DLLs, validate ModMain PE wiring, or establish live R4 readiness."
+}

@@ -1,0 +1,39 @@
+FAIL: Native layout mismatch is rejected before any raw component pointer read
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 0
+FAIL: Postfix reads native stored replacement without altering result profile 0
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 1
+FAIL: Postfix reads native stored replacement without altering result profile 1
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 2
+FAIL: Postfix reads native stored replacement without altering result profile 2
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 3
+FAIL: Postfix reads native stored replacement without altering result profile 3
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 4
+FAIL: Postfix reads native stored replacement without altering result profile 4
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 5
+FAIL: Postfix reads native stored replacement without altering result profile 5
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 6
+FAIL: Postfix reads native stored replacement without altering result profile 6
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 7
+FAIL: Postfix reads native stored replacement without altering result profile 7
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 8
+FAIL: Postfix reads native stored replacement without altering result profile 8
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 9
+FAIL: Postfix reads native stored replacement without altering result profile 9
+FAIL: Legacy synthetic all-components fixture can pass
+FAIL: Predicted/preloaded stage uses owning chunk profile despite player's different current room
+FAIL: Predicted phase has separate replacement/result records from verified phase
+FAIL: Diagnostic read exception logs once without changing native result or failing runtime
+FAIL: Diagnostic errors remain bounded
+FAIL: Initial diagnostic read failure does not consume success bit; later native result can be recorded
+FAIL: Result diagnostics actually read stored field, exposing mismatch without changing native result or runtime
+FAIL: Has=true/Get=null class projection fails closed with exact component phase diagnostic
+FAIL: Null native runtime-entry projection preserves phase and full stack rather than generic NRE message
+FAIL: Present component with null official pointer stays closed and preserves stack: identity
+FAIL: Present component with null official pointer stays closed and preserves stack: newGroup
+FAIL: Present component with null official pointer stays closed and preserves stack: sourceGroup
+FAIL: Present component with null official pointer stays closed and preserves stack: sourceSpawner
+FAIL: Null NPC diagnostic pointer does not change native result or trial control
+FAIL: Null NPC pointer diagnostic retries to a later valid stored result
+FAIL: Production never calls Frame.Get<T> for projected or unsupported AOT components
+FAIL: Production exercises actual raw component buffers through official extension interface
+Actual ThirdTrialSpawning tests: 62 checks; 38 failures; no game DLLs.

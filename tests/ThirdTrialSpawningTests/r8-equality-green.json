@@ -1,0 +1,10 @@
+{
+  "source": "C:\\Users\\venom\\OneDrive\\Desktop\\NRFW\\research\\third-trial-restored-enemies-20261010\\src\\CrucibleUnlock\\ThirdTrialSpawning.cs",
+  "source_sha256": "196059ba1fb7752582500428a33b999cf191619ba4202fc314b19a8dc5be2196",
+  "actual_source_compiled": true,
+  "managed_fakes_only": true,
+  "checks": 66,
+  "passed": true,
+  "failures": [],
+  "limitation": "Real blittable buffers model native components; fake QListPtr equality throws on null operands like observed wrapper. Does not execute game pointer/equality methods or prove live R8 spawn/argument writeback; no game DLLs."
+}

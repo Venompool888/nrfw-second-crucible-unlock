@@ -1,0 +1,10 @@
+{
+  "source": "C:\\Users\\venom\\OneDrive\\Desktop\\NRFW\\research\\third-trial-restored-enemies-20261010\\src\\CrucibleUnlock\\ThirdTrialRuntime.cs",
+  "source_sha256": "fe904ceeea35947018d1e18ccca50794a0ee99901a1f03cf2628ce95a638ded0",
+  "actual_source_compiled": true,
+  "managed_fakes_only": true,
+  "checks": 423,
+  "passed": true,
+  "failure": null,
+  "limitation": "Actual ThirdRuntime/storage source with managed publisher fake verifies complete-bootstrap ordering, not native runtime publication or rendering."
+}

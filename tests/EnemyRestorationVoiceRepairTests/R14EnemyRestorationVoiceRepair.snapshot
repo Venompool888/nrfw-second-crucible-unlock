@@ -1,0 +1,13 @@
+using System;
+namespace CrucibleUnlock
+{
+    internal static class EnemyRestorationVoiceRepair
+    {
+        internal static void Install(HarmonyLib.Harmony owner) { }
+        internal static void ResumeAfterViewPublication() { }
+        internal static void StopWithoutUnityReads() { }
+        internal static void Dispose() { }
+        internal static void Apply(Il2CppMoon.Forsaken.CharacterView view, EnemyRestorationCatalog catalog) { }
+        internal static void Release(Il2CppMoon.Forsaken.CharacterView view) { }
+    }
+}

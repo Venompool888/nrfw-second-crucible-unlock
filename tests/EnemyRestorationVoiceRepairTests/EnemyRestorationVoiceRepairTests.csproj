@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net6.0</TargetFramework><OutputType>Exe</OutputType><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks></PropertyGroup>
+  <ItemGroup>
+    <Compile Condition="'$(Baseline)' != 'true'" Include="../../src/CrucibleUnlock/EnemyRestorationVoiceRepair.cs" Link="ActualVoiceRepair.cs" />
+    <Compile Condition="'$(Baseline)' == 'true'" Include="R14EnemyRestorationVoiceRepair.snapshot" Link="R14VoiceRepair.cs" />
+  </ItemGroup>
+</Project>
