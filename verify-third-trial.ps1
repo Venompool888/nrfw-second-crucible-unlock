@@ -1,10 +1,14 @@
 # Candidate-only offline verification. Builds our code, executes managed fakes,
 # reads PE metadata; never loads game DLLs, installs a plugin or launches a game.
 [CmdletBinding()]
-param([string]$Dotnet = 'dotnet', [string]$Python = '../item-db/.venv/Scripts/python.exe')
+param(
+    [string]$Dotnet = 'dotnet',
+    [string]$Python = '../item-db/.venv/Scripts/python.exe',
+    [string]$ReportDirectory = 'artifacts\third-launch\r17-repair\verification'
+)
 $ErrorActionPreference = 'Stop'
 $base = $PSScriptRoot
-$reportDir = Join-Path $base 'artifacts\third-launch\r17-repair\verification'
+$reportDir = if ([IO.Path]::IsPathRooted($ReportDirectory)) { $ReportDirectory } else { Join-Path $base $ReportDirectory }
 $env:DOTNET_CLI_HOME = Join-Path $base '.dotnet-home'
 $env:NUGET_PACKAGES = Join-Path $base '.nuget'
 $env:TEMP = Join-Path $base '.tmp'

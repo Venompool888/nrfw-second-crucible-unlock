@@ -10,7 +10,7 @@ from pathlib import Path
 
 TASK = Path(__file__).resolve().parents[2]
 PROJECT = TASK.parents[1]
-READER = PROJECT / "research/third-trial-restored-enemies-20261010/research/third-trial/audit_weapon_prefabs.py"
+READER = Path(__file__).with_name("audit_weapon_prefabs.py")
 
 
 def main():
