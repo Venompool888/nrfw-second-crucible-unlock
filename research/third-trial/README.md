@@ -1,8 +1,17 @@
 # 第三试炼恢复敌人候选
 
-当前已安装 R14，源码 07979e1d3e76cf02993fc8f2b83ff86932ed78ff。用户报告已通关并在拾武器后死机；本次日志确认全十种敌人各一次 verified spawn/result，Keeper大剑一次 native equip 回调成功。07:19:15–07:19:34 UTC发生1365次 PlayerCrucibleHUD.UpdateCurrentFloor 越界，最后引擎因异常过多主动终止；实际拾取/最终完成动作未记录，不能由日志证明拾取因果或全部声音播放。详见[R14完整游玩审计](../../artifacts/third-launch/r14-playthrough-audit-evidence/report.md)。安装仍是R14，本轮准备R15离线修复候选，未更换插件或启动游戏，最新状态见 [安装记录](../../artifacts/third-launch/current-installation.json)；下列旧版文字为历史证据。
+## R15 已切换并启动（2026-10-11）
 
-## R15 离线修复候选（未安装、未启动）
+用户明确要求“切到这个版本然后启动游戏”。19:45（Australia/Brisbane）确认游戏已退出、完整校验冻结R15测试包，备份并核对当前R14核心插件、完整配置、三个独立插件、旧日志和工作区登记，共9份；8个游戏原文件／其他插件保护项哈希保持。仅替换自研核心插件，完整配置保留，没有复制候选示例配置。
+
+当前安装 **0.9.17-third-trial-candidate-r15**，源码 `06d9c2ba614de45a185557ff980798f49b9f153f`，DLL SHA256 `bb79a60ef806526c22c3eb785aaf1e6b8765c953d013669db134d0a826513b6d`。19:46通过Steam启动，PID38060；本次启动日志分析由gpt-6-luna完成，主代理核对关键证据。具体初始化、异常计数和后续世界状态见[R15新会话启动报告](../../artifacts/third-launch/r15-startup-evidence/report.md)，不把旧R14日志或离线green当作R15实机验收。
+
+备份／切换／回滚记录：[installation-r15-20261011T094535538Z](../../artifacts/third-launch/installation-r15-20261011T094535538Z/installation.json)，同目录rollback.ps1核对当前R15及备份哈希后恢复R14核心，当前配置保留。回滚必须先正常退出游戏；脚本不会启动游戏。当前状态见[安装登记](../../artifacts/third-launch/current-installation.json)。实际第三试炼、新增HUD文案和声音播放仍由用户亲自测试；未操作角色、手改源存档／原游戏文件或合main。
+
+
+R14历史安装：源码 07979e1d3e76cf02993fc8f2b83ff86932ed78ff。用户报告已通关并在拾武器后死机；本次日志确认全十种敌人各一次 verified spawn/result，Keeper大剑一次 native equip 回调成功。07:19:15–07:19:34 UTC发生1365次 PlayerCrucibleHUD.UpdateCurrentFloor 越界，最后引擎因异常过多主动终止；实际拾取/最终完成动作未记录，不能由日志证明拾取因果或全部声音播放。详见[R14完整游玩审计](../../artifacts/third-launch/r14-playthrough-audit-evidence/report.md)。安装仍是R14，本轮准备R15离线修复候选，未更换插件或启动游戏，最新状态见 [安装记录](../../artifacts/third-launch/current-installation.json)；下列旧版文字为历史证据。
+
+## R15 离线准备（2026-10-10历史记录）
 
 用户本轮要求“尝试修复，但是修完不启动游戏”。新任务分支 `feature/third-trial-hud-voice-repair-20261010` 从最新正式 `origin/main 7db4e4a`（0.9.17）建立，带入此前同一第三试炼R14功能；保留正式版固定修复和仅Boss痕迹数量设置，没有合入main。候选版本 `0.9.17-third-trial-candidate-r15`，游戏目录仍是R14。
 
