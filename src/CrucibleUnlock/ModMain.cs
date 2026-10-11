@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Text.Json;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(CrucibleUnlock.ModMain), "Crucible Unlock", "0.9.17-player-defaults", "NRFW research", "")]
+[assembly: MelonInfo(typeof(CrucibleUnlock.ModMain), "Crucible Unlock", "0.9.17-third-trial-candidate-r17", "NRFW research", "")]
 [assembly: MelonGame("Moon Studios", "NoRestForTheWicked")]
 [assembly: MelonAdditionalDependencies("0Harmony")]
 
@@ -108,12 +108,13 @@ namespace CrucibleUnlock
             _baseDirectory = Path.GetDirectoryName(typeof(ModMain).Assembly.Location) ?? AppDomain.CurrentDomain.BaseDirectory;
 
             LoggerInstance.Msg("=====================================================");
-            LoggerInstance.Msg("Crucible Unlock 0.9.17-player-defaults 已加载");
+            LoggerInstance.Msg("Crucible Unlock 0.9.17-third-trial-candidate-r17 已加载");
             LoggerInstance.Msg($"MelonLoader: {typeof(MelonMod).Assembly.GetName().Version}");
             LoggerInstance.Msg($"CLR: {Environment.Version}  64bit={Environment.Is64BitProcess}");
             LoggerInstance.Msg($"mode = {RuntimeMode}（内置）   目录 = {_baseDirectory}");
             LoggerInstance.Msg("guard_broken_warrick_music = True（内置）");
             LoggerInstance.Msg("trace_boss_motion = False（内置）");
+            LoggerInstance.Msg("third_trial = True（候选版内置；10种恢复敌人；沿用正式版固定修复）");
             LoggerInstance.Msg("repair_warrick_phase2_target = True（内置）");
             LoggerInstance.Msg("repair_bossrush_progression = True; repair_ritual_animator = True（内置）");
             LoggerInstance.Msg($"boss_trace_drop_amount = {_bossTraceDropAmount.Value}");
@@ -158,8 +159,30 @@ namespace CrucibleUnlock
                 EchoCapRepair.Install();
                 BowgunInputRepair.Configure(BowgunWeaponClass);
                 BowgunInputRepair.Install();
+                try
+                {
+                    ThirdTrialEntry.Install(ThirdTrialRuntime.ResolveReadyPlaylist,
+                        () => ThirdTrialRuntime.Enabled && EnemyRestorationRuntime.CurrentViewsReady,
+                        message => LoggerInstance.Msg(message), message => LoggerInstance.Error(message));
+                    LoggerInstance.Msg("[ritual-view] early preflight before enemy restoration detours");
+                    RitualViewRepair.PrepareHelpers(message => LoggerInstance.Msg(message));
+                    ThirdTrialHudRepair.PrepareHelpers(message => LoggerInstance.Msg(message));
+                    EnemyRestorationVoiceRepair.PrepareHelpers(message => LoggerInstance.Msg(message));
+                    EnemyRestorationRuntime.Install(_baseDirectory, attachSimulationHook: false);
+                    ThirdTrialRuntime.Install();
+                    ThirdTrialHudRepair.Install();
+                    ThirdTrialSpawning.Install(message => LoggerInstance.Msg(message), message => LoggerInstance.Error(message));
+                }
+                catch (Exception thirdError)
+                {
+                    ThirdTrialRuntime.Fail("module installation: " + thirdError);
+                    ThirdTrialHudRepair.StopWithoutUnityReads();
+                    EnemyRestorationRuntime.StopWithoutUnityReads();
+                    LoggerInstance.Error("[third-trial] installation failed; third route sealed: " + thirdError);
+                }
                 RitualAnimatorRepair.Install();
-                RitualViewRepair.Install();
+                TrialRepairLog.Flush(message => LoggerInstance.Msg(message));
+                RitualViewRepair.Install(message => LoggerInstance.Msg(message));
                 LoggerInstance.Msg("[runtime-unlock] 本轮临时解锁；不调用完成任务或写入存档接口。先在城里测试动作，再献祭进入首Boss。");
             }
             catch (Exception error)
@@ -170,6 +193,8 @@ namespace CrucibleUnlock
 
         public override void OnUpdate()
         {
+            EnemyRestorationRuntime.PumpCurrentViews();
+            ThirdTrialEntry.Flush();
             BowgunInputRepair.UpdateLocalHero();
             TrialRepairLog.Flush(message => LoggerInstance.Msg(message));
             if (_runtimeActive) RuntimeUnlock.Flush();
@@ -203,7 +228,7 @@ namespace CrucibleUnlock
             {
                 _motionSink = new MotionTraceSink(path);
                 var start = _motionSink.NewRecord("trace_started");
-                start.note = "CrucibleUnlock 0.9.17-player-defaults; build 22928553; hook-free motion sampling; ritual/progression hooks logged separately; phase2 target repair enabled=True; per-entity action target application reported in loader log; raw/interpolated/simulation-frame/teleport unknown";
+                start.note = "CrucibleUnlock 0.9.17-third-trial-candidate-r17; build 22928553; hook-free motion sampling; ritual/progression hooks logged separately; phase2 target repair enabled=True; per-entity action target application reported in loader log; raw/interpolated/simulation-frame/teleport unknown";
                 _motionSink.TryWrite(start);
                 BossMotionTrace.Install(_motionSink, message => LoggerInstance.Msg(message), message => LoggerInstance.Error(message));
                 _motionActive = true;
@@ -220,6 +245,12 @@ namespace CrucibleUnlock
         public override void OnApplicationQuit()
         {
             _phase2RepairActive = false;
+            ThirdTrialHudRepair.StopWithoutUnityReads();
+            ThirdTrialEntry.StopWithoutUnityReads();
+            ThirdTrialSpawning.StopWithoutNativeReads();
+            ThirdTrialRuntime.StopWithoutNativeReads();
+            EnemyRestorationRuntime.StopWithoutUnityReads();
+            ThirdTrialEntry.Flush();
             WarrickPhase2TargetRepair.StopWithoutUnityReads();
             if (_runtimeActive) RuntimeUnlock.Flush();
             if (_motionSink != null)

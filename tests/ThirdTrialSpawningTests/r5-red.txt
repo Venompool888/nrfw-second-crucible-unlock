@@ -1,0 +1,38 @@
+FAIL: Actual Install registers read-only result postfix on same Spawn hook
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 0
+FAIL: Postfix reads native stored replacement without altering result profile 0
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 1
+FAIL: Postfix reads native stored replacement without altering result profile 1
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 2
+FAIL: Postfix reads native stored replacement without altering result profile 2
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 3
+FAIL: Postfix reads native stored replacement without altering result profile 3
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 4
+FAIL: Postfix reads native stored replacement without altering result profile 4
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 5
+FAIL: Postfix reads native stored replacement without altering result profile 5
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 6
+FAIL: Postfix reads native stored replacement without altering result profile 6
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 7
+FAIL: Postfix reads native stored replacement without altering result profile 7
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 8
+FAIL: Postfix reads native stored replacement without altering result profile 8
+FAIL: Native-shaped new NPC spawner without generic DynamicSpawnerComponent must replace profile 9
+FAIL: Postfix reads native stored replacement without altering result profile 9
+FAIL: Predicted/preloaded stage uses owning chunk profile despite player's different current room
+FAIL: Strict scope/readiness remains closed: npc
+FAIL: Strict scope/readiness remains closed: identity
+FAIL: Strict scope/readiness remains closed: scope0
+FAIL: Strict scope/readiness remains closed: selfScope
+FAIL: Strict scope/readiness remains closed: originSpawner
+FAIL: Strict scope/readiness remains closed: originGroup
+FAIL: Strict scope/readiness remains closed: groupId
+FAIL: Strict scope/readiness remains closed: ownerId
+FAIL: Strict scope/readiness remains closed: ownerEntity
+FAIL: Strict scope/readiness remains closed: unknownGuid
+FAIL: Strict scope/readiness remains closed: sourceData
+FAIL: Predicted phase has separate replacement/result records from verified phase
+FAIL: Diagnostic read exception logs once without changing native result or failing runtime
+FAIL: Diagnostic errors remain bounded
+FAIL: Result diagnostics actually read stored field, exposing mismatch without changing native result or runtime
+Actual ThirdTrialSpawning tests: 50 checks; 37 failures; no game DLLs.

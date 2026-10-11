@@ -2,7 +2,7 @@ MIT License
 
 Copyright (c) 2026 Venompool888
 
-This license applies to the C# source code, project files, tests, and release scripts in this repository. It does not apply to the files under `src/CrucibleUnlock/Assets/SecondBowlBlood/`.
+This license applies to the C# source code, project files, tests, and release scripts in this repository. It does not apply to the files under `src/CrucibleUnlock/Assets/SecondBowlBlood/` or `src/CrucibleUnlock/Assets/ThirdBowlBlood/`.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of the Software and associated documentation files (the "Software"), to deal

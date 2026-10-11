@@ -1,0 +1,86 @@
+{
+  "Version": 1,
+  "Position": [
+    -0.7832940855109882,
+    -0.6372217049154436,
+    -0.8354930262081268
+  ],
+  "Rotation": [
+    0.5461246407872921,
+    0.46179889371063176,
+    -0.5139994635806313,
+    0.47359709662476923
+  ],
+  "Scale": [
+    4.170659020625057,
+    4.170661189679596,
+    0.5011530204513305
+  ],
+  "Textures": [
+    {
+      "Part": 1,
+      "Property": "_AlbedoTex",
+      "Resource": "blood-1.rgba.gz",
+      "Size": 1024,
+      "RawSha256": "77594aede60f848732fe840b492fc212094cbb8de2bc245658d003630dc94c4f",
+      "SourceSha256": "6bb5bc7bc8a431f4203f5d2e00a087ddd531ed9bcd2decbfbef0d6b6758c729e",
+      "SourceColorSpace": 1
+    },
+    {
+      "Part": 1,
+      "Property": "_OffsetMaskTex",
+      "Resource": "blood-1_Gradient.rgba.gz",
+      "Size": 1024,
+      "RawSha256": "22dd66d1b6c1e4f28d513edf397bd24da762999364119ef253ce6e94fe0c1064",
+      "SourceSha256": "6c0aeae6fdbe88bbcb9f610d8cd1362d8abf971ebee5ee2ff84814408e288f6d",
+      "SourceColorSpace": 1
+    },
+    {
+      "Part": 1,
+      "Property": "_NoiseTex",
+      "Resource": "blood-1_Edge.rgba.gz",
+      "Size": 1024,
+      "RawSha256": "3c81ebc2e8dbd096a4b4ff0adf6e72605bd59ac2de443e96561b95e2a204be7f",
+      "SourceSha256": "d7f021aa070d4bf8ceb7fcd80873d2e0d65caf2143f4345ceb5489904b073d49",
+      "SourceColorSpace": 1
+    },
+    {
+      "Part": 2,
+      "Property": "_AlbedoTex",
+      "Resource": "blood-2.rgba.gz",
+      "Size": 1024,
+      "RawSha256": "bf5b866c923209551454f3cf42e2aa1a9d6404af3aab6263e86cbd20ff5b2acb",
+      "SourceSha256": "c05c2e7739588bc909848d9f0afa476901fba3d0326798568babea9254427007",
+      "SourceColorSpace": 1
+    },
+    {
+      "Part": 2,
+      "Property": "_OffsetMaskTex",
+      "Resource": "blood-2_Gradient.rgba.gz",
+      "Size": 1024,
+      "RawSha256": "dbe3951adf571c733ffdbb6a71d9ee82950d2cd822a8347f2b5bbaf19fc81195",
+      "SourceSha256": "2578507e0c2781b05c5e496a046f676a7aa0400b86747de48185d8d7bd1d0f46",
+      "SourceColorSpace": 1
+    },
+    {
+      "Part": 2,
+      "Property": "_NoiseTex",
+      "Resource": "blood-2_Edge.rgba.gz",
+      "Size": 1024,
+      "RawSha256": "2b596de8307bb1336df3faf7f86cc7490223dd247493eb9e60216a8a8a5c36b5",
+      "SourceSha256": "f7946597ec026e4065666c488bd974df75a8a4a9a8f6e18c3bf23d85186bfac8",
+      "SourceColorSpace": 1
+    }
+  ],
+  "SourceStartUV": [
+    0.09501248438709808,
+    0.13061212473901662
+  ],
+  "ThirdStartUV": [
+    0.31128512808083997,
+    0.30088929167108347
+  ],
+  "ThirdGroundHeight": 43.95743964121726,
+  "GroundScene": "infiniteDungeonMainEntrance/artCerimCryptEntrance",
+  "GroundPath": "roomBase/floorNew/Decals (1)/cerimOfferingBowl_Decal (2)"
+}

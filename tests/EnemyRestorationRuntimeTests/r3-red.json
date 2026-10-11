@@ -1,0 +1,30 @@
+{
+  "source": "C:\\Users\\venom\\OneDrive\\Desktop\\NRFW\\research\\third-trial-restored-enemies-20261010\\tests\\EnemyRestorationRuntimeTests\\baseline\\R3EnemyRestorationRuntime.cs",
+  "source_sha256": "38a2b84c8f66cd335766351a88b3ab769466d455324e90ebcb6b63550121537e",
+  "actual_source_compiled": true,
+  "managed_fakes_only": true,
+  "checks": 31,
+  "loader_updates": 20,
+  "missing_pump_dispatches": 20,
+  "ensure_calls": 0,
+  "ready_records": 0,
+  "passed": false,
+  "failures": [
+    "Install must not depend on the uncalled RuntimeAssetResolutionContext.Update hook",
+    "LUT wait visits actual pump and remains unavailable",
+    "Loader pump retries and publishes ready",
+    "All ten views/wrappers available before ready",
+    "One first-context ready record",
+    "Healthy same context remains ready and is strictly revalidated",
+    "Global mismatch is retryable",
+    "Global lookup exception retries on later loader update",
+    "Identity race does not permanently disable module; next update readies current resolver",
+    "Resolver swap reads new Core.AssetCtx and waits for LUT",
+    "Resolver swap becomes ready with ten new views",
+    "One ready record for each first/raced/second successful context",
+    "Current context restoration can retry",
+    "Independent shutdown fixture starts enabled and ready",
+    "Actual runtime must expose the loader-driven PumpCurrentViews entry"
+  ],
+  "limitation": "Exercises actual runtime Install/pump with managed Core/View/Harmony fakes. Does not execute game DLLs, validate ModMain PE wiring, or establish live R4 readiness."
+}

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable><LangVersion>latest</LangVersion>
+    <EnemyViewsSource Condition="'$(EnemyViewsSource)' == ''">../../src/CrucibleUnlock/EnemyRestorationViews.cs</EnemyViewsSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(EnemyViewsSource)" Link="EnemyRestorationViews.cs" />
+    <Compile Include="../../src/CrucibleUnlock/EnemyRestorationCatalog.cs" Link="EnemyRestorationCatalog.cs" />
+  </ItemGroup>
+</Project>

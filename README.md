@@ -13,6 +13,8 @@ Unlock the **Second Crucible**, with encounter fixes and multiplayer support.
 
 Latest stable release: **`0.9.17`** · Supported game: **Steam public Build 22928553** · Unofficial community mod
 
+The current source also includes the approved **R17 Third Crucible**: ten combat rooms using first-Crucible arenas and the second-Crucible progression/reward flow. Rooms 5 and 6 share the same sword/shield configuration, giving nine distinct combinations. R17 corrects room 7's curved-sword binding and provides existing NPC voice fallbacks for seven enemies. Weapon audio in rooms 5, 6, 8 and 10 and the room 3 charge flame remain unresolved; voice-assignment logs do not establish audible playback. See the [R17 integration record](research/third-trial/r17-main-integration.md). The download links above still point to the published 0.9.17 release, which does not include the Third Crucible.
+
 ## Contents
 
 - [Features](#features)
@@ -63,7 +65,7 @@ For 0.9.17, download MelonLoader 0.7.3 and both DLLs, then place them in `Mods`.
 
 ## Technical details and building
 
-The source under [`src/`](src/) contains the **0.9.17 player-defaults release** and the unchanged **0.3.3** audio/input component. Version 0.9.17 is the latest stable release.
+The source under [`src/`](src/) retains the **0.9.17 player defaults**, adds the approved **R17 Third Crucible**, and contains the unchanged **0.3.3** audio/input component. The core retains its tested internal label `0.9.17-third-trial-candidate-r17`. Version 0.9.17 remains the latest published stable release.
 
 - The mod checks the **exact supported game build** before installing its runtime hooks.
 - Building requires MelonLoader references and game-specific generated IL2CPP interop assemblies from the supported game.
@@ -73,6 +75,6 @@ See **[BUILD.md](BUILD.md)** for local requirements, build commands, tests, and 
 
 ## License
 
-The code is available under **[MIT](LICENSE-CODE.md)**. The six image data files under `src/CrucibleUnlock/Assets/SecondBowlBlood/` are outside that code license; see the license file for its full scope.
+The code is available under **[MIT](LICENSE-CODE.md)**. Image data files under `src/CrucibleUnlock/Assets/SecondBowlBlood/` and `src/CrucibleUnlock/Assets/ThirdBowlBlood/` are outside that code license; see the license file for its full scope.
 
 This is an **unofficial community project**.

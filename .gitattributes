@@ -1,0 +1,2 @@
+# Keep the audited reader's recorded byte hash stable between Windows checkouts.
+research/third-trial/audit_weapon_prefabs.py text eol=lf

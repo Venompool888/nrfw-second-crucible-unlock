@@ -1,0 +1,3 @@
+INIT ORDER actual production hook: InitializeContentSystem.OnInit postfix AfterInit
+INIT ORDER official content exported=True; pooled=1; error=
+Actual ThirdTrialRuntime source managed tests passed: 423; no game DLL references or execution.

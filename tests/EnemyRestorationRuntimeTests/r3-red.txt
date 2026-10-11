@@ -1,0 +1,16 @@
+FAIL: Install must not depend on the uncalled RuntimeAssetResolutionContext.Update hook
+FAIL: LUT wait visits actual pump and remains unavailable
+FAIL: Loader pump retries and publishes ready
+FAIL: All ten views/wrappers available before ready
+FAIL: One first-context ready record
+FAIL: Healthy same context remains ready and is strictly revalidated
+FAIL: Global mismatch is retryable
+FAIL: Global lookup exception retries on later loader update
+FAIL: Identity race does not permanently disable module; next update readies current resolver
+FAIL: Resolver swap reads new Core.AssetCtx and waits for LUT
+FAIL: Resolver swap becomes ready with ten new views
+FAIL: One ready record for each first/raced/second successful context
+FAIL: Current context restoration can retry
+FAIL: Independent shutdown fixture starts enabled and ready
+FAIL: Actual runtime must expose the loader-driven PumpCurrentViews entry
+EnemyRestorationRuntime actual-source managed tests: 31 checks; 15 failures; 20 missing pump dispatches; 0 Ensure calls; no game DLLs.

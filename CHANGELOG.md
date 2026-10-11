@@ -1,5 +1,13 @@
 # Version history
 
+## Main source — Third Crucible R17 integration, 2026-10-11
+
+- Integrated the user-approved R17 Third Crucible on the 0.9.17 main baseline: ten ordinary-enemy combat rooms, first-Crucible arenas, and second-Crucible progression/rewards. Rooms 5 and 6 share a sword/shield configuration; the route has nine distinct combinations. The six additional R16 combinations are excluded.
+- Retained the tested R17 runtime source and internal version label. Room 7 uses the shipped curved sword and seven profiles use existing NPC voice fallbacks; these do not restore dedicated recordings or story dialogue. Second-Crucible player defaults and bowgun audio/input 0.3.3 remain intact.
+- The R17 play session recorded verified spawn, equipment and voice assignment for all ten profiles. Audio diagnostics were presence-only. Weapon audio in rooms 5, 6, 8 and 10 and the room 3 charge flame remain unresolved; view-loading, duplicate action-key and buildup exceptions also remain documented.
+- Added a local copy of the read-only curved-sword auditor and selectable verification output directory. These tooling changes do not alter the runtime plugin. See [integration and validation](research/third-trial/r17-main-integration.md).
+- This source integration does not publish a new GitHub Release or replace existing 0.9.17 downloads.
+
 ## 0.9.17 + Bowgun Audio Sync 0.3.3 — 2026-10-10
 
 - Simplified first-run setup: the core runtime mode and accepted repairs are enabled by default; players do not need to create a preferences file or set repair switches.

@@ -62,10 +62,10 @@ namespace CrucibleUnlock
     internal static class Boundary
     {
         public static readonly List<string> Calls = new List<string>();
-        public static bool RejectBuild, RejectRuntime;
+        public static bool RejectBuild, RejectRuntime, RejectHud;
         public static int ConfiguredWeaponClass;
         public static void Reset()
-        { Calls.Clear(); RejectBuild = false; RejectRuntime = false; ConfiguredWeaponClass = -1; }
+        { Calls.Clear(); RejectBuild = false; RejectRuntime = false; RejectHud = false; ConfiguredWeaponClass = -1; }
         public static void Install(string name) { Calls.Add(name); }
     }
     internal static class BuildGuard
@@ -103,7 +103,52 @@ namespace CrucibleUnlock
     internal static class HuskBossNameRepair { public static void Install() { Boundary.Install("husk-name"); } }
     internal static class EchoCapRepair { public static void Install() { Boundary.Install("echo-cap"); } }
     internal static class RitualAnimatorRepair { public static void Install() { Boundary.Install("ritual-animator"); } }
-    internal static class RitualViewRepair { public static void Install() { Boundary.Install("ritual-view"); } }
+    internal static class RitualViewRepair
+    {
+        public static void PrepareHelpers(Action<string> log) { Boundary.Install("ritual-preflight"); }
+        public static void Install(Action<string> log) { Boundary.Install("ritual-view"); }
+    }
+    internal static class ThirdTrialEntry
+    {
+        public static void Install(Func<object, object> resolve, Func<bool> ready, Action<string> log, Action<string> error)
+        { Boundary.Install("third-entry"); }
+        public static void Flush() { Boundary.Install("third-flush"); }
+        public static void StopWithoutUnityReads() { Boundary.Install("third-entry-stop"); }
+    }
+    internal static class ThirdTrialRuntime
+    {
+        public static bool Enabled => true;
+        public static object ResolveReadyPlaylist(object frame) => null;
+        public static void Install() { Boundary.Install("third-runtime"); }
+        public static void Fail(string stage) { Boundary.Install("third-fail"); }
+        public static void StopWithoutNativeReads() { Boundary.Install("third-runtime-stop"); }
+    }
+    internal static class ThirdTrialSpawning
+    {
+        public static void Install(Action<string> log, Action<string> error) { Boundary.Install("third-spawning"); }
+        public static void StopWithoutNativeReads() { Boundary.Install("third-spawning-stop"); }
+    }
+    internal static class ThirdTrialHudRepair
+    {
+        public static void PrepareHelpers(Action<string> log) { Boundary.Install("hud-preflight"); }
+        public static void Install()
+        {
+            Boundary.Install("third-hud");
+            if (Boundary.RejectHud) throw new InvalidOperationException("fixture HUD installation failed");
+        }
+        public static void StopWithoutUnityReads() { Boundary.Install("third-hud-stop"); }
+    }
+    internal static class EnemyRestorationVoiceRepair
+    {
+        public static void PrepareHelpers(Action<string> log) { Boundary.Install("voice-preflight"); }
+    }
+    internal static class EnemyRestorationRuntime
+    {
+        public static bool CurrentViewsReady => true;
+        public static void Install(string directory, bool attachSimulationHook) { Boundary.Install("enemy-restoration"); }
+        public static void PumpCurrentViews() { Boundary.Install("enemy-pump"); }
+        public static void StopWithoutUnityReads() { Boundary.Install("enemy-stop"); }
+    }
     internal static class BowgunInputRepair
     {
         public static void Configure(int value) { Boundary.ConfiguredWeaponClass = value; }
