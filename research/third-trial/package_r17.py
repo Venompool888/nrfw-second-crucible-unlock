@@ -48,7 +48,12 @@ def main():
     for item in protected:
         assert sha(Path(item["path"])) == item["sha256"], item["path"]
     installed = next(i for i in protected if i["path"].endswith("/Mods/CrucibleUnlock.dll"))
-    assert installed["sha256"] == "bb79a60ef806526c22c3eb785aaf1e6b8765c953d013669db134d0a826513b6d"
+    installation_record = ROOT.parents[1] / "research/third-trial-restored-enemies-20261010/artifacts/third-launch/current-installation.json"
+    installation = read(installation_record)
+    assert installation["sha256"] == installed["sha256"], "Installation record differs from the preserved installed core"
+    observed_installation = {"record": str(installation_record), "record_sha256": sha(installation_record),
+                             "plugin": installation["plugin"], "source_commit": installation["source_commit"],
+                             "sha256": installed["sha256"], "preserved": True}
     target = ROOT / "dist/third-trial-20261011-r17"
     archive = target.with_suffix(".zip")
     assert not target.exists() and not archive.exists(), "Never replace an existing frozen candidate"
@@ -61,6 +66,8 @@ def main():
         "[CrucibleUnlock]\nboss_trace_drop_amount = 300\n", encoding="utf8")
     evidence = target / "evidence"
     evidence.mkdir()
+    shutil.copy2(EVIDENCE / "protected-before.json", evidence / "protected-before.json")
+    shutil.copy2(installation_record, evidence / "observed-installation.json")
     shutil.copytree(EVIDENCE / "verification", evidence / "verification")
     voice = evidence / "voice"
     voice.mkdir()
@@ -97,7 +104,7 @@ def main():
         "Source changed after the verified core build"
     source_hashes = {name: sha(ROOT / name) for name in source_paths}
     manifest = {"version": VERSION, "source_commit": git("rev-parse", "HEAD"), "branch": BRANCH,
-                "base_main": BASE, "installed_r15_dependency": R15,
+                "base_main": BASE, "r15_source_dependency": R15, "observed_installation": observed_installation,
                 "utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "core_sha256": sha(core), "audio_sha256": sha(audio), "source_sha256": source_hashes,
                 "installed": False, "game_started": False, "runtime_verified": False,
@@ -117,10 +124,14 @@ def main():
         for path in sorted(target.rglob("*")):
             if path.is_file():
                 assert output.read(path.relative_to(target).as_posix()) == path.read_bytes()
+    for item in protected:
+        assert sha(Path(item["path"])) == item["sha256"], item["path"]
+    assert sha(installation_record) == observed_installation["record_sha256"]
     result = {"version": VERSION, "source_commit": manifest["source_commit"], "package": str(target),
               "archive": str(archive), "archive_sha256": sha(archive), "core_sha256": sha(core),
               "offline_tasks": manifest["offline_tasks"], "installed": False, "game_started": False,
-              "runtime_verified": False, "main_merged": False}
+              "runtime_verified": False, "main_merged": False, "observed_installation": observed_installation,
+              "protected_files_verified": len(protected)}
     (EVIDENCE / "candidate.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf8")
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
