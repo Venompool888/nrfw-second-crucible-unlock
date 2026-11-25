@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.9.0";
+        internal const string Version = "0.10.0";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -66,6 +66,8 @@ namespace Necromancy
             ("Il2CppQuantum.RunesAPI+Weapon", "IsRuneCompatible", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.RuneData" }, "System.Boolean"),
             ("Il2CppQuantum.RaisedMinionSystem", "GetMinionFormationSlot", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.EntityRef" }, "System.Int32"),
             ("Il2CppMoon.Forsaken.RaisedMinionVisualEffect", "ApplyTintEffect", new string[0], "Void"),
+            ("Il2CppQuantum.HealthSystem", "UpdateEnemyHealthRegen", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.HealthComponent*" }, "Void"),
+            ("Il2CppQuantum.CorpseMarkerSystem", "OnNpcDied", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.Damage", "Il2CppQuantum.DamageResponse", "System.Int32" }, "Void"),
             ("Il2CppQuantum.TeamUtils", "AreAllies", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.EntityRef" }, "System.Boolean"),
             ("Il2CppQuantum.RunesAPI+Weapon", "IsRuneCompatible", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.WeaponComponent*", "Il2CppQuantum.HeroRuneData" }, "System.Boolean"),
         };
@@ -77,6 +79,13 @@ namespace Necromancy
             foreach (string name in RequiredSystems) if (!present.Contains(name)) missing.Add(name);
             return missing.ToArray();
         }
+
+        // The shipped raise data has no minion lifetime; this is the plugin's default (0 = unlimited).
+        internal const int DefaultMinionLifetimeSeconds = 120;
+
+        // FP raw values are 16.16 fixed point.
+        internal static bool LifetimeExpired(long birthRaw, long nowRaw, int lifetimeSeconds) =>
+            lifetimeSeconds > 0 && nowRaw >= birthRaw && nowRaw - birthRaw >= (long)lifetimeSeconds << 16;
 
         // Minion<->hero and minion<->minion are allies; hero<->hero is never changed (keeps player friendly fire).
         internal static bool MinionPairIsAllied(bool aMinion, bool aHero, bool bMinion, bool bHero) =>

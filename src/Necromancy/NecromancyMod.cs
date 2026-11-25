@@ -73,6 +73,7 @@ namespace Necromancy
             if (_enabled) InstallTomeRunes();
             if (_enabled) InstallMinionVisuals();
             if (_enabled) InstallMinionFriendlyFire();
+            if (_enabled) InstallMinionLifecycle(category);
             Flush();
         }
 
@@ -162,6 +163,7 @@ namespace Necromancy
             {
                 EnsureEnabled(__0);
                 if (_grantRequested && !_grantDone) TryGrant(__0);
+                TickLifetime(__0);
             }
             catch (Exception e) { Error("end-of-frame", e); }
         }
@@ -350,7 +352,10 @@ namespace Necromancy
 
         private static void AfterFormationSlot(Frame __0, EntityRef __2)
         {
-            if (__0 != null && __2.IsValid) Minions[__2.Raw] = Environment.TickCount64;
+            if (__0 == null || !__2.IsValid) return;
+            Minions[__2.Raw] = Environment.TickCount64;
+            if (__0.IsVerified && !MinionBirth.ContainsKey(__2.Raw) && !Expired.Contains(__2.Raw))
+                MinionBirth[__2.Raw] = __0.TimeSinceStart.RawValue;
         }
 
         private static void AfterApplyTint(Il2CppMoon.Forsaken.RaisedMinionVisualEffect __instance)
@@ -398,6 +403,88 @@ namespace Necromancy
                 }
             }
             catch (Exception e) { Error("minion-visuals", e); }
+        }
+
+        // ---- minion lifecycle: no enemy auto-regen, optional lifetime ----------------------
+        // Raised minions are still NPCs, so HealthSystem.UpdateEnemyHealthRegen refilled them whenever no
+        // player was in regen distance (e.g. right after a teleport). Skip it for minions. The shipped data
+        // has no minion lifetime; minion_lifetime_seconds adds one (0 = unlimited).
+
+        private static readonly Dictionary<ulong, long> MinionBirth = new();   // sim thread only; FP raw
+        private static readonly HashSet<ulong> Expired = new();
+        private static int _lifetimeSeconds, _regenLogs, _expireLogs;
+
+        private static void InstallMinionLifecycle(MelonPreferences_Category category)
+        {
+            var entry = category.CreateEntry("minion_lifetime_seconds", NecromancyPolicy.DefaultMinionLifetimeSeconds,
+                description: "Seconds a raised minion stays before it falls; 0 = until killed (original data has no limit).");
+            _lifetimeSeconds = Math.Max(0, entry.Value);
+            var h = new HarmonyLib.Harmony("NRFW.Necromancy.MinionLifecycle");
+            try
+            {
+                PatchPrefix(h, typeof(HealthSystem), "UpdateEnemyHealthRegen",
+                    new[] { typeof(Frame), typeof(EntityRef), typeof(HealthComponent).MakePointerType() }, nameof(BeforeEnemyRegen), typeof(void));
+                Write("minion regen hook installed");
+            }
+            catch (Exception e) { Write("minion regen hook FAILED " + e.GetType().Name + ": " + e.Message); }
+            try
+            {
+                PatchPrefix(h, typeof(CorpseMarkerSystem), "OnNpcDied",
+                    new[] { typeof(Frame), typeof(EntityRef), typeof(Damage), typeof(DamageResponse), typeof(int) }, nameof(BeforeNpcDied), typeof(void));
+                Write("expired-minion corpse hook installed");
+            }
+            catch (Exception e) { Write("expired-minion corpse hook FAILED " + e.GetType().Name + ": " + e.Message); }
+            Write("minion_lifetime_seconds=" + _lifetimeSeconds);
+        }
+
+        private static void PatchPrefix(HarmonyLib.Harmony harmony, Type type, string name, Type[] args, string prefix, Type returns)
+        {
+            var method = type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static, null, args, null);
+            if (method == null || method.ReturnType != returns) throw new MissingMethodException(type.FullName, name);
+            harmony.Patch(method, prefix: new HarmonyMethod(typeof(NecromancyMod).GetMethod(prefix, BindingFlags.NonPublic | BindingFlags.Static)));
+        }
+
+        private static bool BeforeEnemyRegen(Frame __0, EntityRef __1)
+        {
+            try
+            {
+                if (!_enabled || __0 == null || !EntityRefExtensions.Has<RaisedMinionComponent>(__1, __0)) return true;
+                if (__0.IsVerified && Interlocked.Increment(ref _regenLogs) <= 5) Write("regen SKIPPED for raised minion entity=" + __1.Raw);
+                return false;
+            }
+            catch (Exception e) { Error("regen", e); return true; }
+        }
+
+        // A minion we expired leaves no raisable corpse.
+        private static bool BeforeNpcDied(Frame __0, EntityRef __1)
+        {
+            if (!Expired.Contains(__1.Raw)) return true;
+            if (__0 != null && __0.IsVerified) Write("expired minion " + __1.Raw + " leaves no corpse");
+            return false;
+        }
+
+        // Called from the verified end-of-frame tick.
+        private static void TickLifetime(Frame f)
+        {
+            if (_lifetimeSeconds <= 0) return;
+            long now = f.TimeSinceStart.RawValue;
+            List<ulong> due = null, gone = null;
+            foreach (var pair in MinionBirth)
+            {
+                var minion = new EntityRef { Raw = pair.Key };
+                if (!EntityRefExtensions.Has<RaisedMinionComponent>(minion, f)) { (gone ??= new()).Add(pair.Key); continue; }
+                if (NecromancyPolicy.LifetimeExpired(pair.Value, now, _lifetimeSeconds)) (due ??= new()).Add(pair.Key);
+            }
+            if (gone != null) foreach (var k in gone) MinionBirth.Remove(k);
+            if (due == null) return;
+            foreach (var k in due)
+            {
+                MinionBirth.Remove(k);
+                Expired.Add(k);
+                var minion = new EntityRef { Raw = k };
+                DamageAPI.Kill(f, minion, default, default, PoiseLevel.None, true, DamageFlags.None, DamageVisualType.None);
+                if (Interlocked.Increment(ref _expireLogs) <= 20) Write("minion EXPIRED after " + _lifetimeSeconds + "s entity=" + k);
+            }
         }
 
         // ---- minion friendly fire ----------------------------------------------------------
