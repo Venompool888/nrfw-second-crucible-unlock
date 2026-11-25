@@ -25,7 +25,7 @@ namespace Necromancy
         internal static readonly string[] RuneKeys = ItemKeys;
 
         // Character that receives the one-shot items (save name, compared case-insensitively). Empty = any.
-        internal const string DefaultTargetCharacter = "hero-b";
+        internal const string DefaultTargetCharacter = "";   // empty = grant nothing until a character is configured
 
         internal static bool ListContains(string list, string name) =>
             !string.IsNullOrWhiteSpace(name) && System.Array.Exists((list ?? "").Split(','),

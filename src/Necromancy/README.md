@@ -1,22 +1,25 @@
 # NRFW Necromancy（死灵起尸恢复）
 
-独立 MelonLoader 插件 `NRFWNecromancy.dll`，不依赖 CrucibleUnlock。目标公测 Steam Build 22928553。
+独立 MelonLoader 插件 `NRFWNecromancy.dll`，不依赖 CrucibleUnlock。目标公测 Steam Build 22928553。工单：T-001。
 
 ## 做什么
 
-1. **补系统**：后缀挂 `SystemSetup.CreateSystems`，递归检查返回的系统树（含 `_children`）。缺 `CorpseMarkerSystem` 或 `RaisedMinionSystem` 时追加到根数组；会话前几帧再检查 `IsEnabledInHierarchy`，关着就 `Enable`。
+1. **补系统**：后缀挂 `SystemSetup.CreateSystems`。实机确认原版生成的 105 个系统里没有 `CorpseMarkerSystem` 和 `RaisedMinionSystem`，插件把它们追加到根数组；会话前几帧再检查 `IsEnabledInHierarchy`，关着就 `Enable`。
 2. **宝典可镶死灵符文**：后缀挂 `RunesAPI.Weapon.IsRuneCompatible` 的两个重载，只放行「治疗宝典（或无类别武器）+ 三枚死灵符文」，其他组合保持原判定。
-3. **一次性发放**：只发给 `grant_character`（默认 hero-a）。先生成一本金色治疗宝典，开槽后用 `AttachRune` 镶上三枚死灵符文，再放进背包；另外，对背包和仓库里数量为 0 的符文调用 `InventoryAPI.PreviewAwardItemImmediate(..., NewInventoryItemSource.Loot)`，各发 1 枚，然后把配置改成 `false` 并保存。不用 `Cheat` 来源。
-4. **诊断日志**：系统是否存在、是否运行，以及前若干次 `CanRaiseNearby`、起尸 `Execute`、治疗随从 `Execute` 的结果。写入 `UserData/NRFWNecromancy.log` 和 MelonLoader 日志的 `[necromancy]` 行。
+3. **按角色发放（每个角色一次）**：`grant_character` 填的角色读档约 5 秒后，背包里没有治疗宝典就新建一本金色宝典，再把三枚符文直接写进它的符文槽 1–3（运行时先核对原生布局，不符就不写），然后请求 `ArmamentReload`；背包里没有散装符文时各补发 1 枚。发过的角色名记进 `granted_characters`。
+4. **随从着色**：从 `RaisedMinionSystem.GetMinionFormationSlot` 记下随从实体，在主线程给它的 `EntityView` 补挂原版的 `RaisedMinionVisualEffect`（敌人模型上原本没有这个组件）。
+5. **随从不误伤**：后缀挂 `TeamUtils.AreAllies`，一方是随从、另一方是玩家或随从时判为盟友；玩家与玩家保持原判定。
+6. **随从不自动回满、可选时限**：前缀挂 `HealthSystem.UpdateEnemyHealthRegen`，对随从跳过敌人脱战回血。原版数据没有随从时限；`minion_lifetime_seconds` 到时用 `DamageAPI.Kill` 结束随从，`CorpseMarkerSystem.OnNpcDied` 对到期随从不留尸体。
+7. **诊断日志**：写入 `UserData/NRFWNecromancy.log` 和 MelonLoader 日志的 `[necromancy]` 行。
 
-| 符文 | AssetGuid | 动作 | 要点 |
+| 物品 | AssetGuid | 动作 | 要点 |
 |---|---|---|---|
 | raiseMinion | 2160606268309502004 | 22455697660660456 | 固定召出 npcRisenWildlingSwordA（2598229157892424643） |
 | revive | 565977864064423183 | 943531419627853566 | `UseCorpseNpcType=true`，起来的是尸体原本的敌人 |
 | healMinions | 4408421902141782894 | 2754443711296488034 | 随从各回复 50 点 |
-| 治疗宝典 tomeOfHealing（副手） | 3937520191132810478 | 2452854199486692768（正式「治疗」符文动作） | 0.2.0 起加入；无正常获取途径 |
+| 治疗宝典 tomeOfHealing（副手） | 3937520191132810478 | 2452854199486692768（正式「治疗」符文动作） | 无正常获取途径 |
 
-三枚都是长杖／魔杖符文（CompatibleClasses `[25, 24]`），`ThomasApproved=true`，也都不在 `StrippedAssetGuidsSet` 中。两枚起尸符文：100 专注，搜尸半径 8，尸体 300 秒内有效，最多 5 名随从，随从生命/伤害按普通 0.5、精英/巨型 0.25、Boss 0.1 缩放，随从命中给玩家回 2 专注。治疗符文另耗 50 专注。
+三枚符文都是长杖／魔杖符文（CompatibleClasses `[25, 24]`），`ThomasApproved=true`，都不在 `StrippedAssetGuidsSet` 中，运行时符文表序号 117／22／243。起尸：100 专注，搜尸半径 8，尸体 300 秒内有效，最多 5 名随从，随从生命/伤害按普通 0.5、精英/巨型 0.25、Boss 0.1 缩放，随从命中给玩家回 2 专注。治疗随从另耗 50 专注。
 
 ## 配置
 
@@ -24,11 +27,14 @@
 
 ```
 [NRFWNecromancy]
-grant_runes_once = true
-grant_character = "hero-a"
+grant_character = "你的角色名"
+granted_characters = ""
+minion_lifetime_seconds = 120
 ```
 
-想再发一次就把它改回 `true`；已持有的符文会跳过。
+- `grant_character` 默认为空，即不发放；填上角色名（不区分大小写）才会给这个角色发。
+- 想给已发过的角色再发一次，从 `granted_characters` 里删掉它的名字。
+- `minion_lifetime_seconds` 填 0 表示随从一直存在，直到被打死。
 
 ## 构建与离线核验
 
@@ -37,11 +43,11 @@ grant_character = "hero-a"
 ./.dotnet/dotnet.exe run --project tools/NecromancyHookAudit -c Release -- vendor/generated src/Necromancy/bin/Release/NRFWNecromancy.dll
 ```
 
-审计只读 PE 元数据，核对 7 个 hook 签名唯一存在、两个系统有无参构造、发放 API 签名、`WeaponStaticData` 继承自 `HeroItemData`（宝典可按物品发放），以及编译产物确实按名挂了这些方法、宝典生成与镶嵌用到的 9 个接口（共 34 项）。
+审计只读 PE 元数据：核对全部 hook 签名唯一存在、调用的接口签名、类型继承，并测试纯逻辑（符文放行、布局校验、按角色发放、敌我规则、时限换算）。
 
 ## 限制
 
-- 未实机验证：系统原本是否注册、召唤物阵营与跟随、尸体提示 UI 都要看实机日志。
-- 符文没有本地化名字，界面可能显示为空名或内部名。
+- 三枚符文没有本地化名字，界面可能显示为空名或内部名；宝典图标可能是占位图。
 - 仅单机：联机时各端系统树必须一致，否则可能失步。
-- 已发进背包的符文属于存档内容，卸载插件不会删除。
+- 跨区域传送时如果游戏重建了随从实体，时限会重新计时（待实机日志确认）。
+- 已发进背包的物品属于存档内容，卸载插件不会删除。
