@@ -3,15 +3,20 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.1.0";
+        internal const string Version = "0.2.0";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
         internal const long ReviveRune = 565977864064423183;         // revive: UseCorpseNpcType=true
         internal const long HealMinionsRune = 4408421902141782894;   // healMinions: flat heal 50
 
-        internal static readonly long[] Runes = { RaiseMinionRune, ReviveRune, HealMinionsRune };
-        internal static readonly string[] RuneKeys = { "raiseMinion", "revive", "healMinions" };
+        // Tome of Healing (治疗宝典): WeaponStaticData offhand, HandType 4, ThomasApproved=false, no loot/vendor/recipe source.
+        // Its .actions reuse the released Heal rune action 2452854199486692768; special is the light-shield parry data.
+        internal const long TomeOfHealing = 3937520191132810478;
+
+        // One-shot award list (all HeroItemData; none in StrippedAssetGuidsSet).
+        internal static readonly long[] Items = { RaiseMinionRune, ReviveRune, HealMinionsRune, TomeOfHealing };
+        internal static readonly string[] ItemKeys = { "raiseMinion", "revive", "healMinions", "tomeOfHealing" };
 
         // Verified frames the hero must stay bound before the one-shot award (~5 s at 60 Hz).
         internal const int GrantSettleFrames = 300;

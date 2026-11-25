@@ -9,12 +9,16 @@ using Necromancy;
 var p = new Names();
 var methods = new List<(string Type, string Method, string Return, string[] Args)>();
 var types = new HashSet<string>();
+var bases = new Dictionary<string, string>();
 foreach (string assembly in new[] { "Il2Cppmoon.quantum.forsaken", "Il2Cpp__forsaken" })
 {
     using var s = File.OpenRead(Path.Combine(args[0], assembly + ".dll")); using var pe = new PEReader(s); var r = pe.GetMetadataReader();
     foreach (var th in r.TypeDefinitions)
     {
         string tn = p.GetTypeFromDefinition(r, th, 0); types.Add(tn);
+        var bt = r.GetTypeDefinition(th).BaseType;
+        if (!bt.IsNil) bases[tn] = bt.Kind == HandleKind.TypeDefinition ? p.GetTypeFromDefinition(r, (TypeDefinitionHandle)bt, 0)
+            : bt.Kind == HandleKind.TypeReference ? p.GetTypeFromReference(r, (TypeReferenceHandle)bt, 0) : "?";
         foreach (var mh in r.GetTypeDefinition(th).GetMethods())
         {
             var m = r.GetMethodDefinition(mh); var sg = m.DecodeSignature(p, (object)null);
@@ -36,6 +40,10 @@ Check(methods.Any(m => m.Type == "Il2CppQuantum.InventoryAPI" && m.Method == "Pr
     "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.AssetRefHeroItemData", "System.Int32", "Il2CppQuantum.NewInventoryItemSource" })),
     "InventoryAPI.PreviewAwardItemImmediate signature");
 Check(methods.Any(m => m.Type == "Il2CppQuantum.SystemBase" && m.Method == "get__children"), "SystemBase._children accessor");
+Check(bases.TryGetValue("Il2CppQuantum.WeaponStaticData", out var wb) && wb == "Il2CppQuantum.EquippableItemData" &&
+      bases.TryGetValue("Il2CppQuantum.EquippableItemData", out var eb) && eb == "Il2CppQuantum.HeroItemData",
+      "WeaponStaticData -> EquippableItemData -> HeroItemData (tome can be awarded as AssetRefHeroItemData)");
+Check(NecromancyPolicy.Items.Length == NecromancyPolicy.ItemKeys.Length && NecromancyPolicy.Items.Distinct().Count() == NecromancyPolicy.Items.Length, "award list well-formed");
 
 // The compiled plugin must reference every hooked method name and must not use the Cheat item source.
 using (var s = File.OpenRead(args[1]))

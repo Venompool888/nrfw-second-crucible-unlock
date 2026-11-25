@@ -19,7 +19,7 @@ namespace Necromancy
     // Restores the shipped-but-unreleased raise-minion rune family.
     //  1. Makes sure CorpseMarkerSystem and RaisedMinionSystem exist in the simulation tree
     //     (appends them when SystemSetup filtered them out) and are enabled.
-    //  2. Optionally awards raiseMinion / revive / healMinions once to the local hero.
+    //  2. Optionally awards raiseMinion / revive / healMinions and the Tome of Healing once to the local hero.
     //  3. Logs the first corpse/raise/heal calls so a play session can show which stage works.
     // Single-player only: every peer of a session would need identical systems.
     public sealed class NecromancyMod : MelonMod
@@ -38,7 +38,7 @@ namespace Necromancy
         {
             var category = MelonPreferences.CreateCategory("NRFWNecromancy", "NRFW Necromancy");
             _grantEntry = category.CreateEntry("grant_runes_once", true,
-                description: "Award raiseMinion, revive and healMinions to the loaded hero once, then switch itself off.");
+                description: "Award raiseMinion, revive, healMinions and the Tome of Healing to the loaded hero once, then switch itself off.");
             _grantRequested = _grantEntry.Value;
             _logPath = Path.Combine(MelonLoader.Utils.MelonEnvironment.UserDataDirectory, "NRFWNecromancy.log");
             var harmony = new HarmonyLib.Harmony("NRFW.Necromancy");
@@ -158,17 +158,17 @@ namespace Necromancy
             var hero = new EntityRef { Raw = unchecked((ulong)Interlocked.Read(ref _heroRaw)) };
             if (!hero.IsValid || !InventoryAPI.GetInventoryEntity(f, hero).IsValid) { _heroFrames = 0; return; }
             if (++_heroFrames < NecromancyPolicy.GrantSettleFrames) return;   // let the saved inventory finish loading
-            for (int i = 0; i < NecromancyPolicy.Runes.Length; ++i)
+            for (int i = 0; i < NecromancyPolicy.Items.Length; ++i)
             {
-                var rune = new AssetRefHeroItemData { Id = new AssetGuid { Value = NecromancyPolicy.Runes[i] } };
+                var rune = new AssetRefHeroItemData { Id = new AssetGuid { Value = NecromancyPolicy.Items[i] } };
                 int owned = InventoryAPI.GetItemMatchingCount(f, hero, rune, true);
                 if (!NecromancyPolicy.ShouldGrant(true, f.IsVerified, true, owned))
                 {
-                    Write("grant skip " + NecromancyPolicy.RuneKeys[i] + ": already owned=" + owned);
+                    Write("grant skip " + NecromancyPolicy.ItemKeys[i] + ": already owned=" + owned);
                     continue;
                 }
                 InventoryAPI.PreviewAwardItemImmediate(f, hero, rune, 1, NewInventoryItemSource.Loot);
-                Write("GRANTED " + NecromancyPolicy.RuneKeys[i] + " (" + NecromancyPolicy.Runes[i] + ") to hero=" + hero.Raw +
+                Write("GRANTED " + NecromancyPolicy.ItemKeys[i] + " (" + NecromancyPolicy.Items[i] + ") to hero=" + hero.Raw +
                       "; count now=" + InventoryAPI.GetItemMatchingCount(f, hero, rune, true));
             }
             _grantDone = true;
