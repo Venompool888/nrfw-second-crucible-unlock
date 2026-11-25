@@ -26,6 +26,6 @@
 
 | 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 待决定 |
 |---|---|---|---|---|---|---|
-| [T-002](T-002.md) | [#3](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/3) | task | P2 | workflow | 采用 OriCoop 工作流（工单、分支、分层测试、PR） | | | PR #11 · `9fdcb86` |
+| [T-002](T-002.md) | [#3](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/3) | task | P2 | workflow | 采用 OriCoop 工作流（工单、分支、分层测试、PR） | PR #11 · `9fdcb86` |
 
 ## 试玩验证通过（0）
