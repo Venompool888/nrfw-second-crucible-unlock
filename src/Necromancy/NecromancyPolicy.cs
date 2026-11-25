@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.6.0";
+        internal const string Version = "0.6.1";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -77,7 +77,9 @@ namespace Necromancy
         internal static bool SlotLayoutOk(int slotSize, int managedSlot, int wcSize, int managedWc, int offSlots, int count,
             int offStatic, int offUnlocked, int offRune)
         {
-            if (slotSize != 16 || managedSlot != slotSize || managedWc != wcSize || count <= 0) return false;
+            // managedWc is informational only: the interop struct models the fixed slot buffer as one byte,
+            // so its managed size is smaller than native (seen in game: 12 vs 72). Offsets before the buffer still match.
+            if (slotSize != 16 || managedSlot != slotSize || count <= 0) return false;
             if (offSlots < 0 || offSlots + count * slotSize > wcSize) return false;
             int[] offs = { offStatic, offUnlocked, offRune };
             foreach (int o in offs) if (o < 0 || o + 4 > slotSize || (o & 3) != 0) return false;

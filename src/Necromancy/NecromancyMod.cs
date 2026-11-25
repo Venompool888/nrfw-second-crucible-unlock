@@ -44,7 +44,7 @@ namespace Necromancy
                 description: "Award a Gold Tome of Healing carrying raiseMinion, revive and healMinions, plus the three runes loose, to grant_character once, then switch itself off.");
             _socketEntry = category.CreateEntry("socket_tome_once", true,
                 description: "Once for grant_character: socket the three necromancy runes into the Tome of Healing in the bag (creating one if missing), add the runes loose, and log every step.");
-            _forceEntry = category.CreateEntry("force_tome_runes_once", true,
+            _forceEntry = category.CreateEntry("force_tome_runes_v2_once", true,
                 description: "Once for grant_character: write raiseMinion, revive and healMinions directly into the Tome of Healing rune slots (layout-checked).");
             _grantRequested = _grantEntry.Value || _socketEntry.Value || _forceEntry.Value;
             _targetEntry = category.CreateEntry("grant_character", NecromancyPolicy.DefaultTargetCharacter,
