@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.2.0";
+        internal const string Version = "0.4.0";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -14,9 +14,19 @@ namespace Necromancy
         // Its .actions reuse the released Heal rune action 2452854199486692768; special is the light-shield parry data.
         internal const long TomeOfHealing = 3937520191132810478;
 
-        // One-shot award list (all HeroItemData; none in StrippedAssetGuidsSet).
-        internal static readonly long[] Items = { RaiseMinionRune, ReviveRune, HealMinionsRune, TomeOfHealing };
-        internal static readonly string[] ItemKeys = { "raiseMinion", "revive", "healMinions", "tomeOfHealing" };
+        // One-shot loose award (all HeroItemData; none in StrippedAssetGuidsSet). The tome is awarded separately,
+        // already carrying RunedTome in its slots.
+        internal static readonly long[] Items = { RaiseMinionRune, ReviveRune, HealMinionsRune };
+        internal static readonly string[] ItemKeys = { "raiseMinion", "revive", "healMinions" };
+        internal static readonly long[] RunedTome = { RaiseMinionRune, ReviveRune, HealMinionsRune };
+        internal static readonly string[] RuneKeys = ItemKeys;
+
+        // Character that receives the one-shot items (save name, compared case-insensitively). Empty = any.
+        internal const string DefaultTargetCharacter = "hero-a";
+
+        internal static bool IsTargetCharacter(string target, string loaded) =>
+            string.IsNullOrWhiteSpace(target) ||
+            string.Equals(target.Trim(), (loaded ?? "").Trim(), System.StringComparison.OrdinalIgnoreCase);
 
         // Verified frames the hero must stay bound before the one-shot award (~5 s at 60 Hz).
         internal const int GrantSettleFrames = 300;
@@ -37,6 +47,8 @@ namespace Necromancy
             ("Il2CppQuantum.RaiseMinionActionData", "Execute", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef" }, "System.Boolean"),
             ("Il2CppQuantum.RaiseMinionActionData", "CanRaiseNearby", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef" }, "System.Boolean"),
             ("Il2CppQuantum.HealMinionsActionData", "Execute", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef" }, "System.Boolean"),
+            ("Il2CppQuantum.RunesAPI+Weapon", "IsRuneCompatible", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.RuneData" }, "System.Boolean"),
+            ("Il2CppQuantum.RunesAPI+Weapon", "IsRuneCompatible", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.WeaponComponent*", "Il2CppQuantum.HeroRuneData" }, "System.Boolean"),
         };
 
         // Names of required systems absent from the created tree, in RequiredSystems order.
@@ -46,6 +58,16 @@ namespace Necromancy
             foreach (string name in RequiredSystems) if (!present.Contains(name)) missing.Add(name);
             return missing.ToArray();
         }
+
+        internal static bool IsNecromancyRune(long rune) =>
+            rune == RaiseMinionRune || rune == ReviveRune || rune == HealMinionsRune;
+
+        // Only the Tome of Healing gains the three necromancy runes; every other pairing keeps the native result.
+        internal static bool TomeAccepts(long itemData, long rune) => itemData == TomeOfHealing && IsNecromancyRune(rune);
+
+        // WeaponClass.None == 0. The pointer overload cannot see the item GUID, so it relies on the tome's
+        // empty class; staff/wand already accept these runes natively.
+        internal static bool ClasslessAccepts(int weaponClass, long rune) => weaponClass == 0 && IsNecromancyRune(rune);
 
         // Grant a rune only into a known hero and only when the hero holds none of it anywhere.
         internal static bool ShouldGrant(bool requested, bool verified, bool heroValid, int ownedCount) =>

@@ -26,6 +26,8 @@ namespace Necromancy
     {
         private static readonly ConcurrentQueue<string> Pending = new();
         private static MelonPreferences_Entry<bool> _grantEntry;
+        private static MelonPreferences_Entry<string> _targetEntry;
+        private static string _targetCharacter = "";
         private static volatile bool _grantRequested, _grantDone;
         private static long _heroRaw;
         private static readonly List<SystemBase> Added = new();
@@ -38,8 +40,11 @@ namespace Necromancy
         {
             var category = MelonPreferences.CreateCategory("NRFWNecromancy", "NRFW Necromancy");
             _grantEntry = category.CreateEntry("grant_runes_once", true,
-                description: "Award raiseMinion, revive, healMinions and the Tome of Healing to the loaded hero once, then switch itself off.");
+                description: "Award a Gold Tome of Healing carrying raiseMinion, revive and healMinions, plus the three runes loose, to grant_character once, then switch itself off.");
             _grantRequested = _grantEntry.Value;
+            _targetEntry = category.CreateEntry("grant_character", NecromancyPolicy.DefaultTargetCharacter,
+                description: "Only this character (case-insensitive) receives the one-shot items; empty = whichever character loads first.");
+            _targetCharacter = _targetEntry.Value ?? "";
             _logPath = Path.Combine(MelonLoader.Utils.MelonEnvironment.UserDataDirectory, "NRFWNecromancy.log");
             var harmony = new HarmonyLib.Harmony("NRFW.Necromancy");
             try
@@ -64,7 +69,26 @@ namespace Necromancy
                 _enabled = false;
                 Write("DISABLED install failed: " + e.GetType().Name + ": " + e.Message);
             }
+            if (_enabled) InstallTomeRunes();
             Flush();
+        }
+
+        // Tome of Healing accepts the three necromancy runes. Each overload is patched on its own
+        // so a failure here leaves the rest of the plugin running.
+        private static void InstallTomeRunes()
+        {
+            var tomeHarmony = new HarmonyLib.Harmony("NRFW.Necromancy.TomeRunes");
+            int ok = 0;
+            foreach (var (args, postfix) in new[]
+            {
+                (new[] { typeof(Frame), typeof(EntityRef), typeof(RuneData) }, nameof(AfterCompatibleByEntity)),
+                (new[] { typeof(Frame), typeof(WeaponComponent).MakePointerType(), typeof(HeroRuneData) }, nameof(AfterCompatibleByComponent)),
+            })
+            {
+                try { Patch(tomeHarmony, typeof(RunesAPI.Weapon), "IsRuneCompatible", args, postfix, typeof(bool)); ++ok; }
+                catch (Exception e) { Write("tome-runes hook " + postfix + " FAILED " + e.GetType().Name + ": " + e.Message); }
+            }
+            Write("tome-runes hooks installed=" + ok + "/2");
         }
 
         public override void OnUpdate()
@@ -158,6 +182,14 @@ namespace Necromancy
             var hero = new EntityRef { Raw = unchecked((ulong)Interlocked.Read(ref _heroRaw)) };
             if (!hero.IsValid || !InventoryAPI.GetInventoryEntity(f, hero).IsValid) { _heroFrames = 0; return; }
             if (++_heroFrames < NecromancyPolicy.GrantSettleFrames) return;   // let the saved inventory finish loading
+            string name = HeroName(f, hero);
+            if (!NecromancyPolicy.IsTargetCharacter(_targetCharacter, name))
+            {
+                if (hero.Raw != _lastRejectedHero) { _lastRejectedHero = hero.Raw; Write("grant waiting: loaded character '" + name + "' is not '" + _targetCharacter + "'"); }
+                return;
+            }
+            Write("grant target character '" + name + "' hero=" + hero.Raw);
+            GrantRunedTome(f, hero);
             for (int i = 0; i < NecromancyPolicy.Items.Length; ++i)
             {
                 var rune = new AssetRefHeroItemData { Id = new AssetGuid { Value = NecromancyPolicy.Items[i] } };
@@ -172,6 +204,98 @@ namespace Necromancy
                       "; count now=" + InventoryAPI.GetItemMatchingCount(f, hero, rune, true));
             }
             _grantDone = true;
+        }
+
+        private static ulong _lastRejectedHero;
+
+        private static string HeroName(Frame f, EntityRef hero)
+        {
+            try
+            {
+                if (RuntimeCharacterDataAPI.TryGetCharacterRef(f, hero, out RuntimeCharacterReference character))
+                    return SavesAPIReferenceExtensions.GetName(character, f) ?? "";
+            }
+            catch (Exception e) { Error("hero-name", e); }
+            return "";
+        }
+
+        private static T Asset<T>(Frame f, long guid) where T : AssetObject =>
+            f.Context.ResourceManager.GetAsset(new AssetGuid { Value = guid })?.TryCast<T>();
+
+        // Creates a Gold Tome of Healing, unlocks slots as needed, attaches the three necromancy runes
+        // and puts the tome in the hero's inventory. A rune that cannot be attached goes to the bag loose.
+        private static void GrantRunedTome(Frame f, EntityRef hero)
+        {
+            var tomeData = Asset<HeroItemData>(f, NecromancyPolicy.TomeOfHealing);
+            if (tomeData == null) { Write("runed-tome SKIP tome asset missing"); return; }
+            EntityRef tome = ItemsAPI.Create(f, tomeData, 1, ItemRarity.Gold, NewInventoryItemSource.Loot);
+            if (!tome.IsValid) { Write("runed-tome SKIP create returned invalid entity"); return; }
+            int maxSlots = Constants.MaxRuneSlots, unique = Constants.UniqueRuneSlotIndex;
+            var attached = new List<string>();
+            for (int r = 0; r < NecromancyPolicy.RunedTome.Length; ++r)
+            {
+                long runeGuid = NecromancyPolicy.RunedTome[r];
+                var runeRefData = new AssetRefHeroItemData { Id = new AssetGuid { Value = runeGuid } };
+                var runeData = Asset<HeroItemData>(f, runeGuid);
+                if (runeData == null) { Write("runed-tome rune asset missing " + runeGuid); continue; }
+                RuneDataRef runeRef = RunesAPI.GetRune(f, runeRefData);
+                int slot = -1;
+                for (int s = 0; s < maxSlots && slot < 0; ++s)
+                {
+                    if (s == unique || RunesAPI.Weapon.HasRune(f, tome, s)) continue;
+                    if (!RunesAPI.Weapon.CanInsertRune(f, tome, s, runeRef)) RunesAPI.Weapon.UnlockSlot(f, tome, s);
+                    if (RunesAPI.Weapon.CanInsertRune(f, tome, s, runeRef)) slot = s;
+                }
+                EntityRef runeItem = ItemsAPI.Create(f, runeData, 1, ItemRarity.White, NewInventoryItemSource.Loot);
+                if (slot >= 0)
+                {
+                    RunesAPI.Weapon.AttachRune(f, tome, slot, runeItem);
+                    if (RunesAPI.Weapon.HasRune(f, tome, slot)) { attached.Add(slot + ":" + NecromancyPolicy.RuneKeys[r]); continue; }
+                    Write("runed-tome attach did not stick slot=" + slot + " rune=" + runeGuid);
+                    if (!ItemsAPI.Exists(f, runeItem)) continue;
+                }
+                else Write("runed-tome no insertable slot for rune=" + runeGuid);
+                InventoryAPI.DirectlyAddItemToInventoryOrDropAsBag(f, hero, runeItem, NewInventoryItemSource.Loot, false);
+            }
+            bool added = InventoryAPI.DirectlyAddItemToInventoryOrDropAsBag(f, hero, tome, NewInventoryItemSource.Loot, false);
+            Write("GRANTED runed Tome of Healing entity=" + tome.Raw + " gold; runes=[" + string.Join(", ", attached) + "]; inventory=" + added);
+        }
+
+        // ---- tome rune compatibility ------------------------------------------------------
+
+        private static int _compatLogs;
+
+        // Entity overload: exact match on the weapon item's data GUID.
+        private static unsafe void AfterCompatibleByEntity(Frame __0, EntityRef __1, RuneData __2, ref bool __result)
+        {
+            if (__result || !_enabled || __0 == null || __2 == null) return;
+            try
+            {
+                long rune = __2.Guid.Value;
+                if (!NecromancyPolicy.IsNecromancyRune(rune)) return;
+                if (!EntityRefExtensions.Has<ItemComponent>(__1, __0)) return;
+                var component = EntityRefExtensions.Get<ItemComponent>(__1, __0);
+                if (component == null) return;
+                long item = component->Data.Id.Value;
+                if (!NecromancyPolicy.TomeAccepts(item, rune)) return;
+                __result = true;
+                if (Interlocked.Increment(ref _compatLogs) <= 10) Write("tome-runes ALLOW entity=" + __1.Raw + " rune=" + rune);
+            }
+            catch (Exception e) { Error("tome-runes/entity", e); }
+        }
+
+        // Component overload carries no item GUID; accept only class-less weapons (the tome is Class=None).
+        private static unsafe void AfterCompatibleByComponent(Frame __0, WeaponComponent* __1, HeroRuneData __2, ref bool __result)
+        {
+            if (__result || !_enabled || __1 == null || __2 == null) return;
+            try
+            {
+                long rune = __2.Guid.Value;
+                if (!NecromancyPolicy.ClasslessAccepts((int)__1->Class, rune)) return;
+                __result = true;
+                if (Interlocked.Increment(ref _compatLogs) <= 10) Write("tome-runes ALLOW classless weapon rune=" + rune);
+            }
+            catch (Exception e) { Error("tome-runes/component", e); }
         }
 
         // ---- diagnostics -------------------------------------------------------------------
