@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.5.0";
+        internal const string Version = "0.6.0";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -71,6 +71,18 @@ namespace Necromancy
         // WeaponClass.None == 0. The pointer overload cannot see the item GUID, so it relies on the tome's
         // empty class; staff/wand already accept these runes natively.
         internal static bool ClasslessAccepts(int weaponClass, long rune) => weaponClass == 0 && IsNecromancyRune(rune);
+
+        // Native HeroRuneSlot is three QBoolean (int) + RuneDataRef (int). Write only when the interop layout
+        // matches the native sizes and the slot array fits inside the component.
+        internal static bool SlotLayoutOk(int slotSize, int managedSlot, int wcSize, int managedWc, int offSlots, int count,
+            int offStatic, int offUnlocked, int offRune)
+        {
+            if (slotSize != 16 || managedSlot != slotSize || managedWc != wcSize || count <= 0) return false;
+            if (offSlots < 0 || offSlots + count * slotSize > wcSize) return false;
+            int[] offs = { offStatic, offUnlocked, offRune };
+            foreach (int o in offs) if (o < 0 || o + 4 > slotSize || (o & 3) != 0) return false;
+            return offStatic != offUnlocked && offStatic != offRune && offUnlocked != offRune;
+        }
 
         // Grant a rune only into a known hero and only when the hero holds none of it anywhere.
         internal static bool ShouldGrant(bool requested, bool verified, bool heroValid, int ownedCount) =>

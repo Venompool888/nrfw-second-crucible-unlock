@@ -40,6 +40,9 @@ Check(methods.Any(m => m.Type == "Il2CppQuantum.InventoryAPI" && m.Method == "Pr
     "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.AssetRefHeroItemData", "System.Int32", "Il2CppQuantum.NewInventoryItemSource" })),
     "InventoryAPI.PreviewAwardItemImmediate signature");
 Check(methods.Any(m => m.Type == "Il2CppQuantum.SystemBase" && m.Method == "get__children"), "SystemBase._children accessor");
+Check(NecromancyPolicy.SlotLayoutOk(16, 16, 64, 64, 8, 3, 0, 4, 12) && !NecromancyPolicy.SlotLayoutOk(16, 20, 64, 64, 8, 3, 0, 4, 12) &&
+      !NecromancyPolicy.SlotLayoutOk(16, 16, 40, 40, 8, 3, 0, 4, 12) && !NecromancyPolicy.SlotLayoutOk(16, 16, 64, 64, 8, 3, 0, 0, 12),
+      "slot layout guard accepts a consistent layout and rejects size/overflow/overlap mismatches");
 Check(bases.TryGetValue("Il2CppQuantum.WeaponStaticData", out var wb) && wb == "Il2CppQuantum.EquippableItemData" &&
       bases.TryGetValue("Il2CppQuantum.EquippableItemData", out var eb) && eb == "Il2CppQuantum.HeroItemData",
       "WeaponStaticData -> EquippableItemData -> HeroItemData (tome can be awarded as AssetRefHeroItemData)");
@@ -58,20 +61,17 @@ using (var pe = new PEReader(s))
     foreach (var h in NecromancyPolicy.Hooks) Check(userStrings.Contains(h.Method), "plugin patches '" + h.Method + "' by name");
     Check(strings.Contains("PreviewAwardItemImmediate"), "plugin calls PreviewAwardItemImmediate");
     foreach (var (type, name, sig) in new[] {
-        ("Il2CppQuantum.ItemsAPI", "Create", "Il2CppQuantum.Frame,Il2CppQuantum.HeroItemData,System.Int32,Il2CppQuantum.ItemRarity,Il2CppQuantum.NewInventoryItemSource"),
-        ("Il2CppQuantum.RunesAPI+Weapon", "UnlockSlot", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,System.Int32"),
-        ("Il2CppQuantum.RunesAPI+Weapon", "CanInsertRune", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,System.Int32,Il2CppQuantum.RuneDataRef"),
+
         ("Il2CppQuantum.RunesAPI+Weapon", "ApplyRuneModification", "Il2CppQuantum.Frame,Il2CppQuantum.RuneModificationType,Il2CppQuantum.EntityRef,System.Int32,Il2CppQuantum.EntityRef,Il2CppQuantum.EntityRef"),
-        ("Il2CppQuantum.RunesAPI+Weapon", "CanUnlockSlot", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,System.Int32"),
-        ("Il2CppQuantum.RunesAPI+Weapon", "GetRuneSlots", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef"),
+
         ("Il2CppQuantum.InventoryAPI", "GetFirstItemOfType", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,Il2CppQuantum.HeroItemData"),
-        ("Il2CppQuantum.InventoryAPI", "DirectlyAddItemToInventory", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,Il2CppQuantum.EntityRef,Il2CppQuantum.NewInventoryItemSource,System.Boolean"),
+
         ("Il2CppQuantum.ItemStatsSystem", "GetOrInitializeAllRunes", "Il2CppQuantum.Frame"),
         ("Il2CppQuantum.RunesAPI+Weapon", "HasRune", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,System.Int32"),
         ("Il2CppQuantum.RunesAPI", "GetRune", "Il2CppQuantum.Frame,Il2CppQuantum.AssetRefHeroItemData"),
         ("Il2CppQuantum.RuntimeCharacterDataAPI", "TryGetCharacterRef", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,Il2CppQuantum.RuntimeCharacterReference&"),
         ("Il2CppQuantum.SavesAPIReferenceExtensions", "GetName", "Il2CppQuantum.RuntimeCharacterReference,Il2CppQuantum.Frame"),
-        ("Il2CppQuantum.InventoryAPI", "DirectlyAddItemToInventoryOrDropAsBag", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,Il2CppQuantum.EntityRef,Il2CppQuantum.NewInventoryItemSource,System.Boolean") })
+        ("Il2CppQuantum.InventoryAPI", "PreviewAwardItemImmediate", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,Il2CppQuantum.AssetRefHeroItemData,System.Int32,Il2CppQuantum.NewInventoryItemSource") })
     {
         Check(methods.Count(m => m.Type == type && m.Method == name && string.Join(",", m.Args) == sig) == 1 && strings.Contains(name),
             "runed-tome call " + type + "." + name + "(" + sig + ") exists and is referenced");

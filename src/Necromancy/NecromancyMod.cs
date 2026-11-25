@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using HarmonyLib;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
@@ -25,7 +26,7 @@ namespace Necromancy
     public sealed class NecromancyMod : MelonMod
     {
         private static readonly ConcurrentQueue<string> Pending = new();
-        private static MelonPreferences_Entry<bool> _grantEntry, _socketEntry;
+        private static MelonPreferences_Entry<bool> _grantEntry, _socketEntry, _forceEntry;
         private static MelonPreferences_Entry<string> _targetEntry;
         private static string _targetCharacter = "";
         private static volatile bool _grantRequested, _grantDone;
@@ -43,7 +44,9 @@ namespace Necromancy
                 description: "Award a Gold Tome of Healing carrying raiseMinion, revive and healMinions, plus the three runes loose, to grant_character once, then switch itself off.");
             _socketEntry = category.CreateEntry("socket_tome_once", true,
                 description: "Once for grant_character: socket the three necromancy runes into the Tome of Healing in the bag (creating one if missing), add the runes loose, and log every step.");
-            _grantRequested = _grantEntry.Value || _socketEntry.Value;
+            _forceEntry = category.CreateEntry("force_tome_runes_once", true,
+                description: "Once for grant_character: write raiseMinion, revive and healMinions directly into the Tome of Healing rune slots (layout-checked).");
+            _grantRequested = _grantEntry.Value || _socketEntry.Value || _forceEntry.Value;
             _targetEntry = category.CreateEntry("grant_character", NecromancyPolicy.DefaultTargetCharacter,
                 description: "Only this character (case-insensitive) receives the one-shot items; empty = whichever character loads first.");
             _targetCharacter = _targetEntry.Value ?? "";
@@ -193,13 +196,14 @@ namespace Necromancy
             _grantDone = true;   // one attempt per session whatever happens below
             Write("grant target character '" + name + "' hero=" + hero.Raw);
             try { LogRuneTable(f); } catch (Exception e) { Error("rune-table", e); }
-            try { SocketTome(f, hero); } catch (Exception e) { Error("socket-tome", e); }
+            try { ForceTomeRunes(f, hero); } catch (Exception e) { Error("force-tome", e); }
             for (int i = 0; i < NecromancyPolicy.Items.Length; ++i)
             {
                 try
                 {
                     var rune = new AssetRefHeroItemData { Id = new AssetGuid { Value = NecromancyPolicy.Items[i] } };
                     int before = InventoryAPI.GetItemMatchingCount(f, hero, rune, true);
+                    if (before > 0) { Write("loose " + NecromancyPolicy.ItemKeys[i] + " already in bag=" + before); continue; }
                     InventoryAPI.PreviewAwardItemImmediate(f, hero, rune, 1, NewInventoryItemSource.Loot);
                     Write("GRANTED loose " + NecromancyPolicy.ItemKeys[i] + "; count " + before + " -> " + InventoryAPI.GetItemMatchingCount(f, hero, rune, true));
                 }
@@ -250,66 +254,68 @@ namespace Necromancy
             Write("all-runes count=" + all.Count + "; contains necro/heal: [" + string.Join(", ", found) + "]");
         }
 
-        private static unsafe string SlotsText(Frame f, EntityRef item)
-        {
-            var slots = RunesAPI.Weapon.GetRuneSlots(f, item);
-            if (slots == null) return "slots=null";
-            var parts = new List<string>();
-            for (int i = 0; i < slots.Length; ++i)
-            {
-                HeroRuneSlot* s = slots.GetPointer(i);
-                parts.Add(i + "{static=" + s->IsStaticSlot.ToString() + ",unlocked=" + s->Unlocked.ToString() + ",rune=" + s->Rune.m_index + "}");
-            }
-            return "slots(" + slots.Length + ")=" + string.Join(" ", parts);
-        }
-
-        // Find (or create) the Tome of Healing in the bag and put the three runes in it through the
-        // same ApplyRuneModification path the inventory UI uses; log every step.
-        private static void SocketTome(Frame f, EntityRef hero)
+        // Writes the three runes straight into the tome's WeaponComponent rune slots. The native layout
+        // is checked against the interop struct first; any mismatch aborts before a single byte is written.
+        private static unsafe void ForceTomeRunes(Frame f, EntityRef hero)
         {
             var tomeData = Asset<HeroItemData>(f, NecromancyPolicy.TomeOfHealing);
-            if (tomeData == null) { Write("socket SKIP tome asset missing"); return; }
-            EntityRef tome = InventoryAPI.GetFirstItemOfType(f, hero, tomeData);
-            if (tome.IsValid) Write("socket using existing tome entity=" + tome.Raw + " rarity=" + ItemsAPI.GetRarity(f, tome));
-            else
+            EntityRef tome = tomeData == null ? default : InventoryAPI.GetFirstItemOfType(f, hero, tomeData);
+            if (!tome.IsValid) { Write("force SKIP no Tome of Healing in bag"); return; }
+            if (!EntityRefExtensions.Has<WeaponComponent>(tome, f)) { Write("force SKIP tome has no WeaponComponent"); return; }
+            var wc = EntityRefExtensions.Get<WeaponComponent>(tome, f);
+            if (wc == null) { Write("force SKIP WeaponComponent pointer null"); return; }
+
+            int slotSize = HeroRuneSlot.SIZE, wcSize = WeaponComponent.SIZE, count = Constants.MaxRuneSlots, unique = Constants.UniqueRuneSlotIndex;
+            int offSlots = (int)Marshal.OffsetOf<WeaponComponent>("_RuneSlots_");
+            int offStatic = (int)Marshal.OffsetOf<HeroRuneSlot>(nameof(HeroRuneSlot.IsStaticSlot));
+            int offUnlocked = (int)Marshal.OffsetOf<HeroRuneSlot>(nameof(HeroRuneSlot.Unlocked));
+            int offRune = (int)Marshal.OffsetOf<HeroRuneSlot>(nameof(HeroRuneSlot.Rune));
+            string layout = "layout slotSize=" + slotSize + " managed=" + Marshal.SizeOf<HeroRuneSlot>() + " wcSize=" + wcSize +
+                            " managedWc=" + Marshal.SizeOf<WeaponComponent>() + " offSlots=" + offSlots + " static/unlocked/rune=" +
+                            offStatic + "/" + offUnlocked + "/" + offRune + " count=" + count + " unique=" + unique + " class=" + (int)wc->Class;
+            Write("force " + layout);
+            if (!NecromancyPolicy.SlotLayoutOk(slotSize, Marshal.SizeOf<HeroRuneSlot>(), wcSize, Marshal.SizeOf<WeaponComponent>(), offSlots, count,
+                    offStatic, offUnlocked, offRune))
+            { Write("force ABORT layout mismatch; nothing written"); return; }
+
+            byte* slots = (byte*)wc + offSlots;
+            int Read(int s, int off) => *(int*)(slots + s * slotSize + off);
+            string State()
             {
-                tome = ItemsAPI.Create(f, tomeData, 1, ItemRarity.Gold, NewInventoryItemSource.Loot);
-                bool added = tome.IsValid && InventoryAPI.DirectlyAddItemToInventoryOrDropAsBag(f, hero, tome, NewInventoryItemSource.Loot, false);
-                Write("socket created new gold tome entity=" + tome.Raw + " added=" + added);
-                if (!tome.IsValid) return;
+                var parts = new List<string>();
+                for (int s = 0; s < count; ++s) parts.Add(s + "{st=" + Read(s, offStatic) + ",un=" + Read(s, offUnlocked) + ",rune=" + Read(s, offRune) + "}");
+                return string.Join(" ", parts);
             }
-            Write("socket before " + SlotsText(f, tome));
-            int maxSlots = Constants.MaxRuneSlots, unique = Constants.UniqueRuneSlotIndex;
-            Write("socket MaxRuneSlots=" + maxSlots + " UniqueRuneSlotIndex=" + unique);
+            Write("force before " + State());
+            for (int s = 0; s < count; ++s)
+                if ((uint)Read(s, offStatic) > 1 || (uint)Read(s, offUnlocked) > 1) { Write("force ABORT slot " + s + " bool fields not 0/1; nothing written"); return; }
+
+            int empty = new RuneDataRef().m_index;
+            var written = new List<string>();
             for (int r = 0; r < NecromancyPolicy.RunedTome.Length; ++r)
             {
-                long runeGuid = NecromancyPolicy.RunedTome[r];
-                string key = NecromancyPolicy.RuneKeys[r];
-                var runeData = Asset<HeroItemData>(f, runeGuid);
-                if (runeData == null) { Write("socket " + key + " asset missing"); continue; }
-                RuneDataRef runeRef = RunesAPI.GetRune(f, new AssetRefHeroItemData { Id = new AssetGuid { Value = runeGuid } });
-                EntityRef runeItem = ItemsAPI.Create(f, runeData, 1, ItemRarity.White, NewInventoryItemSource.Loot);
-                bool inBag = InventoryAPI.DirectlyAddItemToInventory(f, hero, runeItem, NewInventoryItemSource.Loot, true);
-                var tried = new List<string>();
-                int done = -1;
-                for (int s = 0; s < maxSlots && done < 0; ++s)
-                {
-                    if (s == unique || RunesAPI.Weapon.HasRune(f, tome, s)) continue;
-                    bool canBefore = RunesAPI.Weapon.CanInsertRune(f, tome, s, runeRef);
-                    bool canUnlock = RunesAPI.Weapon.CanUnlockSlot(f, tome, s);
-                    if (!canBefore) RunesAPI.Weapon.UnlockSlot(f, tome, s);
-                    bool can = RunesAPI.Weapon.CanInsertRune(f, tome, s, runeRef);
-                    tried.Add(s + ":can=" + canBefore + "/unlock=" + canUnlock + "/after=" + can);
-                    if (!can) continue;
-                    RunesAPI.Weapon.ApplyRuneModification(f, RuneModificationType.Add, tome, s, runeItem, hero);
-                    if (RunesAPI.Weapon.HasRune(f, tome, s)) done = s;
-                    else tried.Add(s + ":apply-not-stuck");
-                }
-                Write("socket " + key + " ref[" + RuneRefText(f, runeGuid) + "] inBag=" + inBag + " slot=" + done + " tried=" + string.Join(" ", tried) +
-                      " runeItemExists=" + ItemsAPI.Exists(f, runeItem));
+                int index = RunesAPI.GetRune(f, new AssetRefHeroItemData { Id = new AssetGuid { Value = NecromancyPolicy.RunedTome[r] } }).m_index;
+                bool present = false;
+                for (int s = 0; s < count; ++s) if (Read(s, offRune) == index) present = true;
+                if (present) { written.Add(NecromancyPolicy.RuneKeys[r] + "=already"); continue; }
+                int target = -1;
+                for (int s = 0; s < count && target < 0; ++s)
+                    if (s != unique && Read(s, offStatic) == 0 && Read(s, offRune) == empty) target = s;
+                if (target < 0) { written.Add(NecromancyPolicy.RuneKeys[r] + "=no-free-slot"); continue; }
+                *(int*)(slots + target * slotSize + offUnlocked) = 1;
+                *(int*)(slots + target * slotSize + offRune) = index;
+                written.Add(NecromancyPolicy.RuneKeys[r] + "=slot" + target + "(index " + index + ", HasRune=" + RunesAPI.Weapon.HasRune(f, tome, target) + ")");
             }
-            Write("socket after " + SlotsText(f, tome));
+            Write("FORCED tome entity=" + tome.Raw + ": " + string.Join(", ", written));
+            Write("force after " + State());
+            try
+            {
+                RunesAPI.Weapon.ApplyRuneModification(f, RuneModificationType.ArmamentReload, tome, 0, default, hero);
+                Write("force ArmamentReload requested");
+            }
+            catch (Exception e) { Write("force ArmamentReload failed " + e.GetType().Name + ": " + e.Message); }
         }
+
         // ---- tome rune compatibility ------------------------------------------------------
 
         private static int _compatLogs;
