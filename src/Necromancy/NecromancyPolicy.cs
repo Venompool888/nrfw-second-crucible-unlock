@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.7.0";
+        internal const string Version = "0.8.0";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -25,7 +25,20 @@ namespace Necromancy
         internal static readonly string[] RuneKeys = ItemKeys;
 
         // Character that receives the one-shot items (save name, compared case-insensitively). Empty = any.
-        internal const string DefaultTargetCharacter = "hero-a";
+        internal const string DefaultTargetCharacter = "hero-b";
+
+        internal static bool ListContains(string list, string name) =>
+            !string.IsNullOrWhiteSpace(name) && System.Array.Exists((list ?? "").Split(','),
+                s => string.Equals(s.Trim(), name.Trim(), System.StringComparison.OrdinalIgnoreCase));
+
+        internal static bool ShouldGrantCharacter(string target, string granted) =>
+            !string.IsNullOrWhiteSpace(target) && !ListContains(granted, target);
+
+        internal static string AddCharacter(string list, string name)
+        {
+            if (string.IsNullOrWhiteSpace(name) || ListContains(list, name)) return list ?? "";
+            return string.IsNullOrWhiteSpace(list) ? name.Trim() : list.Trim() + "," + name.Trim();
+        }
 
         internal static bool IsTargetCharacter(string target, string loaded) =>
             string.IsNullOrWhiteSpace(target) ||

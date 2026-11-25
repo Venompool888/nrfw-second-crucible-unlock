@@ -40,6 +40,10 @@ Check(methods.Any(m => m.Type == "Il2CppQuantum.InventoryAPI" && m.Method == "Pr
     "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.AssetRefHeroItemData", "System.Int32", "Il2CppQuantum.NewInventoryItemSource" })),
     "InventoryAPI.PreviewAwardItemImmediate signature");
 Check(methods.Any(m => m.Type == "Il2CppQuantum.SystemBase" && m.Method == "get__children"), "SystemBase._children accessor");
+Check(NecromancyPolicy.ShouldGrantCharacter("hero-b", "hero-a") && !NecromancyPolicy.ShouldGrantCharacter("hero-b", "hero-a, hero-b") &&
+      !NecromancyPolicy.ShouldGrantCharacter("", "") && NecromancyPolicy.AddCharacter("hero-a", "hero-b") == "hero-a,hero-b" &&
+      NecromancyPolicy.AddCharacter("hero-a,hero-b", "hero-b") == "hero-a,hero-b" && NecromancyPolicy.AddCharacter("", "hero-b") == "hero-b",
+      "per-character grant list: grants once per name, case-insensitive");
 Check(NecromancyPolicy.SlotLayoutOk(16, 16, 72, 12, 8, 4, 0, 8, 12) && NecromancyPolicy.SlotLayoutOk(16, 16, 64, 64, 8, 3, 0, 4, 12) && !NecromancyPolicy.SlotLayoutOk(16, 16, 71, 12, 8, 4, 0, 8, 12) && !NecromancyPolicy.SlotLayoutOk(16, 20, 64, 64, 8, 3, 0, 4, 12) &&
       !NecromancyPolicy.SlotLayoutOk(16, 16, 40, 40, 8, 3, 0, 4, 12) && !NecromancyPolicy.SlotLayoutOk(16, 16, 64, 64, 8, 3, 0, 0, 12),
       "slot layout guard accepts a consistent layout and rejects size/overflow/overlap mismatches");

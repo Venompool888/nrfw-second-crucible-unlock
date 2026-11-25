@@ -26,7 +26,7 @@ namespace Necromancy
     public sealed class NecromancyMod : MelonMod
     {
         private static readonly ConcurrentQueue<string> Pending = new();
-        private static MelonPreferences_Entry<bool> _grantEntry, _socketEntry, _forceEntry;
+        private static MelonPreferences_Entry<string> _grantedEntry;
         private static MelonPreferences_Entry<string> _targetEntry;
         private static string _targetCharacter = "";
         private static volatile bool _grantRequested, _grantDone;
@@ -40,16 +40,12 @@ namespace Necromancy
         public override void OnInitializeMelon()
         {
             var category = MelonPreferences.CreateCategory("NRFWNecromancy", "NRFW Necromancy");
-            _grantEntry = category.CreateEntry("grant_runes_once", true,
-                description: "Award a Gold Tome of Healing carrying raiseMinion, revive and healMinions, plus the three runes loose, to grant_character once, then switch itself off.");
-            _socketEntry = category.CreateEntry("socket_tome_once", true,
-                description: "Once for grant_character: socket the three necromancy runes into the Tome of Healing in the bag (creating one if missing), add the runes loose, and log every step.");
-            _forceEntry = category.CreateEntry("force_tome_runes_v2_once", true,
-                description: "Once for grant_character: write raiseMinion, revive and healMinions directly into the Tome of Healing rune slots (layout-checked).");
-            _grantRequested = _grantEntry.Value || _socketEntry.Value || _forceEntry.Value;
             _targetEntry = category.CreateEntry("grant_character", NecromancyPolicy.DefaultTargetCharacter,
-                description: "Only this character (case-insensitive) receives the one-shot items; empty = whichever character loads first.");
-            _targetCharacter = _targetEntry.Value ?? "";
+                description: "Character (case-insensitive) that gets a Gold Tome of Healing with raiseMinion/revive/healMinions written into its slots, plus the runes loose. Once per character.");
+            _grantedEntry = category.CreateEntry("granted_characters", "",
+                description: "Characters already given the necromancy tome (comma-separated). Remove a name to grant it again.");
+            _targetCharacter = (_targetEntry.Value ?? "").Trim();
+            _grantRequested = NecromancyPolicy.ShouldGrantCharacter(_targetCharacter, _grantedEntry.Value);
             _logPath = Path.Combine(MelonLoader.Utils.MelonEnvironment.UserDataDirectory, "NRFWNecromancy.log");
             var harmony = new HarmonyLib.Harmony("NRFW.Necromancy");
             try
@@ -101,11 +97,12 @@ namespace Necromancy
         {
             if (_enabled) CaptureHero();
             if (_enabled && _visualsOn && (++_visualTick % 20) == 0) EnsureMinionVisuals();
-            if (_grantDone && _grantEntry != null && _grantEntry.Value)
+            if (_grantDone && _grantedEntry != null && _grantRequested)
             {
-                _grantEntry.Value = false;
+                _grantRequested = false;
+                _grantedEntry.Value = NecromancyPolicy.AddCharacter(_grantedEntry.Value, _grantedName);
                 MelonPreferences.Save();
-                Write("grant_runes_once switched off and saved");
+                Write("granted_characters = \"" + _grantedEntry.Value + "\" saved");
             }
             Flush();
         }
@@ -195,7 +192,8 @@ namespace Necromancy
                 if (hero.Raw != _lastRejectedHero) { _lastRejectedHero = hero.Raw; Write("grant waiting: loaded character '" + name + "' is not '" + _targetCharacter + "'"); }
                 return;
             }
-            _grantDone = true;   // one attempt per session whatever happens below
+            _grantedName = name;
+            _grantDone = true;   // one attempt per character whatever happens below
             Write("grant target character '" + name + "' hero=" + hero.Raw);
             try { LogRuneTable(f); } catch (Exception e) { Error("rune-table", e); }
             try { ForceTomeRunes(f, hero); } catch (Exception e) { Error("force-tome", e); }
@@ -214,6 +212,7 @@ namespace Necromancy
         }
 
         private static ulong _lastRejectedHero;
+        private static volatile string _grantedName = "";
 
         private static string HeroName(Frame f, EntityRef hero)
         {
@@ -262,7 +261,13 @@ namespace Necromancy
         {
             var tomeData = Asset<HeroItemData>(f, NecromancyPolicy.TomeOfHealing);
             EntityRef tome = tomeData == null ? default : InventoryAPI.GetFirstItemOfType(f, hero, tomeData);
-            if (!tome.IsValid) { Write("force SKIP no Tome of Healing in bag"); return; }
+            if (!tome.IsValid && tomeData != null)
+            {
+                tome = ItemsAPI.Create(f, tomeData, 1, ItemRarity.Gold, NewInventoryItemSource.Loot);
+                bool added = tome.IsValid && InventoryAPI.DirectlyAddItemToInventoryOrDropAsBag(f, hero, tome, NewInventoryItemSource.Loot, false);
+                Write("force created gold Tome of Healing entity=" + tome.Raw + " added=" + added);
+            }
+            if (!tome.IsValid) { Write("force SKIP no Tome of Healing"); return; }
             if (!EntityRefExtensions.Has<WeaponComponent>(tome, f)) { Write("force SKIP tome has no WeaponComponent"); return; }
             var wc = EntityRefExtensions.Get<WeaponComponent>(tome, f);
             if (wc == null) { Write("force SKIP WeaponComponent pointer null"); return; }
