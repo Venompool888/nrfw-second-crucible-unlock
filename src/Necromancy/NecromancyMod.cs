@@ -72,6 +72,7 @@ namespace Necromancy
             }
             if (_enabled) InstallTomeRunes();
             if (_enabled) InstallMinionVisuals();
+            if (_enabled) InstallMinionFriendlyFire();
             Flush();
         }
 
@@ -397,6 +398,43 @@ namespace Necromancy
                 }
             }
             catch (Exception e) { Error("minion-visuals", e); }
+        }
+
+        // ---- minion friendly fire ----------------------------------------------------------
+        // Raised minions and heroes (or two minions) count as allies for damage. Hero-vs-hero keeps the
+        // native result, so co-op/PvP friendly fire between players is untouched.
+
+        private static int _allyLogs;
+
+        private static void InstallMinionFriendlyFire()
+        {
+            var ffHarmony = new HarmonyLib.Harmony("NRFW.Necromancy.MinionFriendlyFire");
+            try
+            {
+                Patch(ffHarmony, typeof(TeamUtils), "AreAllies", new[] { typeof(Frame), typeof(EntityRef), typeof(EntityRef) },
+                    nameof(AfterAreAllies), typeof(bool));
+                Write("minion friendly-fire hook installed");
+            }
+            catch (Exception e) { ffHarmony.UnpatchSelf(); Write("minion friendly-fire hook FAILED " + e.GetType().Name + ": " + e.Message); }
+        }
+
+        private static void AfterAreAllies(Frame __0, EntityRef __1, EntityRef __2, ref bool __result)
+        {
+            if (__result || !_enabled || __0 == null || !__1.IsValid || !__2.IsValid) return;
+            try
+            {
+                bool aMinion = EntityRefExtensions.Has<RaisedMinionComponent>(__1, __0);
+                bool bMinion = EntityRefExtensions.Has<RaisedMinionComponent>(__2, __0);
+                if (!aMinion && !bMinion) return;   // fast path: no minion involved, native result stands
+                bool aHero = EntityRefExtensions.Has<HeroComponent>(__1, __0);
+                bool bHero = EntityRefExtensions.Has<HeroComponent>(__2, __0);
+                if (!NecromancyPolicy.MinionPairIsAllied(aMinion, aHero, bMinion, bHero)) return;
+                __result = true;
+                if (__0.IsVerified && Interlocked.Increment(ref _allyLogs) <= 20)
+                    Write("friendly-fire BLOCKED hit=" + __1.Raw + (aMinion ? "(minion)" : aHero ? "(hero)" : "") +
+                          " source=" + __2.Raw + (bMinion ? "(minion)" : bHero ? "(hero)" : ""));
+            }
+            catch (Exception e) { Error("friendly-fire", e); }
         }
 
         // ---- tome rune compatibility ------------------------------------------------------
