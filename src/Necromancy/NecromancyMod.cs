@@ -75,6 +75,7 @@ namespace Necromancy
                 Write("DISABLED install failed: " + e.GetType().Name + ": " + e.Message);
             }
             if (_enabled) InstallTomeRunes();
+            if (_enabled) InstallMinionVisuals();
             Flush();
         }
 
@@ -99,6 +100,7 @@ namespace Necromancy
         public override void OnUpdate()
         {
             if (_enabled) CaptureHero();
+            if (_enabled && _visualsOn && (++_visualTick % 20) == 0) EnsureMinionVisuals();
             if (_grantDone && _grantEntry != null && _grantEntry.Value)
             {
                 _grantEntry.Value = false;
@@ -314,6 +316,82 @@ namespace Necromancy
                 Write("force ArmamentReload requested");
             }
             catch (Exception e) { Write("force ArmamentReload failed " + e.GetType().Name + ": " + e.Message); }
+        }
+
+        // ---- raised minion tint ------------------------------------------------------------
+        // The shipped RaisedMinionVisualEffect (tint/overlay from RaisedMinionComponent) is never put on
+        // enemy prefabs because the feature was not released. Track minions from the simulation and
+        // attach the effect to their EntityView on the main thread.
+
+        private static readonly ConcurrentDictionary<ulong, long> Minions = new();
+        private static readonly Dictionary<ulong, int> Attached = new();
+        private static bool _visualsOn;
+        private static int _visualTick, _visualLogs, _effectLogs;
+
+        private static void InstallMinionVisuals()
+        {
+            var visualHarmony = new HarmonyLib.Harmony("NRFW.Necromancy.MinionVisuals");
+            try
+            {
+                Patch(visualHarmony, typeof(RaisedMinionSystem), "GetMinionFormationSlot", new[] { typeof(Frame), typeof(EntityRef), typeof(EntityRef) },
+                    nameof(AfterFormationSlot), typeof(int));
+                Patch(visualHarmony, typeof(Il2CppMoon.Forsaken.RaisedMinionVisualEffect), "ApplyTintEffect", Type.EmptyTypes, nameof(AfterApplyTint));
+                _visualsOn = true;
+                Write("minion-visuals hooks installed");
+            }
+            catch (Exception e) { visualHarmony.UnpatchSelf(); Write("minion-visuals hook FAILED " + e.GetType().Name + ": " + e.Message); }
+        }
+
+        private static void AfterFormationSlot(Frame __0, EntityRef __2)
+        {
+            if (__0 != null && __2.IsValid) Minions[__2.Raw] = Environment.TickCount64;
+        }
+
+        private static void AfterApplyTint(Il2CppMoon.Forsaken.RaisedMinionVisualEffect __instance)
+        {
+            if (__instance == null || Interlocked.Increment(ref _effectLogs) > 20) return;
+            try
+            {
+                var r = __instance.m_renderers;
+                Write("tint ApplyTintEffect applied=" + __instance.m_effectApplied + " color=" + __instance.m_tintColor +
+                      " renderers=" + (r == null ? -1 : r.Length) + " action=" + __instance.m_raiseActionGuid.Value);
+            }
+            catch (Exception e) { Error("tint-log", e); }
+        }
+
+        private static void EnsureMinionVisuals()
+        {
+            try
+            {
+                long now = Environment.TickCount64;
+                foreach (var pair in Minions) if (now - pair.Value > 5000) { Minions.TryRemove(pair.Key, out _); Attached.Remove(pair.Key); }
+                if (Minions.IsEmpty) return;
+                var effectType = Il2CppInterop.Runtime.Il2CppType.Of<Il2CppMoon.Forsaken.RaisedMinionVisualEffect>();
+                var views = UnityEngine.Object.FindObjectsOfType(Il2CppInterop.Runtime.Il2CppType.Of<Il2CppMoon.Forsaken.EntityView>());
+                if (views == null) return;
+                foreach (var obj in views)
+                {
+                    var view = obj?.TryCast<Il2CppMoon.Forsaken.EntityView>();
+                    if (view == null) continue;
+                    ulong raw = view.EntityRef.Raw;
+                    if (!Minions.ContainsKey(raw) || Attached.ContainsKey(raw)) continue;
+                    var go = view.gameObject;
+                    var existing = go.GetComponent(effectType);
+                    if (existing == null)
+                    {
+                        go.AddComponent(effectType);
+                        Attached[raw] = 1;
+                        if (++_visualLogs <= 20) Write("tint ATTACHED RaisedMinionVisualEffect to minion entity=" + raw + " go=" + go.name);
+                    }
+                    else
+                    {
+                        Attached[raw] = 2;
+                        if (++_visualLogs <= 20) Write("tint minion entity=" + raw + " already has RaisedMinionVisualEffect (enabled=" +
+                                                       existing.TryCast<UnityEngine.Behaviour>()?.enabled + ")");
+                    }
+                }
+            }
+            catch (Exception e) { Error("minion-visuals", e); }
         }
 
         // ---- tome rune compatibility ------------------------------------------------------
