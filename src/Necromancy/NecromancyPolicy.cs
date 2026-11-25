@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.4.0";
+        internal const string Version = "0.5.0";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -13,6 +13,9 @@ namespace Necromancy
         // Tome of Healing (治疗宝典): WeaponStaticData offhand, HandType 4, ThomasApproved=false, no loot/vendor/recipe source.
         // Its .actions reuse the released Heal rune action 2452854199486692768; special is the light-shield parry data.
         internal const long TomeOfHealing = 3937520191132810478;
+
+        // Released Heal rune (治疗), used as a known-good reference when logging the runtime rune table.
+        internal const long ReleasedHealRune = 4384702748080131279;
 
         // One-shot loose award (all HeroItemData; none in StrippedAssetGuidsSet). The tome is awarded separately,
         // already carrying RunedTome in its slots.
