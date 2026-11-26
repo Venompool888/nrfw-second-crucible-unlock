@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.13.5";
+        internal const string Version = "0.13.6";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -75,6 +75,9 @@ namespace Necromancy
             ("Il2CppQuantum.Frame+FrameEvents", "RaisedMinionTeleported",
                 new[] { "Il2CppQuantum.EntityRef", "Il2CppPhoton.Deterministic.FPVector3", "Il2CppPhoton.Deterministic.FPVector3", "Il2CppQuantum.AssetGuid" },
                 "Il2CppQuantum.EventRaisedMinionTeleported"),
+            ("Il2CppQuantum.Frame+FrameEvents", "RaisedMinionSpawned",
+                new[] { "Il2CppQuantum.EntityRef", "Il2CppPhoton.Deterministic.FPVector3", "Il2CppQuantum.AssetGuid" },
+                "Il2CppQuantum.EventRaisedMinionSpawned"),
             ("Il2CppQuantum.AttachmentAPI", "ResolveNavDataAttachment", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef" }, "Il2CppQuantum.RuntimeNavigationData"),
             ("Il2CppQuantum.PathFollowingComponent", "SearchPath", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef" }, "Void"),
         };

@@ -643,15 +643,20 @@ namespace Necromancy
             var stuckEntry = category.CreateEntry("minion_stuck_teleport_in_combat", false,
                 description: "false = a minion that has an attack target is never stuck-teleported back to the player (original: teleported after 3 s within 0.5 m). Far (> distance) and height teleports are unchanged.");
             _stuckTeleportInCombat = stuckEntry.Value;
-            if (!_stuckTeleportInCombat)
+            try
             {
-                try
-                {
-                    PatchPrefix(h, typeof(RaisedMinionSystem), "Update", new[] { typeof(Frame) }, nameof(BeforeRaisedUpdate), typeof(void));
-                    Write("combat stuck-teleport suppression installed");
-                }
-                catch (Exception e) { Write("combat stuck-teleport suppression FAILED " + e.GetType().Name + ": " + e.Message); }
+                PatchPrefix(h, typeof(RaisedMinionSystem), "Update", new[] { typeof(Frame) }, nameof(BeforeRaisedUpdate), typeof(void));
+                Write(_stuckTeleportInCombat ? "minion update prefix installed (stuck hold off by config)" : "combat stuck-teleport suppression installed");
             }
+            catch (Exception e) { Write("combat stuck-teleport suppression FAILED " + e.GetType().Name + ": " + e.Message); }
+            try
+            {
+                Patch(h, typeof(Frame.FrameEvents), "RaisedMinionSpawned",
+                    new[] { typeof(EntityRef), typeof(Il2CppPhoton.Deterministic.FPVector3), typeof(AssetGuid) },
+                    nameof(AfterMinionSpawned), typeof(EventRaisedMinionSpawned));
+                Write("minion spawn registration installed");
+            }
+            catch (Exception e) { Write("minion spawn registration FAILED " + e.GetType().Name + ": " + e.Message); }
             Write("minion_stuck_teleport_in_combat=" + _stuckTeleportInCombat);
             try
             {
@@ -704,27 +709,23 @@ namespace Necromancy
         {
             try
             {
-                if (!_enabled || _stuckHoldOff || __0 == null) return;
+                if (!_enabled || __0 == null) return;
+                _simFrame = __0;
+                if (_stuckTeleportInCombat || _stuckHoldOff) return;
                 foreach (var pair in Minions)
                 {
                     var minion = new EntityRef { Raw = pair.Key };
                     if (!EntityRefExtensions.Has<RaisedMinionComponent>(minion, __0)) continue;
                     var comp = EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0);
                     if (comp == null || comp->StuckDuration.RawValue <= 0) continue;
-                    if (!EntityRefExtensions.Has<PawnComponent>(minion, __0)) continue;
-                    var pawn = EntityRefExtensions.Get<PawnComponent>(minion, __0);
-                    if (pawn == null) continue;
-                    EntityRef controller = pawn->ControllerRef;
-                    if (!controller.IsValid || !EntityRefExtensions.Has<AiControllerComponent>(controller, __0)) continue;
-                    var ai = EntityRefExtensions.Get<AiControllerComponent>(controller, __0);
-                    if (ai == null) continue;
-                    if (!EntityRefExtensions.ExistsAndNotPendingDestruction(ai->AttackTargetRef, __0)) continue;
+                    EntityRef target = AttackTarget(__0, minion);
+                    if (!target.IsValid) continue;
                     long before = comp->StuckDuration.RawValue;
                     comp->StuckDuration = default;
                     int n = Interlocked.Increment(ref _stuckResets);
                     if (__0.IsVerified && before >= (2L << 16) && Interlocked.Increment(ref _stuckLogs) <= 100)
                         Write("stuck-teleport held (fighting) entity=" + NecromancyPolicy.EntityLabel(pair.Key) + " stuck=" + (before / 65536.0).ToString("0.##") +
-                              "s target=" + NecromancyPolicy.EntityLabel(ai->AttackTargetRef.Raw) + " resets=" + n);
+                              "s target=" + NecromancyPolicy.EntityLabel(target.Raw) + " resets=" + n);
                 }
             }
             catch (Exception e)
@@ -732,6 +733,57 @@ namespace Necromancy
                 _stuckHoldOff = true;   // never spend the plugin-wide error budget on this optional hook
                 Write("stuck-hold ERROR " + e.GetType().Name + ": " + e.Message + "; combat stuck-teleport hold turned off, rest of the plugin unaffected");
             }
+        }
+
+        // Same path as native AiUtils.IsAiControlled 0x5BA51C0, with Has/Get only. default = no live attack target.
+        private static unsafe EntityRef AttackTarget(Frame f, EntityRef minion)
+        {
+            if (!EntityRefExtensions.Has<PawnComponent>(minion, f)) return default;
+            var pawn = EntityRefExtensions.Get<PawnComponent>(minion, f);
+            if (pawn == null) return default;
+            EntityRef controller = pawn->ControllerRef;
+            if (!controller.IsValid || !EntityRefExtensions.Has<AiControllerComponent>(controller, f)) return default;
+            var ai = EntityRefExtensions.Get<AiControllerComponent>(controller, f);
+            if (ai == null || !EntityRefExtensions.ExistsAndNotPendingDestruction(ai->AttackTargetRef, f)) return default;
+            return ai->AttackTargetRef;
+        }
+
+        // 0.15.2 playtest: a minion was only registered when GetMinionFormationSlot first ran for it (27 s after the
+        // raise), so the combat hold could not see it. Register on the native spawn event instead.
+        private static Frame _simFrame;   // frame of the RaisedMinionSystem.Update in progress (teleport events fire inside it)
+
+        private static void AfterMinionSpawned(EntityRef __0)
+        {
+            try { if (_enabled && __0.IsValid) Minions[__0.Raw] = Environment.TickCount64; }
+            catch (Exception e) { Write("spawn-register ERROR " + e.GetType().Name + ": " + e.Message); }
+        }
+
+        // Which native branch fired (static analysis T-011): far = 3D owner distance > comp.MaxDistanceBeforeTeleport;
+        // height = |dy| > 3 m and horizontal > comp.FollowStartDistance; stuck = StuckDuration >= 3 s (not yet reset
+        // when the event is raised). Read-only.
+        private static unsafe string ClassifyTeleport(EntityRef minion, Il2CppPhoton.Deterministic.FPVector3 from)
+        {
+            var f = _simFrame;
+            if (f == null || !EntityRefExtensions.Has<RaisedMinionComponent>(minion, f)) return "state=?";
+            var comp = EntityRefExtensions.Get<RaisedMinionComponent>(minion, f);
+            if (comp == null) return "state=?";
+            EntityRef owner = comp->Owner;
+            string where = "";
+            string branch = comp->StuckDuration.RawValue >= (3L << 16) ? "stuck" : "?";
+            if (owner.IsValid && EntityRefExtensions.Has<Transform3D>(owner, f))
+            {
+                var t = EntityRefExtensions.Get<Transform3D>(owner, f);
+                double dx = (from.X.RawValue - t->Position.X.RawValue) / 65536.0, dy = (from.Y.RawValue - t->Position.Y.RawValue) / 65536.0,
+                       dz = (from.Z.RawValue - t->Position.Z.RawValue) / 65536.0;
+                double d3 = Math.Sqrt(dx * dx + dy * dy + dz * dz), dh = Math.Sqrt(dx * dx + dz * dz);
+                double maxD = comp->MaxDistanceBeforeTeleport.RawValue / 65536.0, start = comp->FollowStartDistance.RawValue / 65536.0;
+                if (d3 > maxD) branch = "far";
+                else if (Math.Abs(dy) > 3.0 && dh > start) branch = "height";
+                where = " ownerDist=" + d3.ToString("0.#") + " horiz=" + dh.ToString("0.#") + " dy=" + dy.ToString("0.#") +
+                        " max=" + maxD.ToString("0.#") + " followStart=" + start.ToString("0.#");
+            }
+            return "branch=" + branch + " stuck=" + (comp->StuckDuration.RawValue / 65536.0).ToString("0.##") + "s following=" + (comp->IsFollowing.Value != 0) +
+                   " target=" + AttackTarget(f, minion).IsValid + where;
         }
 
         // Logs each native RaisedMinionSystem teleport (raised through Frame.FrameEvents). Predicted frames can raise
@@ -752,8 +804,10 @@ namespace Necromancy
                 }
                 if (Interlocked.Increment(ref _teleportLogs) > 400) return;
                 double d = NecromancyPolicy.DistanceRaw(__1.X.RawValue, __1.Y.RawValue, __1.Z.RawValue, __2.X.RawValue, __2.Y.RawValue, __2.Z.RawValue);
-                Write("minion TELEPORTED entity=" + __0.Raw + " " + NecromancyPolicy.EntityLabel(__0.Raw) + " moved=" + d.ToString("0.#") + " m (threshold " +
-                      (20 * Math.Max(0f, _teleportMultiplier)).ToString("0.#") + " m from player)");
+                Minions[__0.Raw] = Environment.TickCount64;
+                string state;
+                try { state = ClassifyTeleport(__0, __1); } catch (Exception ce) { state = "state=ERR " + ce.GetType().Name; }
+                Write("minion TELEPORTED entity=" + __0.Raw + " " + NecromancyPolicy.EntityLabel(__0.Raw) + " moved=" + d.ToString("0.#") + " m " + state);
             }
             catch (Exception e) { Error("teleport-log", e); }
         }
