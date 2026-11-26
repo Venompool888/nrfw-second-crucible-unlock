@@ -654,7 +654,11 @@ namespace Necromancy
                 foreach (var pair in __0.GetComponentIterator<RaisedMinionComponent>())
                 {
                     var minion = pair.Entity;
-                    if (pair.Component.Owner.Raw != hero.Raw) continue;
+                    // 0.15.4 playtest: the iterator's copied component never matched the hero (owned minions=0);
+                    // read Owner through the component pointer like MinionDamage does.
+                    var rc = EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0);
+                    ulong owner = rc == null ? 0 : rc->Owner.Raw;
+                    if (owner != hero.Raw) { seen.Add("other-owner:" + owner); continue; }
                     ++owned;
                     long npc = MinionNpcGuid(__0, minion);
                     if (!NecromancyPolicy.IsWarrickNpc(npc)) { seen.Add(NecromancyPolicy.NpcName(npc)); continue; }
