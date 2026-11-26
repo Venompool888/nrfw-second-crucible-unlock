@@ -629,6 +629,13 @@ namespace Necromancy
             var tpEntry = category.CreateEntry("minion_teleport_distance_multiplier", NecromancyPolicy.DefaultTeleportDistanceMultiplier,
                 description: "Multiplier on the shipped 20 m distance at which a minion snaps back to the player (3 = 60 m; 1 = original).");
             _teleportMultiplier = tpEntry.Value;
+            var npcEntry = category.CreateEntry("minion_npc", NecromancyPolicy.DefaultMinionNpc,
+                description: "What raiseMinion summons: warrick_boss (Warrick the Torn), warrick_enemy, wildling, native (shipped data), or an NpcData GUID. revive is never changed.");
+            var maxEntry = category.CreateEntry("minion_max_active", NecromancyPolicy.DefaultMinionMaxActive,
+                description: "Most raiseMinion minions at once while minion_npc swaps the summon (shipped 5); 0 = keep the shipped value.");
+            _minionNpc = NecromancyPolicy.MinionNpcGuid(npcEntry.Value);
+            _minionMaxActive = maxEntry.Value;
+            Write("minion_npc=" + npcEntry.Value + " -> " + (_minionNpc == 0 ? "native" : NecromancyPolicy.NpcName(_minionNpc)) + "; minion_max_active=" + _minionMaxActive);
             try
             {
                 PatchPrefix(h, typeof(RaiseMinionActionData), "Execute", new[] { typeof(Frame), typeof(EntityRef) }, nameof(BeforeRaiseData), typeof(bool));
@@ -676,11 +683,44 @@ namespace Necromancy
             catch (Exception e) { Error("teleport-log", e); }
         }
 
-        private static bool BeforeRaiseData(RaiseMinionActionData __instance)
+        // T-010: raiseMinion (UseCorpseNpcType=false) summons the configured NPC instead of npcRisenWildlingSwordA.
+        // The target must resolve to an NpcData asset first; otherwise the shipped summon is left alone. Written
+        // values are remembered per asset so a reloaded asset is swapped again and an unchanged one is not touched.
+        private static long _minionNpc;
+        private static int _minionMaxActive;
+        private static readonly Dictionary<IntPtr, (long Npc, int Max)> SummonWritten = new();
+
+        private static void ApplySummon(Frame f, RaiseMinionActionData d)
+        {
+            if (_minionNpc == 0 || f == null || d.UseCorpseNpcType) return;
+            long current = d.MinionNpcData.Id.Value;
+            int currentMax = d.MaxActiveMinions;
+            if (SummonWritten.TryGetValue(d.Pointer, out var w) && w.Npc == current && w.Max == currentMax) return;
+            var npc = f.Context?.ResourceManager?.GetAsset(new AssetGuid { Value = _minionNpc })?.TryCast<NpcData>();
+            if (npc == null)
+            {
+                SummonWritten[d.Pointer] = (current, currentMax);
+                Write("summon KEEP " + NecromancyPolicy.NpcName(current) + ": " + NecromancyPolicy.NpcName(_minionNpc) + " is not a loadable NpcData");
+                return;
+            }
+            int max = NecromancyPolicy.MinionMaxActive(_minionNpc, _minionMaxActive, currentMax);
+            d.MinionNpcData = new AssetRefNpcData { Id = new AssetGuid { Value = _minionNpc } };
+            d.MaxActiveMinions = max;
+            SummonWritten[d.Pointer] = (d.MinionNpcData.Id.Value, d.MaxActiveMinions);
+            Write("summon SWAP " + NecromancyPolicy.NpcName(current) + " -> " + NecromancyPolicy.NpcName(d.MinionNpcData.Id.Value) +
+                  " (enemyType " + npc.EnemyType + "); max active " + currentMax + " -> " + d.MaxActiveMinions +
+                  "; health x boss/giant/elite/normal " + Fp(d.HealthMultiplierBoss) + "/" + Fp(d.HealthMultiplierGiant) + "/" + Fp(d.HealthMultiplierElite) + "/" + Fp(d.HealthMultiplierNormal) +
+                  "; damage x " + Fp(d.DamageMultiplierBoss) + "/" + Fp(d.DamageMultiplierGiant) + "/" + Fp(d.DamageMultiplierElite) + "/" + Fp(d.DamageMultiplierNormal));
+        }
+
+        private static string Fp(Il2CppPhoton.Deterministic.FP v) => (v.RawValue / 65536.0).ToString("0.##");
+
+        private static bool BeforeRaiseData(Frame __0, RaiseMinionActionData __instance)
         {
             try
             {
                 if (!_enabled || __instance == null) return true;
+                try { ApplySummon(__0, __instance); } catch (Exception e) { Error("summon", e); }
                 var d = __instance.MaxDistanceBeforeTeleport;
                 if (TeleportWritten.TryGetValue(__instance.Pointer, out long written) && written == d.RawValue) return true;
                 long scaled = NecromancyPolicy.ScaledTeleportRaw(d.RawValue, _teleportMultiplier);

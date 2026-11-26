@@ -38,6 +38,8 @@ minion_teleport_distance_multiplier = 3
 - 想给已发过的角色再发一次，从 `granted_characters` 里删掉它的名字。
 - `minion_lifetime_seconds` 填 0 表示随从一直存在，直到被打死。
 - `minion_teleport_distance_multiplier`：随从离玩家多远才传送回来，乘在原版 20 米上（默认 3 = 60 米，1 = 原版）。
+- `minion_npc`（T-010）：raiseMinion 召出谁。默认 `warrick_boss`（变异者沃里克 npcWarrickBoss `2680182020363611965`）；`warrick_enemy`（npcWarrickEnemy，巨型档，同一套 AI）、`wildling`（原版野人剑士）、`native`（不改原版数据），或直接填 NpcData GUID。目标解析不到 NpcData 时保持原版。revive 不受影响。
+- `minion_max_active`（T-010）：换了召唤目标时 raiseMinion 同时在场上限，默认 1，0 = 原版 5，不会超过原版。沃里克按 Boss 档缩放（生命、伤害 ×0.1）。
 
 ## 构建与离线核验
 

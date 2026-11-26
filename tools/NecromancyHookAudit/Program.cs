@@ -50,6 +50,27 @@ Check(NecromancyPolicy.ScaledTeleportRaw(20L << 16, 3f) == 60L << 16 && Necroman
       NecromancyPolicy.ScaledTeleportRaw(20L << 16, 0f) == 20L << 16 && NecromancyPolicy.ScaledTeleportRaw(20L << 16, float.NaN) == 20L << 16 &&
       NecromancyPolicy.ScaledTeleportRaw(20L << 16, 1000f) == 1000L << 16 && NecromancyPolicy.ScaledTeleportRaw(0, 3f) == 0,
       "teleport distance: 3x of 20 m is 60 m; <=0/NaN keep shipped value; capped at 50x");
+// T-010 summon swap: field types the plugin writes, and the setting/limit rules.
+const string Raise = "Il2CppQuantum.RaiseMinionActionData";
+Check(methods.Any(m => m.Type == Raise && m.Method == "get_MinionNpcData" && m.Return == "Il2CppQuantum.AssetRefNpcData") &&
+      methods.Any(m => m.Type == Raise && m.Method == "set_MinionNpcData" && m.Args.SequenceEqual(new[] { "Il2CppQuantum.AssetRefNpcData" })),
+      "RaiseMinionActionData.MinionNpcData AssetRefNpcData get/set");
+Check(methods.Any(m => m.Type == Raise && m.Method == "get_MaxActiveMinions" && m.Return == "System.Int32") &&
+      methods.Any(m => m.Type == Raise && m.Method == "set_MaxActiveMinions" && m.Args.SequenceEqual(new[] { "System.Int32" })),
+      "RaiseMinionActionData.MaxActiveMinions Int32 get/set");
+Check(methods.Any(m => m.Type == Raise && m.Method == "get_UseCorpseNpcType" && (m.Return == "System.Boolean" || m.Return == "Il2CppQuantum.QBoolean")),
+      "RaiseMinionActionData.UseCorpseNpcType readable (separates raiseMinion from revive)");
+Check(methods.Any(m => m.Type == "Il2CppQuantum.NpcData" && m.Method == "get_EnemyType"), "NpcData.EnemyType readable");
+Check(NecromancyPolicy.MinionNpcGuid("warrick_boss") == 2680182020363611965 && NecromancyPolicy.MinionNpcGuid(" Warrick_Boss ") == NecromancyPolicy.WarrickBossNpc &&
+      NecromancyPolicy.MinionNpcGuid("warrick_enemy") == 670058593051072033 && NecromancyPolicy.MinionNpcGuid("wildling") == NecromancyPolicy.WildlingSwordNpc &&
+      NecromancyPolicy.MinionNpcGuid("native") == 0 && NecromancyPolicy.MinionNpcGuid("") == 0 && NecromancyPolicy.MinionNpcGuid(null) == 0 &&
+      NecromancyPolicy.MinionNpcGuid("123") == 123 && NecromancyPolicy.MinionNpcGuid("-5") == 0 && NecromancyPolicy.MinionNpcGuid("warrick") == 0 &&
+      NecromancyPolicy.MinionNpcGuid(NecromancyPolicy.DefaultMinionNpc) == NecromancyPolicy.WarrickBossNpc,
+      "minion_npc: presets, GUID, native/empty/unknown/negative keep shipped data; default is Warrick boss");
+Check(NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, 1, 5) == 1 && NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, 0, 5) == 5 &&
+      NecromancyPolicy.MinionMaxActive(0, 1, 5) == 5 && NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, 9, 5) == 5 &&
+      NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, -2, 5) == 5 && NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, 3, 5) == 3,
+      "minion_max_active: applies only while swapped, 0/negative keep shipped, never above shipped");
 Check(Math.Abs(NecromancyPolicy.DistanceRaw(0, 0, 0, 3L << 16, 0, 4L << 16) - 5) < 1e-9, "teleport log distance: 16.16 vector length");
 Check(NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 264, 16, 4, 8) && !NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 200, 16, 4, 8) &&
       !NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 264, 16, 14, 8) && !NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 264, 12, 4, 8) &&
