@@ -122,8 +122,10 @@ Check(NecromancyPolicy.RoarAssetGuid(" 123 ") == 123 && NecromancyPolicy.RoarAss
       "roar setting: positive decimal GUID or keyword; blank/nonpositive rejected");
 Check(NecromancyPolicy.MatchesRoarAsset("  ROAR ", 123, "gestures/heroRoarData") &&
       NecromancyPolicy.MatchesRoarAsset("123", 123, null) &&
-      NecromancyPolicy.MatchesRoarAsset(NecromancyPolicy.DefaultRoarAction, 123, "multiplayerActions/mutantSoldierSwordAOEInnerData") &&
-      !NecromancyPolicy.MatchesRoarAsset(NecromancyPolicy.DefaultRoarAction, 124, "multiplayerActions/mutantSoldierSwordAOEOuterData") &&
+      NecromancyPolicy.MatchesRoarAsset("mutantSoldierSwordAOEInnerData", 123, "multiplayerActions/mutantSoldierSwordAOEInnerData") &&
+      !NecromancyPolicy.MatchesRoarAsset("mutantSoldierSwordAOEInnerData", 124, "multiplayerActions/mutantSoldierSwordAOEOuterData") &&
+      NecromancyPolicy.MatchesRoarAsset(NecromancyPolicy.DefaultRoarGesture, 2126111680215882670, "") && !NecromancyPolicy.MatchesRoarAsset(NecromancyPolicy.DefaultRoarGesture, 1770795828947168763, "") &&
+      NecromancyPolicy.MatchesRoarAsset(NecromancyPolicy.DefaultRoarAction, 3660829114871757151, null) && !NecromancyPolicy.MatchesRoarAsset(NecromancyPolicy.DefaultRoarAction, 2986562586328361475, null) &&
       !NecromancyPolicy.MatchesRoarAsset("roar", 123, "gestures/wave") && !NecromancyPolicy.MatchesRoarAsset("roar", 123, null) &&
       !NecromancyPolicy.MatchesRoarAsset("123", 124, "gestures/123") && !NecromancyPolicy.MatchesRoarAsset("roar", 0, "roar") &&
       !NecromancyPolicy.MatchesRoarAsset("-5", 123, "gestures/-5") && !NecromancyPolicy.MatchesRoarAsset("  ", 123, "roar"),

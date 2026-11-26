@@ -130,8 +130,10 @@ namespace Necromancy
         internal const string DefaultMinionNpc = "warrick_boss";
         internal const int DefaultMinionMaxActive = 1;
 
-        internal const string DefaultRoarGesture = "roar";
-        internal const string DefaultRoarAction = "mutantSoldierSwordAOEInnerData";
+        // Runtime asset Path is empty in the release build (0.15.2 playtest), so defaults are GUIDs read offline from
+        // qdb_assets_all: bestialPowerGestureData (no gesture is named roar; maintainer used this one) and the inner ring.
+        internal const string DefaultRoarGesture = "2126111680215882670";   // bestialPowerGestureData
+        internal const string DefaultRoarAction = "3660829114871757151";    // mutantSoldierSwordAOEInnerData (Middle 3625623313973781281, Outer 2986562586328361475)
         internal const int RoarCooldownSeconds = 3;
 
         internal static bool IsWarrickNpc(long npc) => npc == WarrickBossNpc || npc == WarrickEnemyNpc;
