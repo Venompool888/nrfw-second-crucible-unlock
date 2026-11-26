@@ -691,22 +691,33 @@ namespace Necromancy
         // FollowStartDistance; at 3.0 s it teleports behind the owner. A minion standing still to fight met that every
         // 3 s. Maintainer 2026-11-26: no stuck teleport while fighting. Before Update, clear StuckDuration for minions
         // whose attack target is alive; the far (> MaxDistanceBeforeTeleport) and height teleports are untouched.
+        // 0.13.4 in game: AiUtils.IsAiControlled(Frame, EntityRef, out AiControllerComponent*) threw
+        // MissingMethodException (UIntPtr..ctor(IntPtr)) in the interop marshaller and the shared error budget then
+        // disabled the whole plugin. Native IsAiControlled 0x5BA51C0 is: TryGet pawn component whose field 0 is the
+        // controller ref (PawnComponent.ControllerRef @0), ExistsAndNotPendingDestruction, TryGet AiControllerComponent
+        // on it. Do the same with Has/Get only, and on any error turn just this hook off.
         private static bool _stuckTeleportInCombat;
+        private static volatile bool _stuckHoldOff;
         private static int _stuckResets, _stuckLogs;
 
         private static unsafe void BeforeRaisedUpdate(Frame __0)
         {
             try
             {
-                if (!_enabled || __0 == null) return;
+                if (!_enabled || _stuckHoldOff || __0 == null) return;
                 foreach (var pair in Minions)
                 {
                     var minion = new EntityRef { Raw = pair.Key };
                     if (!EntityRefExtensions.Has<RaisedMinionComponent>(minion, __0)) continue;
                     var comp = EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0);
                     if (comp == null || comp->StuckDuration.RawValue <= 0) continue;
-                    AiControllerComponent* ai;
-                    if (!AiUtils.IsAiControlled(__0, minion, out ai) || ai == null) continue;
+                    if (!EntityRefExtensions.Has<PawnComponent>(minion, __0)) continue;
+                    var pawn = EntityRefExtensions.Get<PawnComponent>(minion, __0);
+                    if (pawn == null) continue;
+                    EntityRef controller = pawn->ControllerRef;
+                    if (!controller.IsValid || !EntityRefExtensions.Has<AiControllerComponent>(controller, __0)) continue;
+                    var ai = EntityRefExtensions.Get<AiControllerComponent>(controller, __0);
+                    if (ai == null) continue;
                     if (!EntityRefExtensions.ExistsAndNotPendingDestruction(ai->AttackTargetRef, __0)) continue;
                     long before = comp->StuckDuration.RawValue;
                     comp->StuckDuration = default;
@@ -716,7 +727,11 @@ namespace Necromancy
                               "s target=" + NecromancyPolicy.EntityLabel(ai->AttackTargetRef.Raw) + " resets=" + n);
                 }
             }
-            catch (Exception e) { Error("stuck-hold", e); }
+            catch (Exception e)
+            {
+                _stuckHoldOff = true;   // never spend the plugin-wide error budget on this optional hook
+                Write("stuck-hold ERROR " + e.GetType().Name + ": " + e.Message + "; combat stuck-teleport hold turned off, rest of the plugin unaffected");
+            }
         }
 
         // Logs each native RaisedMinionSystem teleport (raised through Frame.FrameEvents). Predicted frames can raise
