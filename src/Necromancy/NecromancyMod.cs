@@ -401,13 +401,13 @@ namespace Necromancy
             long target = NecromancyPolicy.MinionTeamTarget(_teamMode, minionTeam);
             if (target == 0)
             {
-                Write("minion-team keep entity=" + minion.Raw + " team=" + NecromancyPolicy.TeamName(minionTeam) + " owner=" + NecromancyPolicy.TeamName(ownerTeam) + " mode=" + _teamMode);
+                Write("minion-team keep entity=" + minion.Raw + " team=" + NecromancyPolicy.TeamName(minionTeam) + " owner=" + NecromancyPolicy.TeamName(ownerTeam) + " mode=" + _teamMode + " npc=" + MinionNpcText(f, minion));
                 return;
             }
             var t = EntityRefExtensions.Get<TeamComponent>(minion, f);
             t->Data = new AssetRefTeamData { Id = new AssetGuid { Value = target } };
             Write("minion-team SET entity=" + minion.Raw + " " + NecromancyPolicy.TeamName(minionTeam) + " -> " + NecromancyPolicy.TeamName(ReadTeam(f, minion)) +
-                  " (owner " + NecromancyPolicy.TeamName(ownerTeam) + ")");
+                  " (owner " + NecromancyPolicy.TeamName(ownerTeam) + ") npc=" + MinionNpcText(f, minion));
         }
 
         // ---- read-only damage diagnostics (T-006) ---------------------------------------------
@@ -695,10 +695,23 @@ namespace Necromancy
         private static long _minionNpc;
         private static int _minionMaxActive;
         private static readonly Dictionary<IntPtr, (long Npc, int Max)> SummonWritten = new();
+        private static readonly HashSet<IntPtr> SummonSkipLogged = new();
+
+        private static string MinionNpcText(Frame f, EntityRef minion)
+        {
+            try { return NecromancyPolicy.NpcName(EntityRefExtensions.GetData<NpcData>(minion, f)?.Guid.Value ?? 0); }
+            catch (Exception e) { return "?" + e.GetType().Name; }
+        }
 
         private static void ApplySummon(Frame f, RaiseMinionActionData d)
         {
-            if (_minionNpc == 0 || f == null || d.UseCorpseNpcType) return;
+            if (_minionNpc == 0) return;
+            if (f == null || d.UseCorpseNpcType)
+            {
+                if (SummonSkipLogged.Add(d.Pointer))
+                    Write("summon SKIP asset=" + d.Guid.Value + " " + (f == null ? "no frame" : "UseCorpseNpcType=true (revive keeps the corpse's enemy)"));
+                return;
+            }
             long current = d.MinionNpcData.Id.Value;
             int currentMax = d.MaxActiveMinions;
             if (SummonWritten.TryGetValue(d.Pointer, out var w) && w.Npc == current && w.Max == currentMax) return;
