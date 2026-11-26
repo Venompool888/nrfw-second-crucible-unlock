@@ -43,6 +43,13 @@ Check(methods.Any(m => m.Type == "Il2CppQuantum.SystemBase" && m.Method == "get_
 Check(!NecromancyPolicy.LifetimeExpired(0, 119L << 16, 120) && NecromancyPolicy.LifetimeExpired(0, 120L << 16, 120) &&
       NecromancyPolicy.LifetimeExpired(10L << 16, 130L << 16, 120) && !NecromancyPolicy.LifetimeExpired(0, 1000L << 16, 0) &&
       !NecromancyPolicy.LifetimeExpired(50L << 16, 10L << 16, 120), "minion lifetime: 16.16 seconds, 0 disables, clock going backwards never expires");
+Check(methods.Any(m => m.Type == "Il2CppQuantum.RaiseMinionActionData" && m.Method == "get_MaxDistanceBeforeTeleport" && m.Return == "Il2CppPhoton.Deterministic.FP") &&
+      methods.Any(m => m.Type == "Il2CppQuantum.RaiseMinionActionData" && m.Method == "set_MaxDistanceBeforeTeleport" && m.Args.SequenceEqual(new[] { "Il2CppPhoton.Deterministic.FP" })),
+      "RaiseMinionActionData.MaxDistanceBeforeTeleport FP get/set");
+Check(NecromancyPolicy.ScaledTeleportRaw(20L << 16, 3f) == 60L << 16 && NecromancyPolicy.ScaledTeleportRaw(20L << 16, 1f) == 20L << 16 &&
+      NecromancyPolicy.ScaledTeleportRaw(20L << 16, 0f) == 20L << 16 && NecromancyPolicy.ScaledTeleportRaw(20L << 16, float.NaN) == 20L << 16 &&
+      NecromancyPolicy.ScaledTeleportRaw(20L << 16, 1000f) == 1000L << 16 && NecromancyPolicy.ScaledTeleportRaw(0, 3f) == 0,
+      "teleport distance: 3x of 20 m is 60 m; <=0/NaN keep shipped value; capped at 50x");
 Check(methods.Count(m => m.Type == "Il2CppQuantum.DamageAPI" && m.Method == "Kill" && m.Args.Length == 8) == 1, "DamageAPI.Kill(8 args) exists for lifetime expiry");
 Check(NecromancyPolicy.ShouldRetryTint(0, 0) && NecromancyPolicy.ShouldRetryTint(2, 0) && !NecromancyPolicy.ShouldRetryTint(3, 0) &&
       !NecromancyPolicy.ShouldRetryTint(500, 0) && NecromancyPolicy.ShouldRetryTint(500, 1), "tint guard: give up after 3 attempts with no success, never once it has succeeded");

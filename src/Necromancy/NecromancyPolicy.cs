@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.12.2";
+        internal const string Version = "0.13.0";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -106,6 +106,15 @@ namespace Necromancy
 
         // The shipped raise data has no minion lifetime; this is the plugin's default (0 = unlimited).
         internal const int DefaultMinionLifetimeSeconds = 600;   // maintainer 2026-11-26: 120 s was too short for boss rush
+
+        // RaiseMinionActionData.MaxDistanceBeforeTeleport ships as 20 m; minions farther than that snap back to the
+        // player. Maintainer 2026-11-26: at least 3x. <= 0 or NaN keeps the shipped value; capped at 50x.
+        internal const float DefaultTeleportDistanceMultiplier = 3f;
+        internal static long ScaledTeleportRaw(long nativeRaw, float multiplier)
+        {
+            if (float.IsNaN(multiplier) || multiplier <= 0f || nativeRaw <= 0) return nativeRaw;
+            return (long)System.Math.Round(nativeRaw * (double)System.Math.Min(multiplier, 50f));
+        }
 
         // FP raw values are 16.16 fixed point.
         internal static bool LifetimeExpired(long birthRaw, long nowRaw, int lifetimeSeconds) =>

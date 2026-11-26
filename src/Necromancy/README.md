@@ -30,11 +30,13 @@
 grant_character = "你的角色名"
 granted_characters = ""
 minion_lifetime_seconds = 600
+minion_teleport_distance_multiplier = 3
 ```
 
 - `grant_character` 默认为空，即不发放；填上角色名（不区分大小写）才会给这个角色发。
 - 想给已发过的角色再发一次，从 `granted_characters` 里删掉它的名字。
 - `minion_lifetime_seconds` 填 0 表示随从一直存在，直到被打死。
+- `minion_teleport_distance_multiplier`：随从离玩家多远才传送回来，乘在原版 20 米上（默认 3 = 60 米，1 = 原版）。
 
 ## 构建与离线核验
 
@@ -43,7 +45,7 @@ minion_lifetime_seconds = 600
 ./.dotnet/dotnet.exe run --project tools/NecromancyHookAudit -c Release -- vendor/generated src/Necromancy/bin/Release/NRFWNecromancy.dll
 ```
 
-审计只读 PE 元数据：核对全部 hook 签名唯一存在、调用的接口签名、类型继承，并测试纯逻辑（符文放行、布局校验、按角色发放、敌我规则、时限换算）。
+审计只读 PE 元数据：核对全部 hook 签名唯一存在、调用的接口签名、类型继承，并测试纯逻辑（符文放行、布局校验、按角色发放、敌我规则、时限换算、传回距离倍数）。
 
 ## 限制
 

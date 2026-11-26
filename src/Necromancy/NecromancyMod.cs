@@ -596,6 +596,40 @@ namespace Necromancy
             }
             catch (Exception e) { Write("expired-minion corpse hook FAILED " + e.GetType().Name + ": " + e.Message); }
             Write("minion_lifetime_seconds=" + _lifetimeSeconds);
+            var tpEntry = category.CreateEntry("minion_teleport_distance_multiplier", NecromancyPolicy.DefaultTeleportDistanceMultiplier,
+                description: "Multiplier on the shipped 20 m distance at which a minion snaps back to the player (3 = 60 m; 1 = original).");
+            _teleportMultiplier = tpEntry.Value;
+            try
+            {
+                PatchPrefix(h, typeof(RaiseMinionActionData), "Execute", new[] { typeof(Frame), typeof(EntityRef) }, nameof(BeforeRaiseData), typeof(bool));
+                PatchPrefix(h, typeof(RaiseMinionActionData), "CanRaiseNearby", new[] { typeof(Frame), typeof(EntityRef) }, nameof(BeforeRaiseData), typeof(bool));
+                Write("minion_teleport_distance_multiplier=" + _teleportMultiplier);
+            }
+            catch (Exception e) { Write("minion teleport-distance hook FAILED " + e.GetType().Name + ": " + e.Message); }
+        }
+
+        // Every minion comes from RaiseMinionActionData.Execute, so scaling the asset there (and in CanRaiseNearby)
+        // covers all of them. Written values are remembered per asset so a reused asset is never scaled twice, and a
+        // reloaded asset (back at the shipped value) is scaled again.
+        private static readonly Dictionary<IntPtr, long> TeleportWritten = new();
+        private static float _teleportMultiplier = NecromancyPolicy.DefaultTeleportDistanceMultiplier;
+
+        private static bool BeforeRaiseData(RaiseMinionActionData __instance)
+        {
+            try
+            {
+                if (!_enabled || __instance == null) return true;
+                var d = __instance.MaxDistanceBeforeTeleport;
+                if (TeleportWritten.TryGetValue(__instance.Pointer, out long written) && written == d.RawValue) return true;
+                long scaled = NecromancyPolicy.ScaledTeleportRaw(d.RawValue, _teleportMultiplier);
+                TeleportWritten[__instance.Pointer] = scaled;
+                if (scaled == d.RawValue) return true;
+                Write("minion teleport distance " + (d.RawValue / 65536.0).ToString("0.##") + " -> " + (scaled / 65536.0).ToString("0.##") + " m");
+                d.RawValue = scaled;
+                __instance.MaxDistanceBeforeTeleport = d;
+            }
+            catch (Exception e) { Error("teleport-distance", e); }
+            return true;
         }
 
         private static void PatchPrefix(HarmonyLib.Harmony harmony, Type type, string name, Type[] args, string prefix, Type returns)
