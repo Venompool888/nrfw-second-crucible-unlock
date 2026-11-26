@@ -23,7 +23,7 @@ namespace Necromancy
     //  2. Optionally awards raiseMinion / revive / healMinions and the Tome of Healing once to the local hero.
     //  3. Logs the first corpse/raise/heal calls so a play session can show which stage works.
     // Single-player only: every peer of a session would need identical systems.
-    public sealed class NecromancyMod : MelonMod
+    public sealed partial class NecromancyMod : MelonMod
     {
         private static readonly ConcurrentQueue<string> Pending = new();
         private static MelonPreferences_Entry<string> _grantedEntry;
@@ -73,9 +73,12 @@ namespace Necromancy
             if (_enabled) InstallTomeRunes();
             if (_enabled) InstallMinionVisuals();
             if (_enabled) InstallMinionFriendlyFire();
+            if (_enabled) InstallRaisedMinionDamageProtection();
             if (_enabled) InstallMinionLifecycle(category);
             Flush();
         }
+
+        public override void OnDeinitializeMelon() => StopRaisedMinionDamageProtection();
 
         // Tome of Healing accepts the three necromancy runes. Each overload is patched on its own
         // so a failure here leaves the rest of the plugin running.
@@ -124,6 +127,8 @@ namespace Necromancy
             try
             {
                 Found.Clear(); Added.Clear(); _enableChecks = 0; _heroFrames = 0;
+                RaisedDamageOwners.Clear();
+                _damageProtectionLogs = 0;
                 var present = new HashSet<string>();
                 foreach (var system in __result) Collect(system, present, 0);
                 string[] missing = NecromancyPolicy.Missing(present);
@@ -369,6 +374,7 @@ namespace Necromancy
         {
             if (__0 == null || !__2.IsValid) return;
             Minions[__2.Raw] = Environment.TickCount64;
+            if (__0.IsVerified) RememberRaisedDamageSource(__0, __2);
             if (__0.IsVerified && !MinionBirth.ContainsKey(__2.Raw) && !Expired.Contains(__2.Raw))
                 MinionBirth[__2.Raw] = __0.TimeSinceStart.RawValue;
             if (__0.IsVerified && !TeamChecked.Contains(__2.Raw)) { TeamChecked.Add(__2.Raw); try { SetMinionTeam(__0, __1, __2); } catch (Exception e) { Error("minion-team", e); } }
@@ -776,15 +782,16 @@ namespace Necromancy
             if (!_enabled || __0 == null || !__1.IsValid || !__2.IsValid) return;
             try
             {
-                bool aMinion = EntityRefExtensions.Has<RaisedMinionComponent>(__1, __0);
-                bool bMinion = EntityRefExtensions.Has<RaisedMinionComponent>(__2, __0);
-                if (!aMinion && !bMinion) return;   // fast path: no minion involved, native result stands
-                bool aHero = EntityRefExtensions.Has<HeroComponent>(__1, __0);
-                bool bHero = EntityRefExtensions.Has<HeroComponent>(__2, __0);
+                if (!EntityRefExtensions.Has<RaisedMinionComponent>(__1, __0) &&
+                    !EntityRefExtensions.Has<RaisedMinionComponent>(__2, __0)) return;
+                var hit = ClassifyDamageActor(__0, __1);
+                var source = ClassifyDamageActor(__0, __2);
+                bool aMinion = hit.RaisedByPlayer, bMinion = source.RaisedByPlayer;
+                bool aHero = hit.Player, bHero = source.Player;
                 if (!NecromancyPolicy.MinionPairIsAllied(aMinion, aHero, bMinion, bHero)) return;
                 __result = true;
                 if (__0.IsVerified && Interlocked.Increment(ref _allyLogs) <= 20)
-                    Write("friendly-fire BLOCKED hit=" + __1.Raw + (aMinion ? "(minion)" : aHero ? "(hero)" : "") +
+                    Write("minion allies override hit=" + __1.Raw + (aMinion ? "(minion)" : aHero ? "(hero)" : "") +
                           " source=" + __2.Raw + (bMinion ? "(minion)" : bHero ? "(hero)" : ""));
             }
             catch (Exception e) { Error("friendly-fire", e); }
