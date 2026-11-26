@@ -640,6 +640,19 @@ namespace Necromancy
                 Write("nav-attachment probe installed");
             }
             catch (Exception e) { Write("nav-attachment probe FAILED " + e.GetType().Name + ": " + e.Message); }
+            var stuckEntry = category.CreateEntry("minion_stuck_teleport_in_combat", false,
+                description: "false = a minion that has an attack target is never stuck-teleported back to the player (original: teleported after 3 s within 0.5 m). Far (> distance) and height teleports are unchanged.");
+            _stuckTeleportInCombat = stuckEntry.Value;
+            if (!_stuckTeleportInCombat)
+            {
+                try
+                {
+                    PatchPrefix(h, typeof(RaisedMinionSystem), "Update", new[] { typeof(Frame) }, nameof(BeforeRaisedUpdate), typeof(void));
+                    Write("combat stuck-teleport suppression installed");
+                }
+                catch (Exception e) { Write("combat stuck-teleport suppression FAILED " + e.GetType().Name + ": " + e.Message); }
+            }
+            Write("minion_stuck_teleport_in_combat=" + _stuckTeleportInCombat);
             try
             {
                 PatchPrefix(h, typeof(PathFollowingComponent), "SearchPath", new[] { typeof(Frame), typeof(EntityRef) },
@@ -672,6 +685,39 @@ namespace Necromancy
         // reloaded asset (back at the shipped value) is scaled again.
         private static readonly Dictionary<IntPtr, long> TeleportWritten = new();
         private static float _teleportMultiplier = NecromancyPolicy.DefaultTeleportDistanceMultiplier;
+
+        // Static analysis (T-011): RaisedMinionSystem.Update adds DeltaTime to RaisedMinionComponent.StuckDuration while
+        // the minion stays within 0.5 m and it is following OR its AiController has a live AttackTargetRef OR it is past
+        // FollowStartDistance; at 3.0 s it teleports behind the owner. A minion standing still to fight met that every
+        // 3 s. Maintainer 2026-11-26: no stuck teleport while fighting. Before Update, clear StuckDuration for minions
+        // whose attack target is alive; the far (> MaxDistanceBeforeTeleport) and height teleports are untouched.
+        private static bool _stuckTeleportInCombat;
+        private static int _stuckResets, _stuckLogs;
+
+        private static unsafe void BeforeRaisedUpdate(Frame __0)
+        {
+            try
+            {
+                if (!_enabled || __0 == null) return;
+                foreach (var pair in Minions)
+                {
+                    var minion = new EntityRef { Raw = pair.Key };
+                    if (!EntityRefExtensions.Has<RaisedMinionComponent>(minion, __0)) continue;
+                    var comp = EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0);
+                    if (comp == null || comp->StuckDuration.RawValue <= 0) continue;
+                    AiControllerComponent* ai;
+                    if (!AiUtils.IsAiControlled(__0, minion, out ai) || ai == null) continue;
+                    if (!EntityRefExtensions.ExistsAndNotPendingDestruction(ai->AttackTargetRef, __0)) continue;
+                    long before = comp->StuckDuration.RawValue;
+                    comp->StuckDuration = default;
+                    int n = Interlocked.Increment(ref _stuckResets);
+                    if (__0.IsVerified && before >= (2L << 16) && Interlocked.Increment(ref _stuckLogs) <= 100)
+                        Write("stuck-teleport held (fighting) entity=" + NecromancyPolicy.EntityLabel(pair.Key) + " stuck=" + (before / 65536.0).ToString("0.##") +
+                              "s target=" + NecromancyPolicy.EntityLabel(ai->AttackTargetRef.Raw) + " resets=" + n);
+                }
+            }
+            catch (Exception e) { Error("stuck-hold", e); }
+        }
 
         // Logs each native RaisedMinionSystem teleport (raised through Frame.FrameEvents). Predicted frames can raise
         // the same teleport again, so one line per minion per second.
