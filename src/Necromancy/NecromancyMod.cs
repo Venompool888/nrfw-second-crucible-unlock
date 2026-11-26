@@ -640,6 +640,13 @@ namespace Necromancy
                 Write("nav-attachment probe installed");
             }
             catch (Exception e) { Write("nav-attachment probe FAILED " + e.GetType().Name + ": " + e.Message); }
+            try
+            {
+                PatchPrefix(h, typeof(PathFollowingComponent), "SearchPath", new[] { typeof(Frame), typeof(EntityRef) },
+                    nameof(BeforeSearchPath), typeof(void));
+                Write("path-search nav guard installed");
+            }
+            catch (Exception e) { Write("path-search nav guard FAILED " + e.GetType().Name + ": " + e.Message); }
             var tpEntry = category.CreateEntry("minion_teleport_distance_multiplier", NecromancyPolicy.DefaultTeleportDistanceMultiplier,
                 description: "Multiplier on the shipped 20 m distance at which a minion snaps back to the player (3 = 60 m; 1 = original).");
             _teleportMultiplier = tpEntry.Value;
@@ -761,10 +768,28 @@ namespace Necromancy
             if (Interlocked.Increment(ref _rosterLogs) <= 1000) Write("roster n=" + parts.Count + " " + roster);
         }
 
-        // Read-only: when an entity is about to be resolved without UseNavDataComponent (the native call then throws),
-        // log once per entity what it is. Never changes the call.
+        // AttachmentAPI.ResolveNavDataAttachment calls Frame.Get<UseNavDataComponent> unconditionally and throws when
+        // the entity has none; 0.13.1 died on ~1200 of those from PathFollowingComponent.SearchPath ("too many
+        // exceptions"). Static analysis: SearchPath resolves nav data for its agent once it is outside the acceptance
+        // radius, and a null result is dereferenced, so returning null is not safe. Guard one level up instead:
+        // skip SearchPath for an agent without UseNavDataComponent (the entity simply gets no new path this frame;
+        // NavMeshTrackerSystem adds the component once it stands on an active navmesh). The probe on
+        // ResolveNavDataAttachment stays read-only and catches any other caller that still reaches the throw.
         private static readonly HashSet<ulong> NoNavLogged = new();
-        private static int _noNavCount;
+        private static int _noNavCount, _guardCount;
+
+        private static bool BeforeSearchPath(Frame __0, EntityRef __1)
+        {
+            try
+            {
+                if (!_enabled || __0 == null || !__1.IsValid) return true;
+                if (EntityRefExtensions.Has<UseNavDataComponent>(__1, __0)) return true;
+                int n = Interlocked.Increment(ref _guardCount);
+                LogNoNav(__0, __1, "GUARD skipped SearchPath", n);
+                return false;
+            }
+            catch (Exception e) { Error("path-guard", e); return true; }
+        }
 
         private static void BeforeResolveNavData(Frame __0, EntityRef __1)
         {
@@ -772,17 +797,21 @@ namespace Necromancy
             {
                 if (!_enabled || __0 == null || !__1.IsValid) return;
                 if (EntityRefExtensions.Has<UseNavDataComponent>(__1, __0)) return;
-                int n = Interlocked.Increment(ref _noNavCount);
-                bool first;
-                lock (NoNavLogged) first = NoNavLogged.Add(__1.Raw);
-                if (!first) { if (n % 200 == 0) Write("NO-NAV resolve count=" + n); return; }
-                bool minion = EntityRefExtensions.Has<RaisedMinionComponent>(__1, __0);
-                bool corpse = EntityRefExtensions.Has<CorpseMarkerComponent>(__1, __0);
-                bool expired = Expired.Contains(__1.Raw), born = MinionBirth.ContainsKey(__1.Raw);
-                Write("NO-NAV entity=" + __1.Raw + " " + NecromancyPolicy.EntityLabel(__1.Raw) + " minion=" + minion + " corpseMarker=" + corpse +
-                      " knownMinion=" + born + " expired=" + expired + " seenAsMinion=" + Minions.ContainsKey(__1.Raw) + " verified=" + __0.IsVerified);
+                LogNoNav(__0, __1, "NO-NAV resolve (native will throw)", Interlocked.Increment(ref _noNavCount));
             }
             catch (Exception e) { Error("nav-probe", e); }
+        }
+
+        private static void LogNoNav(Frame f, EntityRef e, string what, int n)
+        {
+            bool first;
+            lock (NoNavLogged) first = NoNavLogged.Add(e.Raw ^ (ulong)what.Length);
+            if (!first) { if (n % 500 == 0) Write(what + " count=" + n); return; }
+            bool minion = EntityRefExtensions.Has<RaisedMinionComponent>(e, f);
+            bool corpse = EntityRefExtensions.Has<CorpseMarkerComponent>(e, f);
+            Write(what + " entity=" + e.Raw + " " + NecromancyPolicy.EntityLabel(e.Raw) + " minion=" + minion + " corpseMarker=" + corpse +
+                  " knownMinion=" + MinionBirth.ContainsKey(e.Raw) + " expired=" + Expired.Contains(e.Raw) + " seenAsMinion=" + Minions.ContainsKey(e.Raw) +
+                  " verified=" + f.IsVerified + " count=" + n);
         }
 
         private static void TickLifetime(Frame f)
