@@ -171,6 +171,9 @@ namespace Necromancy
             lifetimeSeconds > 0 && nowRaw >= birthRaw && nowRaw - birthRaw >= (long)lifetimeSeconds << 16;
 
         // Minion<->hero and minion<->minion are allies; hero<->hero is never changed (keeps player friendly fire).
+        internal static bool BlocksRaisedMinionDamage(bool sourcePlayer, bool sourceRaisedByPlayer, bool hitPlayer, bool hitRaisedByPlayer)
+            => sourceRaisedByPlayer && (hitPlayer || hitRaisedByPlayer) || sourcePlayer && hitRaisedByPlayer;
+
         internal static bool MinionPairIsAllied(bool aMinion, bool aHero, bool bMinion, bool bHero) =>
             (aMinion && (bHero || bMinion)) || (bMinion && (aHero || aMinion));
 

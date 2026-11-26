@@ -7,7 +7,17 @@ using Necromancy;
 // Metadata only: never loads an inspected game or plugin assembly.
 // args: <vendor/generated dir> <built NRFWNecromancy.dll>
 var p = new Names();
-var methods = new List<(string Type, string Method, string Return, string[] Args)>();
+var methods = new List<(string Type, string Method, string Return, string[] Args, bool Static)>();
+var layoutFields = new[]
+{
+    (Type: "Il2CppQuantum.Damage", Field: "HitEntity", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x28),
+    (Type: "Il2CppQuantum.Damage", Field: "Proxy", FieldType: "Il2CppQuantum.PayloadProxyGroup", Offset: 0xb8),
+    (Type: "Il2CppQuantum.DamageResponse", Field: "Type", FieldType: "Il2CppQuantum.DamagePayloadResponseType", Offset: 8),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "Owner", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x10),
+    (Type: "Il2CppQuantum.ProjectileComponent", Field: "InstigatorRef", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x30),
+    (Type: "Il2CppQuantum.CascadeInstanceComponent", Field: "Caster", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x40)
+};
+var layouts = new HashSet<(string Type, string Field, string FieldType, int Offset)>();
 var types = new HashSet<string>();
 var bases = new Dictionary<string, string>();
 foreach (string assembly in new[] { "Il2Cppmoon.quantum.forsaken", "Il2Cpp__forsaken" })
@@ -22,7 +32,16 @@ foreach (string assembly in new[] { "Il2Cppmoon.quantum.forsaken", "Il2Cpp__fors
         foreach (var mh in r.GetTypeDefinition(th).GetMethods())
         {
             var m = r.GetMethodDefinition(mh); var sg = m.DecodeSignature(p, (object)null);
-            methods.Add((tn, r.GetString(m.Name), sg.ReturnType, sg.ParameterTypes.ToArray()));
+            methods.Add((tn, r.GetString(m.Name), sg.ReturnType, sg.ParameterTypes.ToArray(), m.Attributes.HasFlag(System.Reflection.MethodAttributes.Static)));
+        }
+        foreach (var candidate in layoutFields.Where(candidate => candidate.Type == tn))
+        {
+            foreach (var handle in r.GetTypeDefinition(th).GetFields())
+            {
+                var field = r.GetFieldDefinition(handle);
+                if (r.GetString(field.Name) == candidate.Field)
+                    layouts.Add((tn, candidate.Field, field.DecodeSignature(p, (object)null), field.GetOffset()));
+            }
         }
     }
 }
@@ -34,6 +53,22 @@ foreach (var h in NecromancyPolicy.Hooks)
     int n = methods.Count(m => m.Type == h.Type && m.Method == h.Method && m.Return == h.Return && m.Args.SequenceEqual(h.Args));
     Check(n == 1, $"hook {h.Type}.{h.Method}({string.Join(", ", h.Args)}) -> {h.Return} unique");
 }
+var nativeEntrypoints = new[]
+{
+    (Type: "Il2CppQuantum.DamageResolverSystem", Name: "ResolveDamage", Return: "Void", Static: true,
+        Args: new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.Damage&", "Il2CppQuantum.DamageResponse&" }),
+    (Type: "Il2CppQuantum.ProjectileData", Name: "OnCollisionWithDamageReceiver", Return: "Void", Static: false,
+        Args: new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.EntityRef",
+            "Il2CppPhoton.Deterministic.FPVector3", "Il2CppPhoton.Deterministic.FPVector3" }),
+    (Type: "Il2CppQuantum.PayloadProxyGroup", Name: "TryGetProxyOfType", Return: "System.Boolean", Static: false,
+        Args: new[] { "Il2CppQuantum.ProxyTypeFlags", "Il2CppQuantum.EntityRef&" })
+};
+foreach (var entry in nativeEntrypoints)
+    Check(methods.Count(m => m.Type == entry.Type && m.Method == entry.Name && m.Return == entry.Return &&
+        m.Static == entry.Static && m.Args.SequenceEqual(entry.Args)) == 1, "native damage entry " + entry.Type + "." + entry.Name);
+foreach (var field in layoutFields)
+    Check(layouts.Contains(field), "native damage layout " + field.Type + "." + field.Field);
+
 foreach (string t in new[] { "Il2CppQuantum.CorpseMarkerSystem", "Il2CppQuantum.RaisedMinionSystem" })
     Check(methods.Any(m => m.Type == t && m.Method == ".ctor" && m.Args.Length == 0), t + " has parameterless constructor");
 Check(methods.Any(m => m.Type == "Il2CppQuantum.InventoryAPI" && m.Method == "PreviewAwardItemImmediate" && m.Args.SequenceEqual(new[] {
@@ -91,6 +126,21 @@ Check(NecromancyPolicy.MinionPairIsAllied(true, false, false, true) && Necromanc
       NecromancyPolicy.MinionPairIsAllied(true, false, true, false) && !NecromancyPolicy.MinionPairIsAllied(false, true, false, true) &&
       !NecromancyPolicy.MinionPairIsAllied(true, false, false, false) && !NecromancyPolicy.MinionPairIsAllied(false, false, true, false),
       "friendly-fire rule: minion<->hero and minion<->minion allied; hero<->hero and minion<->enemy unchanged");
+foreach (var (name, sourcePlayer, sourceRaisedByPlayer, hitPlayer, hitRaisedByPlayer, expected) in new[]
+{
+    ("raised minion -> player", false, true, true, false, true),
+    ("player -> raised minion", true, false, false, true, true),
+    ("raised minion -> raised minion", false, true, false, true, true),
+    ("player -> player", true, false, true, false, false),
+    ("raised minion -> enemy", false, true, false, false, false),
+    ("enemy -> raised minion", false, false, false, true, false),
+    ("player -> enemy", true, false, false, false, false),
+    ("unknown -> player", false, false, true, false, false)
+})
+{
+    bool actual = NecromancyPolicy.BlocksRaisedMinionDamage(sourcePlayer, sourceRaisedByPlayer, hitPlayer, hitRaisedByPlayer);
+    Check(actual == expected, "raised-minion damage: " + name);
+}
 Check(NecromancyPolicy.ShouldGrantCharacter("hero-b", "hero-a") && !NecromancyPolicy.ShouldGrantCharacter("hero-b", "hero-a, hero-b") &&
       !NecromancyPolicy.ShouldGrantCharacter("", "") && NecromancyPolicy.AddCharacter("hero-a", "hero-b") == "hero-a,hero-b" &&
       NecromancyPolicy.AddCharacter("hero-a,hero-b", "hero-b") == "hero-a,hero-b" && NecromancyPolicy.AddCharacter("", "hero-b") == "hero-b",
@@ -114,6 +164,34 @@ using (var pe = new PEReader(s))
     var us = MetadataTokens.UserStringHandle(1);
     while (!us.IsNil) { userStrings.Add(r.GetUserString(us)); us = r.GetNextHandle(us); }
     foreach (var h in NecromancyPolicy.Hooks) Check(userStrings.Contains(h.Method), "plugin patches '" + h.Method + "' by name");
+    foreach (var entry in nativeEntrypoints)
+        Check(userStrings.Contains(entry.Name), "compiled plugin resolves native entry " + entry.Name);
+
+    foreach (var (name, result, parameters) in new[]
+    {
+        ("ResolveDamageNative", "Void", new[] { "System.IntPtr", "Il2CppQuantum.Damage*", "Il2CppQuantum.DamageResponse*", "System.IntPtr" }),
+        ("ProjectileImpactNative", "Void", new[] { "System.IntPtr", "System.IntPtr", "System.UInt64", "System.UInt64",
+            "System.IntPtr", "System.IntPtr", "System.IntPtr" }),
+        ("ProxyLookupNative", "System.Boolean", new[] { "System.IntPtr", "Il2CppQuantum.ProxyTypeFlags",
+            "Il2CppQuantum.EntityRef&", "System.IntPtr" })
+    })
+    {
+        int matches = 0;
+        foreach (var handle in r.TypeDefinitions)
+        {
+            var type = r.GetTypeDefinition(handle);
+            if (r.GetString(type.Name) != name) continue;
+            foreach (var method in type.GetMethods())
+            {
+                var definition = r.GetMethodDefinition(method);
+                if (r.GetString(definition.Name) != "Invoke") continue;
+                var signature = definition.DecodeSignature(p, (object)null);
+                if (signature.ReturnType == result && signature.ParameterTypes.SequenceEqual(parameters)) matches++;
+            }
+        }
+        Check(matches == 1, "compiled Windows x64 damage delegate " + name);
+    }
+
     Check(strings.Contains("PreviewAwardItemImmediate"), "plugin calls PreviewAwardItemImmediate");
     foreach (var (type, name, sig) in new[] {
 
