@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.12.0";
+        internal const string Version = "0.12.1";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -80,6 +80,10 @@ namespace Necromancy
             foreach (string name in RequiredSystems) if (!present.Contains(name)) missing.Add(name);
             return missing.ToArray();
         }
+
+        // A tint component that was tried this many times without one successful ApplyTintEffect is disabled.
+        internal const int TintMaxFailedAttempts = 3;
+        internal static bool ShouldRetryTint(int attempts, int successes) => successes > 0 || attempts < TintMaxFailedAttempts;
 
         // Shipped team assets (Assets/quantumAssetDatabase/teams). Players and PlayersNoFF differ only in HasFriendlyFire.
         internal const long TeamPlayers = 3356349825642775935;      // HasFriendlyFire = true

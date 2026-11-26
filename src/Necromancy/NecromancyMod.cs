@@ -333,6 +333,10 @@ namespace Necromancy
 
         private static readonly ConcurrentDictionary<ulong, long> Minions = new();
         private static readonly Dictionary<ulong, int> Attached = new();
+        private static readonly Dictionary<ulong, UnityEngine.Component> AddedEffects = new();   // components this plugin added, by minion
+        private static readonly Dictionary<IntPtr, int> TintAttempts = new(), TintSuccesses = new();
+        private static int _tintGiveUps;
+        private static IntPtr _tintInFlight;
         private static bool _visualsOn;
         private static int _visualTick, _visualLogs, _effectLogs;
 
@@ -344,6 +348,7 @@ namespace Necromancy
                 Patch(visualHarmony, typeof(RaisedMinionSystem), "GetMinionFormationSlot", new[] { typeof(Frame), typeof(EntityRef), typeof(EntityRef) },
                     nameof(AfterFormationSlot), typeof(int));
                 Patch(visualHarmony, typeof(Il2CppMoon.Forsaken.RaisedMinionVisualEffect), "ApplyTintEffect", Type.EmptyTypes, nameof(AfterApplyTint));
+                PatchPrefix(visualHarmony, typeof(Il2CppMoon.Forsaken.RaisedMinionVisualEffect), "ApplyTintEffect", Type.EmptyTypes, nameof(BeforeApplyTint), typeof(void));
                 try
                 {
                     Patch(visualHarmony, typeof(Il2CppMoon.Forsaken.CharacterViewEffects), "OnDamageResolved", new[] { typeof(EventDamageResolved) },
@@ -424,9 +429,50 @@ namespace Necromancy
             catch (Exception ex) { Error("hit-log", ex); }
         }
 
+        // 0.12.0 playtest: on darakMutantView, CollectRenderers threw inside ApplyTintEffect every frame (~45/s,
+        // 26k errors). The postfix only runs when the native call returns, so attempts without a success mean it is
+        // throwing. After 3 failed attempts the component is disabled and never retried.
+        private static bool BeforeApplyTint(Il2CppMoon.Forsaken.RaisedMinionVisualEffect __instance)
+        {
+            if (__instance == null) return false;
+            IntPtr key = __instance.Pointer;
+            TintAttempts.TryGetValue(key, out int attempts);
+            TintSuccesses.TryGetValue(key, out int ok);
+            if (!NecromancyPolicy.ShouldRetryTint(attempts, ok))
+            {
+                try
+                {
+                    __instance.enabled = false;
+                    if (Interlocked.Increment(ref _tintGiveUps) <= 10)
+                        Write("tint GAVE UP after " + attempts + " failed attempts on go=" + __instance.gameObject.name + "; component disabled");
+                }
+                catch { }
+                return false;
+            }
+            TintAttempts[key] = attempts + 1;
+            _tintInFlight = key;   // the postfix counts a success only for a call that really ran
+            return true;
+        }
+
+        private static void RemoveAddedEffect(ulong minion)
+        {
+            if (!AddedEffects.TryGetValue(minion, out var component)) return;
+            AddedEffects.Remove(minion);
+            try
+            {
+                if (component != null) { TintAttempts.Remove(component.Pointer); TintSuccesses.Remove(component.Pointer); UnityEngine.Object.Destroy(component); }
+                if (++_visualLogs <= 40) Write("tint REMOVED added effect from pooled view of gone minion " + minion);
+            }
+            catch (Exception e) { Error("tint-remove", e); }
+        }
+
         private static void AfterApplyTint(Il2CppMoon.Forsaken.RaisedMinionVisualEffect __instance)
         {
-            if (__instance == null || Interlocked.Increment(ref _effectLogs) > 20) return;
+            if (__instance == null || __instance.Pointer != _tintInFlight) return;   // skipped by the prefix: not a success
+            _tintInFlight = IntPtr.Zero;
+            TintSuccesses.TryGetValue(__instance.Pointer, out int ok);
+            TintSuccesses[__instance.Pointer] = ok + 1;
+            if (Interlocked.Increment(ref _effectLogs) > 20) return;
             try
             {
                 var r = __instance.m_renderers;
@@ -441,7 +487,7 @@ namespace Necromancy
             try
             {
                 long now = Environment.TickCount64;
-                foreach (var pair in Minions) if (now - pair.Value > 5000) { Minions.TryRemove(pair.Key, out _); Attached.Remove(pair.Key); }
+                foreach (var pair in Minions) if (now - pair.Value > 5000) { Minions.TryRemove(pair.Key, out _); Attached.Remove(pair.Key); RemoveAddedEffect(pair.Key); }
                 if (Minions.IsEmpty) return;
                 var effectType = Il2CppInterop.Runtime.Il2CppType.Of<Il2CppMoon.Forsaken.RaisedMinionVisualEffect>();
                 var views = UnityEngine.Object.FindObjectsOfType(Il2CppInterop.Runtime.Il2CppType.Of<Il2CppMoon.Forsaken.EntityView>());
@@ -456,7 +502,7 @@ namespace Necromancy
                     var existing = go.GetComponent(effectType);
                     if (existing == null)
                     {
-                        go.AddComponent(effectType);
+                        AddedEffects[raw] = go.AddComponent(effectType);
                         Attached[raw] = 1;
                         if (++_visualLogs <= 20) Write("tint ATTACHED RaisedMinionVisualEffect to minion entity=" + raw + " go=" + go.name);
                     }
