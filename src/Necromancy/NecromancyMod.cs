@@ -128,6 +128,7 @@ namespace Necromancy
             {
                 Found.Clear(); Added.Clear(); _enableChecks = 0; _heroFrames = 0;
                 RaisedDamageOwners.Clear();
+                StuckHoldMinions.Clear();
                 _damageProtectionLogs = 0;
                 var present = new HashSet<string>();
                 foreach (var system in __result) Collect(system, present, 0);
@@ -641,7 +642,7 @@ namespace Necromancy
             }
             catch (Exception e) { Write("nav-attachment probe FAILED " + e.GetType().Name + ": " + e.Message); }
             var stuckEntry = category.CreateEntry("minion_stuck_teleport_in_combat", false,
-                description: "false = a minion that has an attack target is never stuck-teleported back to the player (original: teleported after 3 s within 0.5 m). Far (> distance) and height teleports are unchanged.");
+                description: "false = prevent stuck teleports while a minion is not following and is within its teleport range. Far and height teleports are unchanged.");
             _stuckTeleportInCombat = stuckEntry.Value;
             try
             {
@@ -691,19 +692,12 @@ namespace Necromancy
         private static readonly Dictionary<IntPtr, long> TeleportWritten = new();
         private static float _teleportMultiplier = NecromancyPolicy.DefaultTeleportDistanceMultiplier;
 
-        // Static analysis (T-011): RaisedMinionSystem.Update adds DeltaTime to RaisedMinionComponent.StuckDuration while
-        // the minion stays within 0.5 m and it is following OR its AiController has a live AttackTargetRef OR it is past
-        // FollowStartDistance; at 3.0 s it teleports behind the owner. A minion standing still to fight met that every
-        // 3 s. Maintainer 2026-11-26: no stuck teleport while fighting. Before Update, clear StuckDuration for minions
-        // whose attack target is alive; the far (> MaxDistanceBeforeTeleport) and height teleports are untouched.
-        // 0.13.4 in game: AiUtils.IsAiControlled(Frame, EntityRef, out AiControllerComponent*) threw
-        // MissingMethodException (UIntPtr..ctor(IntPtr)) in the interop marshaller and the shared error budget then
-        // disabled the whole plugin. Native IsAiControlled 0x5BA51C0 is: TryGet pawn component whose field 0 is the
-        // controller ref (PawnComponent.ControllerRef @0), ExistsAndNotPendingDestruction, TryGet AiControllerComponent
-        // on it. Do the same with Has/Get only, and on any error turn just this hook off.
+        // Boss minions can fight with no AttackTargetRef. Hold the stuck timer while off-follow and in range.
         private static bool _stuckTeleportInCombat;
         private static volatile bool _stuckHoldOff;
         private static int _stuckResets, _stuckLogs;
+        private static readonly HashSet<ulong> StuckHoldMinions = new(); // sim thread; no visual-cache timeout
+        private static Frame _simFrame; // teleport events fire inside RaisedMinionSystem.Update
 
         private static unsafe void BeforeRaisedUpdate(Frame __0)
         {
@@ -712,49 +706,57 @@ namespace Necromancy
                 if (!_enabled || __0 == null) return;
                 _simFrame = __0;
                 if (_stuckTeleportInCombat || _stuckHoldOff) return;
-                foreach (var pair in Minions)
+                bool verified = __0.IsVerified;
+                List<ulong> gone = null;
+                foreach (ulong raw in StuckHoldMinions)
                 {
-                    var minion = new EntityRef { Raw = pair.Key };
-                    if (!EntityRefExtensions.Has<RaisedMinionComponent>(minion, __0)) continue;
+                    var minion = new EntityRef { Raw = raw };
+                    if (!EntityRefExtensions.Has<RaisedMinionComponent>(minion, __0))
+                    {
+                        if (verified) (gone ??= new()).Add(raw);
+                        continue;
+                    }
                     var comp = EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0);
-                    if (comp == null || comp->StuckDuration.RawValue <= 0) continue;
-                    EntityRef target = AttackTarget(__0, minion);
-                    if (!target.IsValid) continue;
+                    if (comp == null || comp->StuckDuration.RawValue <= 0 || comp->IsFollowing.Value != 0) continue;
+                    var ownerTransform = GetSimTransform(__0, comp->Owner);
+                    var minionTransform = GetSimTransform(__0, minion);
+                    if (ownerTransform == null || minionTransform == null) continue;
+                    var owner = ownerTransform->RawPosition;
+                    var pos = minionTransform->RawPosition;
+                    double d3 = NecromancyPolicy.DistanceRaw(owner.X.RawValue, owner.Y.RawValue, owner.Z.RawValue,
+                        pos.X.RawValue, pos.Y.RawValue, pos.Z.RawValue);
+                    if (!OffFollowWithinRange(comp, d3)) continue;
                     long before = comp->StuckDuration.RawValue;
                     comp->StuckDuration = default;
                     int n = Interlocked.Increment(ref _stuckResets);
-                    if (__0.IsVerified && before >= (2L << 16) && Interlocked.Increment(ref _stuckLogs) <= 100)
-                        Write("stuck-teleport held (fighting) entity=" + NecromancyPolicy.EntityLabel(pair.Key) + " stuck=" + (before / 65536.0).ToString("0.##") +
-                              "s target=" + NecromancyPolicy.EntityLabel(target.Raw) + " resets=" + n);
+                    if (verified && before >= (2L << 16) && Interlocked.Increment(ref _stuckLogs) <= 100)
+                        Write("stuck-teleport held (off-follow in range) entity=" + NecromancyPolicy.EntityLabel(raw) +
+                              " stuck=" + (before / 65536.0).ToString("0.##") + "s resets=" + n);
                 }
+                if (gone != null) foreach (ulong raw in gone) StuckHoldMinions.Remove(raw);
             }
             catch (Exception e)
             {
-                _stuckHoldOff = true;   // never spend the plugin-wide error budget on this optional hook
+                _stuckHoldOff = true;
                 Write("stuck-hold ERROR " + e.GetType().Name + ": " + e.Message + "; combat stuck-teleport hold turned off, rest of the plugin unaffected");
             }
         }
 
-        // Same path as native AiUtils.IsAiControlled 0x5BA51C0, with Has/Get only. default = no live attack target.
-        private static unsafe EntityRef AttackTarget(Frame f, EntityRef minion)
-        {
-            if (!EntityRefExtensions.Has<PawnComponent>(minion, f)) return default;
-            var pawn = EntityRefExtensions.Get<PawnComponent>(minion, f);
-            if (pawn == null) return default;
-            EntityRef controller = pawn->ControllerRef;
-            if (!controller.IsValid || !EntityRefExtensions.Has<AiControllerComponent>(controller, f)) return default;
-            var ai = EntityRefExtensions.Get<AiControllerComponent>(controller, f);
-            if (ai == null || !EntityRefExtensions.ExistsAndNotPendingDestruction(ai->AttackTargetRef, f)) return default;
-            return ai->AttackTargetRef;
-        }
+        private static unsafe TransformComponent* GetSimTransform(Frame f, EntityRef entity) =>
+            entity.IsValid && EntityRefExtensions.Has<TransformComponent>(entity, f)
+                ? EntityRefExtensions.Get<TransformComponent>(entity, f) : null;
 
-        // 0.15.2 playtest: a minion was only registered when GetMinionFormationSlot first ran for it (27 s after the
-        // raise), so the combat hold could not see it. Register on the native spawn event instead.
-        private static Frame _simFrame;   // frame of the RaisedMinionSystem.Update in progress (teleport events fire inside it)
+        private static unsafe bool OffFollowWithinRange(RaisedMinionComponent* comp, double ownerDist) =>
+            comp->IsFollowing.Value == 0 && ownerDist <= comp->MaxDistanceBeforeTeleport.RawValue / 65536.0;
 
         private static void AfterMinionSpawned(EntityRef __0)
         {
-            try { if (_enabled && __0.IsValid) Minions[__0.Raw] = Environment.TickCount64; }
+            try
+            {
+                if (!_enabled || !__0.IsValid) return;
+                Minions[__0.Raw] = Environment.TickCount64;
+                if (!_stuckTeleportInCombat && !_stuckHoldOff) StuckHoldMinions.Add(__0.Raw);
+            }
             catch (Exception e) { Write("spawn-register ERROR " + e.GetType().Name + ": " + e.Message); }
         }
 
@@ -767,23 +769,24 @@ namespace Necromancy
             if (f == null || !EntityRefExtensions.Has<RaisedMinionComponent>(minion, f)) return "state=?";
             var comp = EntityRefExtensions.Get<RaisedMinionComponent>(minion, f);
             if (comp == null) return "state=?";
-            EntityRef owner = comp->Owner;
-            string where = "";
+            var t = GetSimTransform(f, comp->Owner);
+            string where = " offFollowWithinRange=?";
             string branch = comp->StuckDuration.RawValue >= (3L << 16) ? "stuck" : "?";
-            if (owner.IsValid && EntityRefExtensions.Has<Transform3D>(owner, f))
+            if (t != null)
             {
-                var t = EntityRefExtensions.Get<Transform3D>(owner, f);
-                double dx = (from.X.RawValue - t->Position.X.RawValue) / 65536.0, dy = (from.Y.RawValue - t->Position.Y.RawValue) / 65536.0,
-                       dz = (from.Z.RawValue - t->Position.Z.RawValue) / 65536.0;
+                var owner = t->RawPosition;
+                double dx = (from.X.RawValue - owner.X.RawValue) / 65536.0, dy = (from.Y.RawValue - owner.Y.RawValue) / 65536.0,
+                       dz = (from.Z.RawValue - owner.Z.RawValue) / 65536.0;
                 double d3 = Math.Sqrt(dx * dx + dy * dy + dz * dz), dh = Math.Sqrt(dx * dx + dz * dz);
                 double maxD = comp->MaxDistanceBeforeTeleport.RawValue / 65536.0, start = comp->FollowStartDistance.RawValue / 65536.0;
                 if (d3 > maxD) branch = "far";
-                else if (Math.Abs(dy) > 3.0 && dh > start) branch = "height";
-                where = " ownerDist=" + d3.ToString("0.#") + " horiz=" + dh.ToString("0.#") + " dy=" + dy.ToString("0.#") +
+                else if (branch != "stuck" && Math.Abs(dy) > 3.0 && dh > start) branch = "height";
+                where = " offFollowWithinRange=" + OffFollowWithinRange(comp, d3) +
+                        " ownerDist=" + d3.ToString("0.#") + " horiz=" + dh.ToString("0.#") + " dy=" + dy.ToString("0.#") +
                         " max=" + maxD.ToString("0.#") + " followStart=" + start.ToString("0.#");
             }
-            return "branch=" + branch + " stuck=" + (comp->StuckDuration.RawValue / 65536.0).ToString("0.##") + "s following=" + (comp->IsFollowing.Value != 0) +
-                   " target=" + AttackTarget(f, minion).IsValid + where;
+            return "branch=" + branch + " stuck=" + (comp->StuckDuration.RawValue / 65536.0).ToString("0.##") +
+                   "s following=" + (comp->IsFollowing.Value != 0) + where;
         }
 
         // Logs each native RaisedMinionSystem teleport (raised through Frame.FrameEvents). Predicted frames can raise

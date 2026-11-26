@@ -14,6 +14,8 @@ var layoutFields = new[]
     (Type: "Il2CppQuantum.Damage", Field: "Proxy", FieldType: "Il2CppQuantum.PayloadProxyGroup", Offset: 0xb8),
     (Type: "Il2CppQuantum.DamageResponse", Field: "Type", FieldType: "Il2CppQuantum.DamagePayloadResponseType", Offset: 8),
     (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "Owner", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x10),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "MaxDistanceBeforeTeleport", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x50),
+    (Type: "Il2CppQuantum.TransformComponent", Field: "RawPosition", FieldType: "Il2CppPhoton.Deterministic.FPVector3", Offset: 0x08),
     (Type: "Il2CppQuantum.ProjectileComponent", Field: "InstigatorRef", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x30),
     (Type: "Il2CppQuantum.CascadeInstanceComponent", Field: "Caster", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x40)
 };
@@ -67,7 +69,7 @@ foreach (var entry in nativeEntrypoints)
     Check(methods.Count(m => m.Type == entry.Type && m.Method == entry.Name && m.Return == entry.Return &&
         m.Static == entry.Static && m.Args.SequenceEqual(entry.Args)) == 1, "native damage entry " + entry.Type + "." + entry.Name);
 foreach (var field in layoutFields)
-    Check(layouts.Contains(field), "native damage layout " + field.Type + "." + field.Field);
+    Check(layouts.Contains(field), "native field layout " + field.Type + "." + field.Field);
 
 foreach (string t in new[] { "Il2CppQuantum.CorpseMarkerSystem", "Il2CppQuantum.RaisedMinionSystem" })
     Check(methods.Any(m => m.Type == t && m.Method == ".ctor" && m.Args.Length == 0), t + " has parameterless constructor");
@@ -88,7 +90,6 @@ Check(NecromancyPolicy.ScaledTeleportRaw(20L << 16, 3f) == 60L << 16 && Necroman
 Check(NecromancyPolicy.EntityLabel(9223372084099418004UL) == "E.01940.011" && NecromancyPolicy.EntityLabel(9223372118459156023UL) == "E.01591.019",
       "entity label matches the Unity log form E.index.version");
 Check(types.Contains("Il2CppQuantum.UseNavDataComponent") && types.Contains("Il2CppQuantum.CorpseMarkerComponent"), "UseNavDataComponent / CorpseMarkerComponent exist");
-Check(types.Contains("Il2CppQuantum.PawnComponent") && types.Contains("Il2CppQuantum.AiControllerComponent"), "PawnComponent / AiControllerComponent exist for the combat stuck hold");
 Check(Math.Abs(NecromancyPolicy.DistanceRaw(0, 0, 0, 3L << 16, 0, 4L << 16) - 5) < 1e-9, "teleport log distance: 16.16 vector length");
 Check(NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 264, 16, 4, 8) && !NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 200, 16, 4, 8) &&
       !NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 264, 16, 14, 8) && !NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 264, 12, 4, 8) &&

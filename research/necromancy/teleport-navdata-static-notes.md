@@ -14,7 +14,11 @@ Source: GameAssembly.dll disassembled with capstone. RVAs come from the Cpp2IL d
   - If the minion is still within 0.5 m (0x8000) of LastCheckedPosition, `StuckDuration += DeltaTime`. Otherwise both reset.
   - At `StuckDuration >= 3.0` (0x30000), it teleports to `ownerPos - ownerForward * FollowStopDistance`, ground-snapped by a VerticalRaycast from 2 m above (10 m length). The event fires at 0x5B4A229.
 - The far teleport targets the same point, ground-snapped with Physics.Raycast down. The event fires at 0x5B4AE2D.
-- Both paths write Transform3D position directly and do not touch UseNavDataComponent.
+- Both paths write `TransformComponent.RawPosition` (+0x08) directly and do not touch UseNavDataComponent. Update loads `Owner` at 0x5B49BBC, then reads the owner's transform position at 0x5B49CD5/+0x08 and 0x5B49CD9/+0x18. `TransformComponent.get_Position` (0x27044E0) reads the same offsets.
+
+## 0.13.7 stuck hold
+- Update validates and assigns `AiControllerComponent.AttackTargetRef` (+0x30) after the stuck check, through `IsTargetStillValid`, `TryGetOwnerTarget`, and `TryFindNearbyEnemy` (0x5B4A28E, 0x5B4A2BF, 0x5B4A388). None establishes an independent combat state for Warrick. `UpdateBehaviorTree` checks that same ref at 0x5B0AD98 and clears `LastCombatActivityTimestamp` (+0x78) at 0x5B0ADAD if absent. An active attack alone would miss gaps between attacks.
+- Use the off-follow fallback: when `IsFollowing` (+0x04) is false and 3D owner distance is at most `MaxDistanceBeforeTeleport` (+0x50), clear only `StuckDuration` (+0x70) in the prefix. The far and height checks at 0x5B49E43 and 0x5B49E5B run before the stuck timer and are unaffected.
 
 ## Where the component values come from
 RaiseMinionActionData.SpawnMinion 0x5A67800 copies the asset fields into a stack struct at 0x5A67E63 to 0x5A67EE0 (asset 0x1B8 goes to comp+0x50). It adds the component once at 0x5A680AA, only if the entity does not already have one. Update only reads the component copy.
