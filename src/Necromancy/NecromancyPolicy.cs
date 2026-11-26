@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.11.1";
+        internal const string Version = "0.12.0";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -68,6 +68,7 @@ namespace Necromancy
             ("Il2CppMoon.Forsaken.RaisedMinionVisualEffect", "ApplyTintEffect", new string[0], "Void"),
             ("Il2CppQuantum.HealthSystem", "UpdateEnemyHealthRegen", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.HealthComponent*" }, "Void"),
             ("Il2CppQuantum.CorpseMarkerSystem", "OnNpcDied", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.Damage", "Il2CppQuantum.DamageResponse", "System.Int32" }, "Void"),
+            ("Il2CppMoon.Forsaken.CharacterViewEffects", "OnDamageResolved", new[] { "Il2CppQuantum.EventDamageResolved" }, "Void"),
             ("Il2CppQuantum.TeamUtils", "AreAllies", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.EntityRef" }, "System.Boolean"),
             ("Il2CppQuantum.RunesAPI+Weapon", "IsRuneCompatible", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.WeaponComponent*", "Il2CppQuantum.HeroRuneData" }, "System.Boolean"),
         };
@@ -79,6 +80,24 @@ namespace Necromancy
             foreach (string name in RequiredSystems) if (!present.Contains(name)) missing.Add(name);
             return missing.ToArray();
         }
+
+        // Shipped team assets (Assets/quantumAssetDatabase/teams). Players and PlayersNoFF differ only in HasFriendlyFire.
+        internal const long TeamPlayers = 3356349825642775935;      // HasFriendlyFire = true
+        internal const long TeamPlayersNoFF = 1448319240138723968;  // HasFriendlyFire = false
+        internal const long TeamPets = 3854117583988179113;
+        internal const long TeamEnemies = 370725232116713263;
+        internal const string TeamModePlayersNoFF = "players_noff";
+        internal const string TeamModeNative = "native";
+
+        // Team a raised minion should be moved to, or 0 to leave it. Only a minion on the player team moves.
+        internal static long MinionTeamTarget(string mode, long currentTeam) =>
+            mode == TeamModePlayersNoFF && currentTeam == TeamPlayers ? TeamPlayersNoFF : 0;
+
+        internal static string TeamName(long team) => team switch
+        {
+            TeamPlayers => "Players", TeamPlayersNoFF => "PlayersNoFF", TeamPets => "Pets", TeamEnemies => "Enemies", 0 => "none",
+            _ => team.ToString(),
+        };
 
         // The shipped raise data has no minion lifetime; this is the plugin's default (0 = unlimited).
         internal const int DefaultMinionLifetimeSeconds = 600;   // maintainer 2026-11-26: 120 s was too short for boss rush

@@ -344,18 +344,84 @@ namespace Necromancy
                 Patch(visualHarmony, typeof(RaisedMinionSystem), "GetMinionFormationSlot", new[] { typeof(Frame), typeof(EntityRef), typeof(EntityRef) },
                     nameof(AfterFormationSlot), typeof(int));
                 Patch(visualHarmony, typeof(Il2CppMoon.Forsaken.RaisedMinionVisualEffect), "ApplyTintEffect", Type.EmptyTypes, nameof(AfterApplyTint));
+                try
+                {
+                    Patch(visualHarmony, typeof(Il2CppMoon.Forsaken.CharacterViewEffects), "OnDamageResolved", new[] { typeof(EventDamageResolved) },
+                        nameof(AfterCharacterDamageResolvedInstance));
+                    Write("minion hit diagnostics installed");
+                }
+                catch (Exception e) { Write("minion hit diagnostics FAILED " + e.GetType().Name + ": " + e.Message); }
                 _visualsOn = true;
                 Write("minion-visuals hooks installed");
             }
             catch (Exception e) { visualHarmony.UnpatchSelf(); Write("minion-visuals hook FAILED " + e.GetType().Name + ": " + e.Message); }
         }
 
-        private static void AfterFormationSlot(Frame __0, EntityRef __2)
+        private static void AfterFormationSlot(Frame __0, EntityRef __1, EntityRef __2)
         {
             if (__0 == null || !__2.IsValid) return;
             Minions[__2.Raw] = Environment.TickCount64;
             if (__0.IsVerified && !MinionBirth.ContainsKey(__2.Raw) && !Expired.Contains(__2.Raw))
                 MinionBirth[__2.Raw] = __0.TimeSinceStart.RawValue;
+            if (__0.IsVerified && !TeamChecked.Contains(__2.Raw)) { TeamChecked.Add(__2.Raw); try { SetMinionTeam(__0, __1, __2); } catch (Exception e) { Error("minion-team", e); } }
+        }
+
+        // ---- minion team (T-006) ------------------------------------------------------------
+        // Raised minions join the hero team (teamDataPlayers, HasFriendlyFire=true), so their hits on the
+        // hero and the hero's on them go through friendly fire. teamDataPlayersNoFF is the shipped player
+        // team without friendly fire. Only the minion's TeamComponent.Data is changed; damage code is untouched.
+
+        private static readonly HashSet<ulong> TeamChecked = new();   // sim thread only
+        private static string _teamMode = NecromancyPolicy.TeamModePlayersNoFF;
+
+        private static unsafe long ReadTeam(Frame f, EntityRef e)
+        {
+            if (!e.IsValid || !EntityRefExtensions.Has<TeamComponent>(e, f)) return 0;
+            var t = EntityRefExtensions.Get<TeamComponent>(e, f);
+            return t == null ? 0 : t->Data.Id.Value;
+        }
+
+        private static unsafe void SetMinionTeam(Frame f, EntityRef owner, EntityRef minion)
+        {
+            long minionTeam = ReadTeam(f, minion), ownerTeam = ReadTeam(f, owner);
+            long target = NecromancyPolicy.MinionTeamTarget(_teamMode, minionTeam);
+            if (target == 0)
+            {
+                Write("minion-team keep entity=" + minion.Raw + " team=" + NecromancyPolicy.TeamName(minionTeam) + " owner=" + NecromancyPolicy.TeamName(ownerTeam) + " mode=" + _teamMode);
+                return;
+            }
+            var t = EntityRefExtensions.Get<TeamComponent>(minion, f);
+            t->Data = new AssetRefTeamData { Id = new AssetGuid { Value = target } };
+            Write("minion-team SET entity=" + minion.Raw + " " + NecromancyPolicy.TeamName(minionTeam) + " -> " + NecromancyPolicy.TeamName(ReadTeam(f, minion)) +
+                  " (owner " + NecromancyPolicy.TeamName(ownerTeam) + ")");
+        }
+
+        // ---- read-only damage diagnostics (T-006) ---------------------------------------------
+        // CharacterViewEffects.OnDamageResolved receives the resolved event object; nothing here changes damage.
+
+        private static int _hitLogs;
+
+        private static void AfterCharacterDamageResolvedInstance(EventDamageResolved __0) => AfterCharacterDamageResolved(__0);
+
+        private static void AfterCharacterDamageResolved(EventDamageResolved e)
+        {
+            if (e == null || !_enabled) return;
+            try
+            {
+                ulong hit = e.HitEntity.Raw, hero = unchecked((ulong)Interlocked.Read(ref _heroRaw));
+                var proxy = e.Damage.Proxy;
+                EntityRef main = proxy.Main, team = default;
+                proxy.TryGetTeamProxy(out team);
+                bool hitMinion = Minions.ContainsKey(hit), srcMinion = Minions.ContainsKey(main.Raw) || Minions.ContainsKey(team.Raw);
+                if (!hitMinion && !srcMinion) return;
+                bool hitHero = hit == hero, srcHero = main.Raw == hero || team.Raw == hero;
+                if (!(hitHero || srcHero || (hitMinion && srcMinion))) return;   // minion vs enemy is expected damage
+                if (Interlocked.Increment(ref _hitLogs) > 40) return;
+                Write("HIT " + (hitHero ? "hero" : hitMinion ? "minion" : "other") + "=" + hit + " by " +
+                      (srcHero ? "hero" : srcMinion ? "minion" : "other") + "=" + main.Raw + " taken=" + (e.Response.AmountTaken.RawValue / 65536.0).ToString("0.##") +
+                      " type=" + e.Response.Type);
+            }
+            catch (Exception ex) { Error("hit-log", ex); }
         }
 
         private static void AfterApplyTint(Il2CppMoon.Forsaken.RaisedMinionVisualEffect __instance)
@@ -419,6 +485,10 @@ namespace Necromancy
             var entry = category.CreateEntry("minion_lifetime_seconds", NecromancyPolicy.DefaultMinionLifetimeSeconds,
                 description: "Seconds a raised minion stays before it falls; 0 = until killed (original data has no limit).");
             _lifetimeSeconds = Math.Max(0, entry.Value);
+            var teamEntry = category.CreateEntry("minion_team", NecromancyPolicy.TeamModePlayersNoFF,
+                description: "players_noff = move raised minions from the player team to the shipped no-friendly-fire player team; native = leave the team unchanged.");
+            _teamMode = (teamEntry.Value ?? "").Trim().ToLowerInvariant();
+            Write("minion_team=" + _teamMode);
             var h = new HarmonyLib.Harmony("NRFW.Necromancy.MinionLifecycle");
             try
             {
@@ -491,7 +561,7 @@ namespace Necromancy
         // Raised minions and heroes (or two minions) count as allies for damage. Hero-vs-hero keeps the
         // native result, so co-op/PvP friendly fire between players is untouched.
 
-        private static int _allyLogs;
+        private static int _allyLogs, _nativeAllyLogs;
 
         private static void InstallMinionFriendlyFire()
         {
@@ -509,7 +579,14 @@ namespace Necromancy
 
         private static void AfterAreAllies(Frame __0, EntityRef __1, EntityRef __2, ref bool __result)
         {
-            if (__result || !_enabled || __0 == null || !__1.IsValid || !__2.IsValid) return;
+            if (__result)
+            {
+                if (_nativeAllyLogs < 10 && __0 != null && __0.IsVerified && (Minions.ContainsKey(__1.Raw) || Minions.ContainsKey(__2.Raw)) &&
+                    Interlocked.Increment(ref _nativeAllyLogs) <= 10)
+                    Write("AreAllies native=true hit=" + __1.Raw + (Minions.ContainsKey(__1.Raw) ? "(minion)" : "") + " source=" + __2.Raw + (Minions.ContainsKey(__2.Raw) ? "(minion)" : ""));
+                return;
+            }
+            if (!_enabled || __0 == null || !__1.IsValid || !__2.IsValid) return;
             try
             {
                 bool aMinion = EntityRefExtensions.Has<RaisedMinionComponent>(__1, __0);

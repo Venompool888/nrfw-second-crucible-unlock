@@ -44,6 +44,12 @@ Check(!NecromancyPolicy.LifetimeExpired(0, 119L << 16, 120) && NecromancyPolicy.
       NecromancyPolicy.LifetimeExpired(10L << 16, 130L << 16, 120) && !NecromancyPolicy.LifetimeExpired(0, 1000L << 16, 0) &&
       !NecromancyPolicy.LifetimeExpired(50L << 16, 10L << 16, 120), "minion lifetime: 16.16 seconds, 0 disables, clock going backwards never expires");
 Check(methods.Count(m => m.Type == "Il2CppQuantum.DamageAPI" && m.Method == "Kill" && m.Args.Length == 8) == 1, "DamageAPI.Kill(8 args) exists for lifetime expiry");
+Check(NecromancyPolicy.MinionTeamTarget("players_noff", NecromancyPolicy.TeamPlayers) == NecromancyPolicy.TeamPlayersNoFF &&
+      NecromancyPolicy.MinionTeamTarget("players_noff", NecromancyPolicy.TeamEnemies) == 0 && NecromancyPolicy.MinionTeamTarget("players_noff", 0) == 0 &&
+      NecromancyPolicy.MinionTeamTarget("native", NecromancyPolicy.TeamPlayers) == 0 && NecromancyPolicy.MinionTeamTarget("players_noff", NecromancyPolicy.TeamPlayersNoFF) == 0,
+      "minion team: only a Players-team minion moves to PlayersNoFF, and only in players_noff mode");
+Check(methods.Count(m => m.Type == "Il2CppQuantum.TeamComponent") > 0 && methods.Any(m => m.Type == "Il2CppQuantum.EventDamageResolved" && m.Method == "get_Response"),
+      "TeamComponent and EventDamageResolved.Response exist");
 Check(NecromancyPolicy.MinionPairIsAllied(true, false, false, true) && NecromancyPolicy.MinionPairIsAllied(false, true, true, false) &&
       NecromancyPolicy.MinionPairIsAllied(true, false, true, false) && !NecromancyPolicy.MinionPairIsAllied(false, true, false, true) &&
       !NecromancyPolicy.MinionPairIsAllied(true, false, false, false) && !NecromancyPolicy.MinionPairIsAllied(false, false, true, false),
