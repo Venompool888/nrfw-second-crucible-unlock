@@ -503,6 +503,80 @@ namespace Necromancy
                 Write("minion friendly-fire hook installed");
             }
             catch (Exception e) { ffHarmony.UnpatchSelf(); Write("minion friendly-fire hook FAILED " + e.GetType().Name + ": " + e.Message); }
+            // 0.10.0 playtest: raised minions are on the hero team, so AreAllies was already true and the hit went
+            // through the friendly-fire coefficient instead. Gate the damage itself.
+            var dmgHarmony = new HarmonyLib.Harmony("NRFW.Necromancy.MinionDamageGate");
+            try
+            {
+                Patch(dmgHarmony, typeof(DamageAPI), "IgnoreDamageRequest", new[] { typeof(Frame), typeof(Damage).MakeByRefType() },
+                    nameof(AfterIgnoreDamageRequest), typeof(bool));
+                Write("minion damage-request gate installed");
+            }
+            catch (Exception e) { Write("minion damage-request gate FAILED " + e.GetType().Name + ": " + e.Message); }
+            try
+            {
+                Patch(dmgHarmony, typeof(DamageResolverSystem), "GetFriendlyFireCoefficient",
+                    new[] { typeof(Frame), typeof(Damage).MakeByRefType(), typeof(StatsComponent).MakePointerType() },
+                    nameof(AfterFriendlyFireCoefficient), typeof(Il2CppPhoton.Deterministic.FP));
+                Write("minion friendly-fire coefficient gate installed");
+            }
+            catch (Exception e) { Write("minion friendly-fire coefficient gate FAILED " + e.GetType().Name + ": " + e.Message); }
+        }
+
+        private static int _gateLogs, _coefLogs, _seenLogs;
+
+        private static (bool minion, bool hero) Side(Frame f, EntityRef e) =>
+            !e.IsValid ? (false, false)
+                : (EntityRefExtensions.Has<RaisedMinionComponent>(e, f), EntityRefExtensions.Has<HeroComponent>(e, f));
+
+        // Source side: any of the main / team / stats proxies being a minion (or hero) counts.
+        private static (bool minion, bool hero, ulong main) SourceSide(Frame f, ref Damage damage)
+        {
+            var proxy = damage.Proxy;
+            EntityRef main = proxy.Main, team = default, stats = default;
+            proxy.TryGetTeamProxy(out team);
+            proxy.TryGetStatsProxy(out stats);
+            var a = Side(f, main); var b = Side(f, team); var c = Side(f, stats);
+            return (a.minion || b.minion || c.minion, a.hero || b.hero || c.hero, main.Raw);
+        }
+
+        private static bool BlockedPair(Frame f, ref Damage damage, out string text)
+        {
+            text = null;
+            var hit = Side(f, damage.HitEntity);
+            var src = SourceSide(f, ref damage);
+            if (!hit.minion && !src.minion) return false;   // no minion involved: native result stands
+            bool blocked = NecromancyPolicy.MinionPairIsAllied(hit.minion, hit.hero, src.minion, src.hero);
+            text = "hit=" + damage.HitEntity.Raw + (hit.minion ? "(minion)" : hit.hero ? "(hero)" : "(other)") +
+                   " source=" + src.main + (src.minion ? "(minion)" : src.hero ? "(hero)" : "(other)");
+            if (!blocked && f.IsVerified && Interlocked.Increment(ref _seenLogs) <= 10) Write("damage minion-pair allowed " + text);
+            return blocked;
+        }
+
+        private static void AfterIgnoreDamageRequest(Frame __0, ref Damage __1, ref bool __result)
+        {
+            if (__result || !_enabled || __0 == null) return;
+            try
+            {
+                if (!BlockedPair(__0, ref __1, out string text)) return;
+                __result = true;
+                if (__0.IsVerified && Interlocked.Increment(ref _gateLogs) <= 20) Write("damage IGNORED (minion pair) " + text);
+            }
+            catch (Exception e) { Error("damage-gate", e); }
+        }
+
+        private static void AfterFriendlyFireCoefficient(Frame __0, ref Damage __1, ref Il2CppPhoton.Deterministic.FP __result)
+        {
+            if (!_enabled || __0 == null || __result.RawValue == 0) return;
+            try
+            {
+                if (!BlockedPair(__0, ref __1, out string text)) return;
+                long before = __result.RawValue;
+                __result = Il2CppPhoton.Deterministic.FP.FromRaw(0);
+                if (__0.IsVerified && Interlocked.Increment(ref _coefLogs) <= 20)
+                    Write("friendly-fire coefficient " + (before / 65536.0).ToString("0.###") + " -> 0 " + text);
+            }
+            catch (Exception e) { Error("ff-coefficient", e); }
         }
 
         private static void AfterAreAllies(Frame __0, EntityRef __1, EntityRef __2, ref bool __result)

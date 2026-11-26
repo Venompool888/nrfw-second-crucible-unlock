@@ -8,7 +8,7 @@
 2. **宝典可镶死灵符文**：后缀挂 `RunesAPI.Weapon.IsRuneCompatible` 的两个重载，只放行「治疗宝典（或无类别武器）+ 三枚死灵符文」，其他组合保持原判定。
 3. **按角色发放（每个角色一次）**：`grant_character` 填的角色读档约 5 秒后，背包里没有治疗宝典就新建一本金色宝典，再把三枚符文直接写进它的符文槽 1–3（运行时先核对原生布局，不符就不写），然后请求 `ArmamentReload`；背包里没有散装符文时各补发 1 枚。发过的角色名记进 `granted_characters`。
 4. **随从着色**：从 `RaisedMinionSystem.GetMinionFormationSlot` 记下随从实体，在主线程给它的 `EntityView` 补挂原版的 `RaisedMinionVisualEffect`（敌人模型上原本没有这个组件）。
-5. **随从不误伤**：后缀挂 `TeamUtils.AreAllies`，一方是随从、另一方是玩家或随从时判为盟友；玩家与玩家保持原判定。
+5. **随从不误伤**：随从在玩家阵营里，伤害走的是友伤系数。后缀挂 `DamageAPI.IgnoreDamageRequest`（从 `Damage.Proxy` 的主／阵营／属性代理判断来源）忽略随从↔玩家、随从↔随从的伤害，`DamageResolverSystem.GetFriendlyFireCoefficient` 同样情况置 0 兜底；`TeamUtils.AreAllies` 也按同规则判盟友。玩家与玩家保持原判定。
 6. **随从不自动回满、可选时限**：前缀挂 `HealthSystem.UpdateEnemyHealthRegen`，对随从跳过敌人脱战回血。原版数据没有随从时限；`minion_lifetime_seconds` 到时用 `DamageAPI.Kill` 结束随从，`CorpseMarkerSystem.OnNpcDied` 对到期随从不留尸体。
 7. **诊断日志**：写入 `UserData/NRFWNecromancy.log` 和 MelonLoader 日志的 `[necromancy]` 行。
 
@@ -29,7 +29,7 @@
 [NRFWNecromancy]
 grant_character = "你的角色名"
 granted_characters = ""
-minion_lifetime_seconds = 120
+minion_lifetime_seconds = 600
 ```
 
 - `grant_character` 默认为空，即不发放；填上角色名（不区分大小写）才会给这个角色发。
