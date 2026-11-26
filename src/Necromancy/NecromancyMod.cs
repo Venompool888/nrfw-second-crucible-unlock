@@ -128,7 +128,9 @@ namespace Necromancy
             {
                 Found.Clear(); Added.Clear(); _enableChecks = 0; _heroFrames = 0;
                 RaisedDamageOwners.Clear();
+                MinionLastDamage.Clear();
                 StuckHoldMinions.Clear();
+                HeldStuck.Clear();
                 _damageProtectionLogs = 0;
                 var present = new HashSet<string>();
                 foreach (var system in __result) Collect(system, present, 0);
@@ -170,9 +172,17 @@ namespace Necromancy
                 EnsureEnabled(__0);
                 if (_grantRequested && !_grantDone) TryGrant(__0);
                 TickLifetime(__0);
-                LogRoster(__0);
             }
-            catch (Exception e) { Error("end-of-frame", e); }
+            catch (Exception e) { Error("end-of-frame", e); return; }
+
+            if (_rosterOff) return;
+            try { LogRoster(__0); }
+            catch (Exception e)
+            {
+                _rosterOff = true;
+                if (Interlocked.Increment(ref _rosterErrors) <= 3)
+                    Write("roster ERROR " + e.GetType().Name + ": " + e.Message);
+            }
         }
 
         private static void EnsureEnabled(Frame f)
@@ -642,8 +652,10 @@ namespace Necromancy
             }
             catch (Exception e) { Write("nav-attachment probe FAILED " + e.GetType().Name + ": " + e.Message); }
             var stuckEntry = category.CreateEntry("minion_stuck_teleport_in_combat", false,
-                description: "false = prevent stuck teleports while a minion is not following and is within its teleport range. Far and height teleports are unchanged.");
+                description: "false = hold stuck teleports while a minion is not following and is within its teleport range, subject to the hold cap. Far and height teleports are unchanged.");
             _stuckTeleportInCombat = stuckEntry.Value;
+            _stuckHoldMaxSeconds = category.CreateEntry("minion_stuck_hold_max_seconds", 10,
+                description: "Seconds to hold stuck teleports without a hit in the last 5 seconds; 0 = unlimited.").Value;
             try
             {
                 PatchPrefix(h, typeof(RaisedMinionSystem), "Update", new[] { typeof(Frame) }, nameof(BeforeRaisedUpdate), typeof(void));
@@ -692,11 +704,11 @@ namespace Necromancy
         private static readonly Dictionary<IntPtr, long> TeleportWritten = new();
         private static float _teleportMultiplier = NecromancyPolicy.DefaultTeleportDistanceMultiplier;
 
-        // Boss minions can fight with no AttackTargetRef. Hold the stuck timer while off-follow and in range.
         private static bool _stuckTeleportInCombat;
         private static volatile bool _stuckHoldOff;
-        private static int _stuckResets, _stuckLogs;
+        private static int _stuckResets, _stuckLogs, _stuckHoldMaxSeconds;
         private static readonly HashSet<ulong> StuckHoldMinions = new(); // sim thread; no visual-cache timeout
+        private static readonly Dictionary<ulong, (long Duration, bool Released)> HeldStuck = new();
         private static Frame _simFrame; // teleport events fire inside RaisedMinionSystem.Update
 
         private static unsafe void BeforeRaisedUpdate(Frame __0)
@@ -718,7 +730,10 @@ namespace Necromancy
                         continue;
                     }
                     var comp = EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0);
-                    if (comp == null || comp->StuckDuration.RawValue <= 0 || comp->IsFollowing.Value != 0) continue;
+                    if (comp == null) continue;
+                    long before = comp->StuckDuration.RawValue;
+                    if (before == 0) HeldStuck.Remove(raw);
+                    if (before <= 0 || comp->IsFollowing.Value != 0) continue;
                     var ownerTransform = GetSimTransform(__0, comp->Owner);
                     var minionTransform = GetSimTransform(__0, minion);
                     if (ownerTransform == null || minionTransform == null) continue;
@@ -726,15 +741,33 @@ namespace Necromancy
                     var pos = minionTransform->RawPosition;
                     double d3 = NecromancyPolicy.DistanceRaw(owner.X.RawValue, owner.Y.RawValue, owner.Z.RawValue,
                         pos.X.RawValue, pos.Y.RawValue, pos.Z.RawValue);
-                    if (!OffFollowWithinRange(comp, d3)) continue;
-                    long before = comp->StuckDuration.RawValue;
+                    bool withinRange = d3 <= comp->MaxDistanceBeforeTeleport.RawValue / 65536.0;
+                    if (!withinRange) continue;
+                    HeldStuck.TryGetValue(raw, out var held);
+                    held.Duration += __0.DeltaTime.RawValue;
+                    long? lastHit = MinionLastDamage.TryGetValue(raw, out long hit) ? hit : null;
+                    if (!NecromancyPolicy.ShouldHoldStuckTeleport(comp->IsFollowing.Value != 0, withinRange,
+                        held.Duration, _stuckHoldMaxSeconds, __0.TimeSinceStart.RawValue, lastHit))
+                    {
+                        if (!held.Released)
+                            Write("stuck-teleport released (no progress " + (held.Duration / 65536.0).ToString("0.##") +
+                                  "s, no hits) entity=" + NecromancyPolicy.EntityLabel(raw));
+                        HeldStuck[raw] = (held.Duration, true);
+                        continue;
+                    }
+                    HeldStuck[raw] = held;
                     comp->StuckDuration = default;
                     int n = Interlocked.Increment(ref _stuckResets);
                     if (verified && before >= (2L << 16) && Interlocked.Increment(ref _stuckLogs) <= 100)
                         Write("stuck-teleport held (off-follow in range) entity=" + NecromancyPolicy.EntityLabel(raw) +
                               " stuck=" + (before / 65536.0).ToString("0.##") + "s resets=" + n);
                 }
-                if (gone != null) foreach (ulong raw in gone) StuckHoldMinions.Remove(raw);
+                if (gone != null) foreach (ulong raw in gone)
+                {
+                    StuckHoldMinions.Remove(raw);
+                    HeldStuck.Remove(raw);
+                    MinionLastDamage.TryRemove(raw, out _);
+                }
             }
             catch (Exception e)
             {
@@ -871,7 +904,8 @@ namespace Necromancy
         // E.index.version form every 5 s of simulation time (and whenever the set changes) so they can be matched.
         private static long _lastRosterRaw;
         private static string _lastRoster = "";
-        private static int _rosterLogs;
+        private static int _rosterLogs, _rosterErrors;
+        private static volatile bool _rosterOff;
 
         private static void LogRoster(Frame f)
         {

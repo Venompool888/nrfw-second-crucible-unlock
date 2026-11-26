@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.13.9";
+        internal const string Version = "0.13.10";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -123,6 +123,11 @@ namespace Necromancy
             if (float.IsNaN(multiplier) || multiplier <= 0f || nativeRaw <= 0) return nativeRaw;
             return (long)System.Math.Round(nativeRaw * (double)System.Math.Min(multiplier, 50f));
         }
+
+        internal static bool ShouldHoldStuckTeleport(bool following, bool withinRange, long heldRaw, int maxSeconds,
+            long nowRaw, long? lastHitRaw) =>
+            !following && withinRange && (maxSeconds == 0 || heldRaw < ((long)maxSeconds << 16) ||
+                (lastHitRaw is long hit && hit <= nowRaw && nowRaw - hit <= (5L << 16)));
 
         // Unity/Quantum log form of an EntityRef: E.<index:5>.<version:3> (raw = flag bit 63 | version << 32 | index).
         internal static string EntityLabel(ulong raw) =>

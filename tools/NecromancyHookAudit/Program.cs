@@ -87,6 +87,14 @@ Check(NecromancyPolicy.ScaledTeleportRaw(20L << 16, 3f) == 60L << 16 && Necroman
       NecromancyPolicy.ScaledTeleportRaw(20L << 16, 0f) == 20L << 16 && NecromancyPolicy.ScaledTeleportRaw(20L << 16, float.NaN) == 20L << 16 &&
       NecromancyPolicy.ScaledTeleportRaw(20L << 16, 1000f) == 1000L << 16 && NecromancyPolicy.ScaledTeleportRaw(0, 3f) == 0,
       "teleport distance: 3x of 20 m is 60 m; <=0/NaN keep shipped value; capped at 50x");
+Check(NecromancyPolicy.ShouldHoldStuckTeleport(false, true, 11L << 16, 10, 20L << 16, 16L << 16) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(false, true, 11L << 16, 10, 20L << 16, null) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(false, true, 10L << 16, 10, 20L << 16, 14L << 16) &&
+      NecromancyPolicy.ShouldHoldStuckTeleport(false, true, 9L << 16, 10, 20L << 16, null) &&
+      NecromancyPolicy.ShouldHoldStuckTeleport(false, true, 11L << 16, 0, 20L << 16, null) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(true, true, 0, 0, 20L << 16, 20L << 16) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(false, false, 0, 0, 20L << 16, 20L << 16),
+      "stuck teleport hold: off-follow and in range, recent hit or below cap, 0 uncaps");
 Check(NecromancyPolicy.EntityLabel(9223372084099418004UL) == "E.01940.011" && NecromancyPolicy.EntityLabel(9223372118459156023UL) == "E.01591.019",
       "entity label matches the Unity log form E.index.version");
 Check(types.Contains("Il2CppQuantum.UseNavDataComponent") && types.Contains("Il2CppQuantum.CorpseMarkerComponent"), "UseNavDataComponent / CorpseMarkerComponent exist");
