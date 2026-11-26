@@ -651,9 +651,19 @@ namespace Necromancy
                 ActionData action = null;
                 int owned = 0, commanded = 0;
                 var seen = new List<string>();
+                // Candidates: the component iterator plus the minions this plugin recorded from GetMinionFormationSlot,
+                // in case the interop iterator yields nothing.
+                var candidates = new List<EntityRef>();
+                var keys = new HashSet<ulong>();
+                int fromIterator = 0;
                 foreach (var pair in __0.GetComponentIterator<RaisedMinionComponent>())
+                    if (keys.Add(pair.Entity.Raw)) { candidates.Add(pair.Entity); ++fromIterator; }
+                foreach (var raw in Minions.Keys)
+                    if (keys.Add(raw)) candidates.Add(new EntityRef { Raw = raw });
+                seen.Add("iterator=" + fromIterator + " recorded=" + Minions.Count);
+                foreach (var minion in candidates)
                 {
-                    var minion = pair.Entity;
+                    if (!EntityRefExtensions.Has<RaisedMinionComponent>(minion, __0)) { seen.Add("gone:" + minion.Raw); continue; }
                     // 0.15.4 playtest: the iterator's copied component never matched the hero (owned minions=0);
                     // read Owner through the component pointer like MinionDamage does.
                     var rc = EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0);
