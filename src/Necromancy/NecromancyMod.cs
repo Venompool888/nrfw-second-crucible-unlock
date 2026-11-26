@@ -75,6 +75,7 @@ namespace Necromancy
             if (_enabled) InstallMinionFriendlyFire();
             if (_enabled) InstallRaisedMinionDamageProtection();
             if (_enabled) InstallMinionLifecycle(category);
+            if (_enabled) InstallRoarCommand(category);
             Flush();
         }
 
@@ -129,6 +130,8 @@ namespace Necromancy
                 Found.Clear(); Added.Clear(); _enableChecks = 0; _heroFrames = 0;
                 RaisedDamageOwners.Clear();
                 _damageProtectionLogs = 0;
+                LastRoar.Clear();
+                _resolvedRoarGuid = null;
                 var present = new HashSet<string>();
                 foreach (var system in __result) Collect(system, present, 0);
                 string[] missing = NecromancyPolicy.Missing(present);
@@ -596,6 +599,104 @@ namespace Necromancy
                 }
             }
             catch (Exception e) { Error("minion-visuals", e); }
+        }
+
+        // ---- Warrick roar command ---------------------------------------------------------
+
+        private static readonly Dictionary<ulong, long> LastRoar = new();   // sim thread only; FP raw
+        private static bool _roarEnabled, _roarMissingLogged;
+        private static string _roarGesture, _roarAction;
+        private static long? _resolvedRoarGuid;
+        private static int _gestureLogs;
+
+        private static void InstallRoarCommand(MelonPreferences_Category category)
+        {
+            var h = new HarmonyLib.Harmony("NRFW.Necromancy.RoarAoe");
+            try
+            {
+                _roarGesture = category.CreateEntry("roar_gesture", NecromancyPolicy.DefaultRoarGesture,
+                    description: "Gesture asset GUID or case-insensitive path keyword.").Value;
+                _roarAction = category.CreateEntry("roar_action", NecromancyPolicy.DefaultRoarAction,
+                    description: "Action asset GUID or case-insensitive path keyword.").Value;
+                if (!category.CreateEntry("roar_enabled", true,
+                    description: "Command your raised Warrick minions to use the configured action when you roar.").Value) return;
+                Patch(h, typeof(CommandProcessingSystem), "ExecutePerformGesturePlayerCommand",
+                    new[] { typeof(Frame), typeof(int), typeof(PerformGesturePlayerCommand) }, nameof(AfterGestureCommand));
+                _roarEnabled = true;
+                Write("roar command hook installed");
+            }
+            catch (Exception e)
+            {
+                h.UnpatchSelf();
+                Write("roar command hook FAILED " + e.GetType().Name + ": " + e.Message);
+            }
+        }
+
+        private static unsafe void AfterGestureCommand(Frame __0, int __1, PerformGesturePlayerCommand __2)
+        {
+            // React only in the confirmed command stream, not during prediction/replay.
+            if (!_enabled || !_roarEnabled || __0 == null || !__0.IsVerified) return;
+            try
+            {
+                EntityRef hero = __0.GetPlayerHero(__1);
+                if (!hero.IsValid || hero.Raw != unchecked((ulong)Interlocked.Read(ref _heroRaw))) return;
+                long gestureGuid = __2.GestureData.Id.Value;
+                string path = gestureGuid > 0 ? Asset<CollectableGestureData>(__0, gestureGuid)?.Path : null;
+                bool match = NecromancyPolicy.MatchesRoarAsset(_roarGesture, gestureGuid, path);
+                if (++_gestureLogs <= 60)
+                    Write("gesture GUID=" + gestureGuid + " Path=" + (path ?? "<unresolved>") + " matched=" + (match ? "yes" : "no"));
+                if (!match) return;
+
+                long now = __0.TimeSinceStart.RawValue;
+                ActionData action = null;
+                foreach (var pair in __0.GetComponentIterator<RaisedMinionComponent>())
+                {
+                    var minion = pair.Entity;
+                    if (pair.Component.Owner.Raw != hero.Raw ||
+                        !NecromancyPolicy.IsWarrickNpc(EntityRefExtensions.GetData<NpcData>(minion, __0)?.Guid.Value ?? 0) ||
+                        (LastRoar.TryGetValue(minion.Raw, out long last) && !NecromancyPolicy.LifetimeExpired(last, now, NecromancyPolicy.RoarCooldownSeconds)) ||
+                        !__0.TryGetPointer<ActionComponent>(minion, out var actions)) continue;
+
+                    action ??= ResolveRoarAction(__0);
+                    if (action == null) return;
+                    LastRoar[minion.Raw] = now;
+                    int result = actions->Execute(__0, action, null, false, default, 0, false, true, default);
+                    Write("roar minion entity=" + minion.Raw + " action GUID=" + action.Guid.Value + " Path=" + action.Path + " -> " + result);
+                }
+            }
+            catch (Exception e)
+            {
+                _roarEnabled = false;
+                Write("roar command DISABLED " + e.GetType().Name + ": " + e.Message);
+            }
+        }
+
+        private static ActionData ResolveRoarAction(Frame f)
+        {
+            _resolvedRoarGuid ??= NecromancyPolicy.RoarAssetGuid(_roarAction) ?? FindRoarActionGuid(f);
+            var action = _resolvedRoarGuid > 0 ? Asset<ActionData>(f, _resolvedRoarGuid.Value) : null;
+            if (action == null && !_roarMissingLogged)
+            {
+                _roarMissingLogged = true;
+                Write("roar action not resolved: " + _roarAction);
+            }
+            return action;
+        }
+
+        private static long FindRoarActionGuid(Frame f)
+        {
+            var manager = f.Context.ResourceManager;
+            AssetObjectQuery query = Il2CppInterop.Runtime.Il2CppType.Of<ActionData>();
+            try
+            {
+                while (manager.FindNextAssetGuid(ref query, out var guid))
+                {
+                    var asset = manager.GetAsset(guid);
+                    if (NecromancyPolicy.MatchesRoarAsset(_roarAction, guid.Value, asset?.Path)) return guid.Value;
+                }
+                return 0;
+            }
+            finally { query.Dispose(); }
         }
 
         // ---- minion lifecycle: no enemy auto-regen, optional lifetime ----------------------

@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.14.0";
+        internal const string Version = "0.15.0";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -75,6 +75,8 @@ namespace Necromancy
             ("Il2CppQuantum.Frame+FrameEvents", "RaisedMinionTeleported",
                 new[] { "Il2CppQuantum.EntityRef", "Il2CppPhoton.Deterministic.FPVector3", "Il2CppPhoton.Deterministic.FPVector3", "Il2CppQuantum.AssetGuid" },
                 "Il2CppQuantum.EventRaisedMinionTeleported"),
+            ("Il2CppQuantum.CommandProcessingSystem", "ExecutePerformGesturePlayerCommand",
+                new[] { "Il2CppQuantum.Frame", "System.Int32", "Il2CppQuantum.PerformGesturePlayerCommand" }, "Void"),
         };
 
         // Names of required systems absent from the created tree, in RequiredSystems order.
@@ -127,6 +129,24 @@ namespace Necromancy
         internal const long WarrickEnemyNpc = 670058593051072033;     // npcWarrickEnemy, EnemyType Giant, same AI
         internal const string DefaultMinionNpc = "warrick_boss";
         internal const int DefaultMinionMaxActive = 1;
+
+        internal const string DefaultRoarGesture = "roar";
+        internal const string DefaultRoarAction = "mutantSoldierSwordAOEInnerData";
+        internal const int RoarCooldownSeconds = 3;
+
+        internal static bool IsWarrickNpc(long npc) => npc == WarrickBossNpc || npc == WarrickEnemyNpc;
+
+        // Null denotes a keyword; zero denotes an invalid setting.
+        internal static long? RoarAssetGuid(string setting)
+        {
+            if (string.IsNullOrWhiteSpace(setting)) return 0;
+            return long.TryParse(setting, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture,
+                out long guid) ? System.Math.Max(0, guid) : null;
+        }
+
+        internal static bool MatchesRoarAsset(string setting, long guid, string path) =>
+            guid > 0 && (RoarAssetGuid(setting) is long expected ? guid == expected :
+                path != null && path.IndexOf(setting.Trim(), System.StringComparison.OrdinalIgnoreCase) >= 0);
 
         // "native" -> 0 (keep shipped data); named presets; or a positive NpcData GUID. Anything else -> 0.
         internal static long MinionNpcGuid(string setting)

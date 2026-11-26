@@ -41,6 +41,12 @@ minion_teleport_distance_multiplier = 3
 - `minion_npc`（T-010）：raiseMinion 召出谁。默认 `warrick_boss`（变异者沃里克 npcWarrickBoss `2680182020363611965`）；`warrick_enemy`（npcWarrickEnemy，巨型档，同一套 AI）、`wildling`（原版野人剑士）、`native`（不改原版数据），或直接填 NpcData GUID。目标解析不到 NpcData 时保持原版。revive 不受影响。
 - `minion_max_active`（T-010）：换了召唤目标时 raiseMinion 同时在场上限，默认 1，0 = 原版 5，不会超过原版。沃里克按 Boss 档缩放（生命、伤害 ×0.1）。
 
+### 怒吼指令（T-012）
+
+- `roar_enabled`：默认 `true`。本地角色发表情「怒吼」时，只有自己召出的两种沃里克会放插剑震波；每名随从冷却 3 秒（模拟时间）。
+- `roar_gesture`：默认 `"roar"`。可填表情资产的十进制 GUID 或路径关键字（不区分大小写）。前 60 次本地表情会记录 GUID、路径和是否匹配，认不出「怒吼」时可据此调整。
+- `roar_action`：默认 `"mutantSoldierSwordAOEInnerData"`。可填动作资产的十进制 GUID 或路径关键字（不区分大小写）。找不到资产时只记一次日志，不指挥随从。
+
 ## 构建与离线核验
 
 ```powershell
