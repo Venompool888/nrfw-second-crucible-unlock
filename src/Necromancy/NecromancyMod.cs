@@ -415,8 +415,6 @@ namespace Necromancy
         // Log every hit on the local hero with all source proxies so the real attacker (minion, its projectile or
         // cascade, or an enemy) and the damage TargetGroup are visible. Read-only.
         private static int _heroHitLogs;
-        private static readonly ProxyTypeFlags[] ProxyKinds =
-            { ProxyTypeFlags.Hero, ProxyTypeFlags.Enemy, ProxyTypeFlags.Weapon, ProxyTypeFlags.Projectile, ProxyTypeFlags.Cascade };
 
         private static void AfterHeroDamageResolved(EventDamageResolved __0)
         {
@@ -425,32 +423,67 @@ namespace Necromancy
             {
                 ulong hero = unchecked((ulong)Interlocked.Read(ref _heroRaw));
                 if (hero == 0 || __0.HitEntity.Raw != hero) return;
-                if (Interlocked.Increment(ref _heroHitLogs) > 80) return;
+                if (Interlocked.Increment(ref _heroHitLogs) > 120) return;
                 var damage = __0.Damage;
-                var proxy = damage.Proxy;
-                var parts = new List<string>();
-                bool anyMinion = false;
-                EntityRef main = proxy.Main;
-                anyMinion |= Minions.ContainsKey(main.Raw);
-                parts.Add("main=" + main.Raw + (Minions.ContainsKey(main.Raw) ? "(MINION)" : ""));
-                foreach (var kind in ProxyKinds)
-                {
-                    if (!proxy.TryGetProxyOfType(kind, out EntityRef e) || !e.IsValid) continue;
-                    bool m = Minions.ContainsKey(e.Raw);
-                    anyMinion |= m;
-                    parts.Add(kind + "=" + e.Raw + (m ? "(MINION)" : ""));
-                }
-                if (proxy.TryGetTeamProxy(out EntityRef team) && team.IsValid)
-                {
-                    bool m = Minions.ContainsKey(team.Raw);
-                    anyMinion |= m;
-                    parts.Add("team=" + team.Raw + (m ? "(MINION)" : ""));
-                }
+                string sources = DescribeProxies(__0, hero, out bool anyMinion);
                 Write("HERO HIT taken=" + (__0.Response.AmountTaken.RawValue / 65536.0).ToString("0.##") + " type=" + __0.Response.Type +
                       " group=" + damage.TargetGroup + " flags=" + damage.Flags + " school=" + damage.School +
-                      (anyMinion ? " FROM-MINION" : "") + " " + string.Join(" ", parts));
+                      (anyMinion ? " FROM-MINION" : "") + " " + sources);
             }
             catch (Exception ex) { Error("hero-hit-log", ex); }
+        }
+
+        // 0.13.0 playtest: proxy.Main / TryGetProxyOfType returned 0..4 instead of entity refs. The interop struct
+        // models PayloadProxyGroup's fixed proxy buffer as one element, so the managed copy is truncated. Read the
+        // proxy slots straight from the native event object instead (layout resolved from IL2CPP at runtime).
+        private static int _proxyLayout;   // 0 = unresolved, 1 = ok, -1 = unusable
+        private static int _offDamage, _offProxy, _offSlots, _offSlotIndex, _slotCount;
+
+        private static bool ResolveProxyLayout()
+        {
+            if (_proxyLayout != 0) return _proxyLayout > 0;
+            _proxyLayout = -1;
+            uint align = 0;
+            IntPtr evt = Il2CppInterop.Runtime.Il2CppClassPointerStore<EventDamageResolved>.NativeClassPtr;
+            IntPtr dmg = Il2CppInterop.Runtime.Il2CppClassPointerStore<Damage>.NativeClassPtr;
+            IntPtr ppg = Il2CppInterop.Runtime.Il2CppClassPointerStore<PayloadProxyGroup>.NativeClassPtr;
+            if (evt == IntPtr.Zero || dmg == IntPtr.Zero || ppg == IntPtr.Zero) { Write("proxy layout: class missing"); return false; }
+            IntPtr fDamage = Il2CppInterop.Runtime.IL2CPP.il2cpp_class_get_field_from_name(evt, "Damage");
+            IntPtr fProxy = Il2CppInterop.Runtime.IL2CPP.il2cpp_class_get_field_from_name(dmg, "Proxy");
+            IntPtr fSlots = Il2CppInterop.Runtime.IL2CPP.il2cpp_class_get_field_from_name(ppg, "_m_proxies_");
+            IntPtr fIndex = Il2CppInterop.Runtime.IL2CPP.il2cpp_class_get_field_from_name(ppg, "m_availableProxySlotIndex");
+            if (fDamage == IntPtr.Zero || fProxy == IntPtr.Zero || fSlots == IntPtr.Zero || fIndex == IntPtr.Zero) { Write("proxy layout: field missing"); return false; }
+            int header = 2 * IntPtr.Size;   // value-type field offsets include the object header
+            _offDamage = (int)Il2CppInterop.Runtime.IL2CPP.il2cpp_field_get_offset(fDamage);
+            _offProxy = (int)Il2CppInterop.Runtime.IL2CPP.il2cpp_field_get_offset(fProxy) - header;
+            _offSlots = (int)Il2CppInterop.Runtime.IL2CPP.il2cpp_field_get_offset(fSlots) - header;
+            _offSlotIndex = (int)Il2CppInterop.Runtime.IL2CPP.il2cpp_field_get_offset(fIndex) - header;
+            int ppgSize = Il2CppInterop.Runtime.IL2CPP.il2cpp_class_value_size(ppg, ref align);
+            int damageSize = Il2CppInterop.Runtime.IL2CPP.il2cpp_class_value_size(dmg, ref align);
+            _slotCount = (ppgSize - _offSlots) / 8;
+            bool ok = NecromancyPolicy.ProxyLayoutOk(_offDamage, _offProxy, ppgSize, damageSize, _offSlots, _offSlotIndex, _slotCount);
+            Write("proxy layout " + (ok ? "OK" : "REJECTED") + ": event.Damage@" + _offDamage + " Damage.Proxy@" + _offProxy + " size " + damageSize +
+                  "; proxies@" + _offSlots + " slotIndex@" + _offSlotIndex + " group size " + ppgSize + " slots=" + _slotCount);
+            _proxyLayout = ok ? 1 : -1;
+            return ok;
+        }
+
+        private static string DescribeProxies(EventDamageResolved e, ulong hero, out bool anyMinion)
+        {
+            anyMinion = false;
+            if (!ResolveProxyLayout()) return "sources=?";
+            IntPtr group = IntPtr.Add(e.Pointer, _offDamage + _offProxy);
+            int used = Marshal.ReadInt32(group, _offSlotIndex);
+            var parts = new List<string>();
+            for (int i = 0; i < _slotCount; i++)
+            {
+                ulong raw = unchecked((ulong)Marshal.ReadInt64(group, _offSlots + i * 8));
+                if (raw == 0) continue;
+                bool m = Minions.ContainsKey(raw);
+                anyMinion |= m;
+                parts.Add(i + ":" + raw + (m ? "(MINION)" : raw == hero ? "(HERO)" : ""));
+            }
+            return "used=" + used + " sources=[" + string.Join(" ", parts) + "]";
         }
 
         private static void AfterCharacterDamageResolved(EventDamageResolved e)
@@ -459,17 +492,14 @@ namespace Necromancy
             try
             {
                 ulong hit = e.HitEntity.Raw, hero = unchecked((ulong)Interlocked.Read(ref _heroRaw));
-                var proxy = e.Damage.Proxy;
-                EntityRef main = proxy.Main, team = default;
-                proxy.TryGetTeamProxy(out team);
-                bool hitMinion = Minions.ContainsKey(hit), srcMinion = Minions.ContainsKey(main.Raw) || Minions.ContainsKey(team.Raw);
-                if (!hitMinion && !srcMinion) return;
-                bool hitHero = hit == hero, srcHero = main.Raw == hero || team.Raw == hero;
-                if (!(hitHero || srcHero || (hitMinion && srcMinion))) return;   // minion vs enemy is expected damage
+                bool hitMinion = Minions.ContainsKey(hit), hitHero = hit == hero;
+                if (!hitMinion || hitHero) return;   // hero hits are logged by AfterHeroDamageResolved
+                string sources = DescribeProxies(e, hero, out bool srcMinion);
+                bool srcHero = sources.Contains("(HERO)");
+                if (!(srcHero || srcMinion)) return;   // enemy vs minion is expected damage
                 if (Interlocked.Increment(ref _hitLogs) > 40) return;
-                Write("HIT " + (hitHero ? "hero" : hitMinion ? "minion" : "other") + "=" + hit + " by " +
-                      (srcHero ? "hero" : srcMinion ? "minion" : "other") + "=" + main.Raw + " taken=" + (e.Response.AmountTaken.RawValue / 65536.0).ToString("0.##") +
-                      " type=" + e.Response.Type);
+                Write("HIT minion=" + hit + " by " + (srcHero ? "hero" : "minion") + " taken=" + (e.Response.AmountTaken.RawValue / 65536.0).ToString("0.##") +
+                      " type=" + e.Response.Type + " " + sources);
             }
             catch (Exception ex) { Error("hit-log", ex); }
         }
@@ -606,6 +636,14 @@ namespace Necromancy
                 Write("minion_teleport_distance_multiplier=" + _teleportMultiplier);
             }
             catch (Exception e) { Write("minion teleport-distance hook FAILED " + e.GetType().Name + ": " + e.Message); }
+            try
+            {
+                Patch(h, typeof(Frame.FrameEvents), "RaisedMinionTeleported",
+                    new[] { typeof(EntityRef), typeof(Il2CppPhoton.Deterministic.FPVector3), typeof(Il2CppPhoton.Deterministic.FPVector3), typeof(AssetGuid) },
+                    nameof(AfterMinionTeleported), typeof(EventRaisedMinionTeleported));
+                Write("minion teleport log installed");
+            }
+            catch (Exception e) { Write("minion teleport log FAILED " + e.GetType().Name + ": " + e.Message); }
         }
 
         // Every minion comes from RaiseMinionActionData.Execute, so scaling the asset there (and in CanRaiseNearby)
@@ -613,6 +651,30 @@ namespace Necromancy
         // reloaded asset (back at the shipped value) is scaled again.
         private static readonly Dictionary<IntPtr, long> TeleportWritten = new();
         private static float _teleportMultiplier = NecromancyPolicy.DefaultTeleportDistanceMultiplier;
+
+        // Logs each native RaisedMinionSystem teleport (raised through Frame.FrameEvents). Predicted frames can raise
+        // the same teleport again, so one line per minion per second.
+        private static readonly Dictionary<ulong, long> LastTeleportLog = new();
+        private static int _teleportLogs;
+
+        private static void AfterMinionTeleported(EntityRef __0, Il2CppPhoton.Deterministic.FPVector3 __1, Il2CppPhoton.Deterministic.FPVector3 __2)
+        {
+            try
+            {
+                if (!_enabled) return;
+                long now = Environment.TickCount64;
+                lock (LastTeleportLog)
+                {
+                    if (LastTeleportLog.TryGetValue(__0.Raw, out long last) && now - last < 1000) return;
+                    LastTeleportLog[__0.Raw] = now;
+                }
+                if (Interlocked.Increment(ref _teleportLogs) > 60) return;
+                double d = NecromancyPolicy.DistanceRaw(__1.X.RawValue, __1.Y.RawValue, __1.Z.RawValue, __2.X.RawValue, __2.Y.RawValue, __2.Z.RawValue);
+                Write("minion TELEPORTED entity=" + __0.Raw + " moved=" + d.ToString("0.#") + " m (threshold " +
+                      (20 * Math.Max(0f, _teleportMultiplier)).ToString("0.#") + " m from player)");
+            }
+            catch (Exception e) { Error("teleport-log", e); }
+        }
 
         private static bool BeforeRaiseData(RaiseMinionActionData __instance)
         {

@@ -50,6 +50,13 @@ Check(NecromancyPolicy.ScaledTeleportRaw(20L << 16, 3f) == 60L << 16 && Necroman
       NecromancyPolicy.ScaledTeleportRaw(20L << 16, 0f) == 20L << 16 && NecromancyPolicy.ScaledTeleportRaw(20L << 16, float.NaN) == 20L << 16 &&
       NecromancyPolicy.ScaledTeleportRaw(20L << 16, 1000f) == 1000L << 16 && NecromancyPolicy.ScaledTeleportRaw(0, 3f) == 0,
       "teleport distance: 3x of 20 m is 60 m; <=0/NaN keep shipped value; capped at 50x");
+Check(Math.Abs(NecromancyPolicy.DistanceRaw(0, 0, 0, 3L << 16, 0, 4L << 16) - 5) < 1e-9, "teleport log distance: 16.16 vector length");
+Check(NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 264, 16, 4, 8) && !NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 200, 16, 4, 8) &&
+      !NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 264, 16, 14, 8) && !NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 264, 12, 4, 8) &&
+      !NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 264, 16, 4, 9) && !NecromancyPolicy.ProxyLayoutOk(0, 184, 80, 264, 16, 4, 8),
+      "proxy layout guard: buffer inside group, group inside Damage, counter before buffer");
+Check(methods.Any(m => m.Type == "Il2CppQuantum.PayloadProxyGroup" && m.Method == "get_Main") &&
+      types.Contains("Il2CppQuantum.EventDamageResolved") && types.Contains("Il2CppQuantum.Damage"), "PayloadProxyGroup / Damage / EventDamageResolved exist");
 Check(methods.Count(m => m.Type == "Il2CppQuantum.DamageAPI" && m.Method == "Kill" && m.Args.Length == 8) == 1, "DamageAPI.Kill(8 args) exists for lifetime expiry");
 Check(NecromancyPolicy.ShouldRetryTint(0, 0) && NecromancyPolicy.ShouldRetryTint(2, 0) && !NecromancyPolicy.ShouldRetryTint(3, 0) &&
       !NecromancyPolicy.ShouldRetryTint(500, 0) && NecromancyPolicy.ShouldRetryTint(500, 1), "tint guard: give up after 3 attempts with no success, never once it has succeeded");
