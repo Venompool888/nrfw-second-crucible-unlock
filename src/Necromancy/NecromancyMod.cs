@@ -697,9 +697,19 @@ namespace Necromancy
         private static readonly Dictionary<IntPtr, (long Npc, int Max)> SummonWritten = new();
         private static readonly HashSet<IntPtr> SummonSkipLogged = new();
 
+        // 0.15.3 playtest: EntityRefExtensions.GetData<NpcData> returned nothing for a raised Warrick (npc=0).
+        // The spawned NPC's data lives in NpcAttachmentComponent.NpcData (a storage index resolved by Get(Frame)).
+        internal static unsafe long MinionNpcGuid(Frame f, EntityRef minion)
+        {
+            if (f == null || !EntityRefExtensions.Has<NpcAttachmentComponent>(minion, f)) return 0;
+            var a = EntityRefExtensions.Get<NpcAttachmentComponent>(minion, f);
+            if (a == null || a->NpcData.IsDefault) return 0;
+            return a->NpcData.Get(f)?.Guid.Value ?? 0;
+        }
+
         private static string MinionNpcText(Frame f, EntityRef minion)
         {
-            try { return NecromancyPolicy.NpcName(EntityRefExtensions.GetData<NpcData>(minion, f)?.Guid.Value ?? 0); }
+            try { return NecromancyPolicy.NpcName(MinionNpcGuid(f, minion)); }
             catch (Exception e) { return "?" + e.GetType().Name; }
         }
 
