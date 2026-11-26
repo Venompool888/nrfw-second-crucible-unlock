@@ -169,6 +169,7 @@ namespace Necromancy
                 EnsureEnabled(__0);
                 if (_grantRequested && !_grantDone) TryGrant(__0);
                 TickLifetime(__0);
+                LogRoster(__0);
             }
             catch (Exception e) { Error("end-of-frame", e); }
         }
@@ -429,7 +430,7 @@ namespace Necromancy
             {
                 ulong hero = unchecked((ulong)Interlocked.Read(ref _heroRaw));
                 if (hero == 0 || __0.HitEntity.Raw != hero) return;
-                if (Interlocked.Increment(ref _heroHitLogs) > 120) return;
+                if (Interlocked.Increment(ref _heroHitLogs) > 400) return;
                 var damage = __0.Damage;
                 string sources = DescribeProxies(__0, hero, out bool anyMinion);
                 Write("HERO HIT taken=" + (__0.Response.AmountTaken.RawValue / 65536.0).ToString("0.##") + " type=" + __0.Response.Type +
@@ -542,7 +543,7 @@ namespace Necromancy
             try
             {
                 if (component != null) { TintAttempts.Remove(component.Pointer); TintSuccesses.Remove(component.Pointer); UnityEngine.Object.Destroy(component); }
-                if (++_visualLogs <= 40) Write("tint REMOVED added effect from pooled view of gone minion " + minion);
+                if (++_visualLogs <= 150) Write("tint REMOVED added effect from pooled view of gone minion " + minion);
             }
             catch (Exception e) { Error("tint-remove", e); }
         }
@@ -585,12 +586,12 @@ namespace Necromancy
                     {
                         AddedEffects[raw] = go.AddComponent(effectType);
                         Attached[raw] = 1;
-                        if (++_visualLogs <= 20) Write("tint ATTACHED RaisedMinionVisualEffect to minion entity=" + raw + " go=" + go.name);
+                        if (++_visualLogs <= 150) Write("tint ATTACHED RaisedMinionVisualEffect to minion entity=" + raw + " go=" + go.name);
                     }
                     else
                     {
                         Attached[raw] = 2;
-                        if (++_visualLogs <= 20) Write("tint minion entity=" + raw + " already has RaisedMinionVisualEffect (enabled=" +
+                        if (++_visualLogs <= 150) Write("tint minion entity=" + raw + " already has RaisedMinionVisualEffect (enabled=" +
                                                        existing.TryCast<UnityEngine.Behaviour>()?.enabled + ")");
                     }
                 }
@@ -632,6 +633,13 @@ namespace Necromancy
             }
             catch (Exception e) { Write("expired-minion corpse hook FAILED " + e.GetType().Name + ": " + e.Message); }
             Write("minion_lifetime_seconds=" + _lifetimeSeconds);
+            try
+            {
+                PatchPrefix(h, typeof(AttachmentAPI), "ResolveNavDataAttachment", new[] { typeof(Frame), typeof(EntityRef) },
+                    nameof(BeforeResolveNavData), typeof(RuntimeNavigationData));
+                Write("nav-attachment probe installed");
+            }
+            catch (Exception e) { Write("nav-attachment probe FAILED " + e.GetType().Name + ": " + e.Message); }
             var tpEntry = category.CreateEntry("minion_teleport_distance_multiplier", NecromancyPolicy.DefaultTeleportDistanceMultiplier,
                 description: "Multiplier on the shipped 20 m distance at which a minion snaps back to the player (3 = 60 m; 1 = original).");
             _teleportMultiplier = tpEntry.Value;
@@ -674,9 +682,9 @@ namespace Necromancy
                     if (LastTeleportLog.TryGetValue(__0.Raw, out long last) && now - last < 1000) return;
                     LastTeleportLog[__0.Raw] = now;
                 }
-                if (Interlocked.Increment(ref _teleportLogs) > 60) return;
+                if (Interlocked.Increment(ref _teleportLogs) > 400) return;
                 double d = NecromancyPolicy.DistanceRaw(__1.X.RawValue, __1.Y.RawValue, __1.Z.RawValue, __2.X.RawValue, __2.Y.RawValue, __2.Z.RawValue);
-                Write("minion TELEPORTED entity=" + __0.Raw + " moved=" + d.ToString("0.#") + " m (threshold " +
+                Write("minion TELEPORTED entity=" + __0.Raw + " " + NecromancyPolicy.EntityLabel(__0.Raw) + " moved=" + d.ToString("0.#") + " m (threshold " +
                       (20 * Math.Max(0f, _teleportMultiplier)).ToString("0.#") + " m from player)");
             }
             catch (Exception e) { Error("teleport-log", e); }
@@ -727,6 +735,56 @@ namespace Necromancy
         }
 
         // Called from the verified end-of-frame tick.
+        // 0.13.1 crashed on ~1200 "E.x does not have UseNavDataComponent" from PathFollowingSystem; the four entities
+        // never appeared in this log because several log caps were already hit. List live minions in the Unity
+        // E.index.version form every 5 s of simulation time (and whenever the set changes) so they can be matched.
+        private static long _lastRosterRaw;
+        private static string _lastRoster = "";
+        private static int _rosterLogs;
+
+        private static void LogRoster(Frame f)
+        {
+            long now = f.TimeSinceStart.RawValue;
+            if (now - _lastRosterRaw < (5L << 16) && now >= _lastRosterRaw) return;
+            var parts = new List<string>();
+            foreach (var pair in MinionBirth)
+            {
+                var minion = new EntityRef { Raw = pair.Key };
+                if (!EntityRefExtensions.Has<RaisedMinionComponent>(minion, f)) continue;
+                bool nav = EntityRefExtensions.Has<UseNavDataComponent>(minion, f);
+                parts.Add(NecromancyPolicy.EntityLabel(pair.Key) + (nav ? "" : "(NO-NAV)"));
+            }
+            parts.Sort(StringComparer.Ordinal);
+            string roster = string.Join(" ", parts);
+            if (roster == _lastRoster && now - _lastRosterRaw < (30L << 16)) return;
+            _lastRosterRaw = now; _lastRoster = roster;
+            if (Interlocked.Increment(ref _rosterLogs) <= 1000) Write("roster n=" + parts.Count + " " + roster);
+        }
+
+        // Read-only: when an entity is about to be resolved without UseNavDataComponent (the native call then throws),
+        // log once per entity what it is. Never changes the call.
+        private static readonly HashSet<ulong> NoNavLogged = new();
+        private static int _noNavCount;
+
+        private static void BeforeResolveNavData(Frame __0, EntityRef __1)
+        {
+            try
+            {
+                if (!_enabled || __0 == null || !__1.IsValid) return;
+                if (EntityRefExtensions.Has<UseNavDataComponent>(__1, __0)) return;
+                int n = Interlocked.Increment(ref _noNavCount);
+                bool first;
+                lock (NoNavLogged) first = NoNavLogged.Add(__1.Raw);
+                if (!first) { if (n % 200 == 0) Write("NO-NAV resolve count=" + n); return; }
+                bool minion = EntityRefExtensions.Has<RaisedMinionComponent>(__1, __0);
+                bool corpse = EntityRefExtensions.Has<CorpseMarkerComponent>(__1, __0);
+                bool expired = Expired.Contains(__1.Raw), born = MinionBirth.ContainsKey(__1.Raw);
+                Write("NO-NAV entity=" + __1.Raw + " " + NecromancyPolicy.EntityLabel(__1.Raw) + " minion=" + minion + " corpseMarker=" + corpse +
+                      " knownMinion=" + born + " expired=" + expired + " seenAsMinion=" + Minions.ContainsKey(__1.Raw) + " verified=" + __0.IsVerified);
+            }
+            catch (Exception e) { Error("nav-probe", e); }
+        }
+
         private static void TickLifetime(Frame f)
         {
             if (_lifetimeSeconds <= 0) return;
@@ -848,7 +906,7 @@ namespace Necromancy
 
         private static void AfterRaiseExecute(Frame __0, EntityRef __1, bool __result)
         {
-            if (__0 != null && __0.IsVerified && Interlocked.Increment(ref _executes) <= 20)
+            if (__0 != null && __0.IsVerified && Interlocked.Increment(ref _executes) <= 200)
                 Write("raise Execute caster=" + __1.Raw + " -> " + __result);
         }
 
@@ -860,7 +918,7 @@ namespace Necromancy
 
         private static void AfterHealExecute(Frame __0, EntityRef __1, bool __result)
         {
-            if (__0 != null && __0.IsVerified && Interlocked.Increment(ref _heals) <= 20)
+            if (__0 != null && __0.IsVerified && Interlocked.Increment(ref _heals) <= 100)
                 Write("healMinions Execute caster=" + __1.Raw + " -> " + __result);
         }
 

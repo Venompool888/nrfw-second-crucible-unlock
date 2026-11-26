@@ -75,6 +75,7 @@ namespace Necromancy
             ("Il2CppQuantum.Frame+FrameEvents", "RaisedMinionTeleported",
                 new[] { "Il2CppQuantum.EntityRef", "Il2CppPhoton.Deterministic.FPVector3", "Il2CppPhoton.Deterministic.FPVector3", "Il2CppQuantum.AssetGuid" },
                 "Il2CppQuantum.EventRaisedMinionTeleported"),
+            ("Il2CppQuantum.AttachmentAPI", "ResolveNavDataAttachment", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef" }, "Il2CppQuantum.RuntimeNavigationData"),
         };
 
         // Names of required systems absent from the created tree, in RequiredSystems order.
@@ -118,6 +119,10 @@ namespace Necromancy
             if (float.IsNaN(multiplier) || multiplier <= 0f || nativeRaw <= 0) return nativeRaw;
             return (long)System.Math.Round(nativeRaw * (double)System.Math.Min(multiplier, 50f));
         }
+
+        // Unity/Quantum log form of an EntityRef: E.<index:5>.<version:3> (raw = flag bit 63 | version << 32 | index).
+        internal static string EntityLabel(ulong raw) =>
+            "E." + (raw & 0xFFFFFFFFUL).ToString("D5") + "." + ((raw >> 32) & 0x7FFFFFFFUL).ToString("D3");
 
         internal static double DistanceRaw(long ax, long ay, long az, long bx, long by, long bz)
         {
