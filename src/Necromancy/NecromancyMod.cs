@@ -649,13 +649,18 @@ namespace Necromancy
 
                 long now = __0.TimeSinceStart.RawValue;
                 ActionData action = null;
+                int owned = 0, commanded = 0;
+                var seen = new List<string>();
                 foreach (var pair in __0.GetComponentIterator<RaisedMinionComponent>())
                 {
                     var minion = pair.Entity;
-                    if (pair.Component.Owner.Raw != hero.Raw ||
-                        !NecromancyPolicy.IsWarrickNpc(EntityRefExtensions.GetData<NpcData>(minion, __0)?.Guid.Value ?? 0) ||
-                        (LastRoar.TryGetValue(minion.Raw, out long last) && !NecromancyPolicy.LifetimeExpired(last, now, NecromancyPolicy.RoarCooldownSeconds)) ||
-                        !__0.TryGetPointer<ActionComponent>(minion, out var actions)) continue;
+                    if (pair.Component.Owner.Raw != hero.Raw) continue;
+                    ++owned;
+                    long npc = MinionNpcGuid(__0, minion);
+                    if (!NecromancyPolicy.IsWarrickNpc(npc)) { seen.Add(NecromancyPolicy.NpcName(npc)); continue; }
+                    if ((LastRoar.TryGetValue(minion.Raw, out long last) && !NecromancyPolicy.LifetimeExpired(last, now, NecromancyPolicy.RoarCooldownSeconds)) ||
+                        !__0.TryGetPointer<ActionComponent>(minion, out var actions)) { seen.Add("warrick(cooldown/no-actions)"); continue; }
+                    ++commanded;
 
                     action ??= ResolveRoarAction(__0);
                     if (action == null) return;
@@ -663,6 +668,8 @@ namespace Necromancy
                     int result = actions->Execute(__0, action, null, false, default, 0, false, true, default);
                     Write("roar minion entity=" + minion.Raw + " action GUID=" + action.Guid.Value + " Path=" + action.Path + " -> " + result);
                 }
+                if (commanded == 0)
+                    Write("roar matched but no Warrick commanded: owned minions=" + owned + " [" + string.Join(", ", seen) + "]");
             }
             catch (Exception e)
             {
