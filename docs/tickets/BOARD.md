@@ -4,13 +4,17 @@
 
 状态：待审批 → 待做 → 进行中 → 测试中 → 已合入 → 试玩验证通过。审批通过前不动工。
 
-## 待审批（0）
+## 待审批（1）
+
+| 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 待决定 |
+|---|---|---|---|---|---|---|
+| [T-010](T-010.md) | [#13](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/13) | feature | P2 | necromancy | 起尸召出的随从改成沃里克 | 变体、在场上限、是否要尸体、Boss 血条与阶段 |
 
 ## 待做（0）
 
 ## 进行中（0）
 
-## 测试中（7）
+## 测试中（8）
 
 | 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 待决定 |
 |---|---|---|---|---|---|---|
@@ -21,6 +25,7 @@
 | [T-006](T-006.md) | [#7](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/7) | bug | P2 | necromancy | 随从与玩家互相误伤（联机玩家之间的友伤保持不变） | |
 | [T-007](T-007.md) | [#8](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/8) | bug | P2 | necromancy | 随从跟着传送后血量回满 | |
 | [T-008](T-008.md) | [#9](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/9) | feature | P3 | necromancy | 随从在场时限 | |
+| [T-009](T-009.md) | [#12](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/12) | feature | P3 | necromancy | 随从传回距离拉远到 3 倍 | |
 
 ## 已合入（1）
 
