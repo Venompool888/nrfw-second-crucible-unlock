@@ -354,6 +354,9 @@ namespace Necromancy
                     Patch(visualHarmony, typeof(Il2CppMoon.Forsaken.CharacterViewEffects), "OnDamageResolved", new[] { typeof(EventDamageResolved) },
                         nameof(AfterCharacterDamageResolvedInstance));
                     Write("minion hit diagnostics installed");
+                    Patch(visualHarmony, typeof(Il2CppMoon.Forsaken.HeroView), "OnDamageResolved", new[] { typeof(EventDamageResolved) },
+                        nameof(AfterHeroDamageResolved));
+                    Write("hero hit diagnostics installed");
                 }
                 catch (Exception e) { Write("minion hit diagnostics FAILED " + e.GetType().Name + ": " + e.Message); }
                 _visualsOn = true;
@@ -407,6 +410,48 @@ namespace Necromancy
         private static int _hitLogs;
 
         private static void AfterCharacterDamageResolvedInstance(EventDamageResolved __0) => AfterCharacterDamageResolved(__0);
+
+        // 0.12.0 playtest: the maintainer still lost health near minions but no hero/minion HIT was logged.
+        // Log every hit on the local hero with all source proxies so the real attacker (minion, its projectile or
+        // cascade, or an enemy) and the damage TargetGroup are visible. Read-only.
+        private static int _heroHitLogs;
+        private static readonly ProxyTypeFlags[] ProxyKinds =
+            { ProxyTypeFlags.Hero, ProxyTypeFlags.Enemy, ProxyTypeFlags.Weapon, ProxyTypeFlags.Projectile, ProxyTypeFlags.Cascade };
+
+        private static void AfterHeroDamageResolved(EventDamageResolved __0)
+        {
+            if (__0 == null || !_enabled) return;
+            try
+            {
+                ulong hero = unchecked((ulong)Interlocked.Read(ref _heroRaw));
+                if (hero == 0 || __0.HitEntity.Raw != hero) return;
+                if (Interlocked.Increment(ref _heroHitLogs) > 80) return;
+                var damage = __0.Damage;
+                var proxy = damage.Proxy;
+                var parts = new List<string>();
+                bool anyMinion = false;
+                EntityRef main = proxy.Main;
+                anyMinion |= Minions.ContainsKey(main.Raw);
+                parts.Add("main=" + main.Raw + (Minions.ContainsKey(main.Raw) ? "(MINION)" : ""));
+                foreach (var kind in ProxyKinds)
+                {
+                    if (!proxy.TryGetProxyOfType(kind, out EntityRef e) || !e.IsValid) continue;
+                    bool m = Minions.ContainsKey(e.Raw);
+                    anyMinion |= m;
+                    parts.Add(kind + "=" + e.Raw + (m ? "(MINION)" : ""));
+                }
+                if (proxy.TryGetTeamProxy(out EntityRef team) && team.IsValid)
+                {
+                    bool m = Minions.ContainsKey(team.Raw);
+                    anyMinion |= m;
+                    parts.Add("team=" + team.Raw + (m ? "(MINION)" : ""));
+                }
+                Write("HERO HIT taken=" + (__0.Response.AmountTaken.RawValue / 65536.0).ToString("0.##") + " type=" + __0.Response.Type +
+                      " group=" + damage.TargetGroup + " flags=" + damage.Flags + " school=" + damage.School +
+                      (anyMinion ? " FROM-MINION" : "") + " " + string.Join(" ", parts));
+            }
+            catch (Exception ex) { Error("hero-hit-log", ex); }
+        }
 
         private static void AfterCharacterDamageResolved(EventDamageResolved e)
         {

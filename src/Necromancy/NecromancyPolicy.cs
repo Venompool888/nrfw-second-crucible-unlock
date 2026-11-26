@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.12.1";
+        internal const string Version = "0.12.2";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -68,6 +68,7 @@ namespace Necromancy
             ("Il2CppMoon.Forsaken.RaisedMinionVisualEffect", "ApplyTintEffect", new string[0], "Void"),
             ("Il2CppQuantum.HealthSystem", "UpdateEnemyHealthRegen", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.HealthComponent*" }, "Void"),
             ("Il2CppQuantum.CorpseMarkerSystem", "OnNpcDied", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.Damage", "Il2CppQuantum.DamageResponse", "System.Int32" }, "Void"),
+            ("Il2CppMoon.Forsaken.HeroView", "OnDamageResolved", new[] { "Il2CppQuantum.EventDamageResolved" }, "Void"),
             ("Il2CppMoon.Forsaken.CharacterViewEffects", "OnDamageResolved", new[] { "Il2CppQuantum.EventDamageResolved" }, "Void"),
             ("Il2CppQuantum.TeamUtils", "AreAllies", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.EntityRef" }, "System.Boolean"),
             ("Il2CppQuantum.RunesAPI+Weapon", "IsRuneCompatible", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.WeaponComponent*", "Il2CppQuantum.HeroRuneData" }, "System.Boolean"),
