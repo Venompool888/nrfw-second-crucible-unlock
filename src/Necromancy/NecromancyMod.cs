@@ -894,30 +894,38 @@ namespace Necromancy
         // NavMeshTrackerSystem adds the component once it stands on an active navmesh). The probe on
         // ResolveNavDataAttachment stays read-only and catches any other caller that still reaches the throw.
         private static readonly HashSet<ulong> NoNavLogged = new();
-        private static int _noNavCount, _guardCount;
+        private static int _noNavCount, _guardCount, _navHookErrors;
 
         private static bool BeforeSearchPath(Frame __0, EntityRef __1)
         {
             try
             {
-                if (!_enabled || __0 == null || !__1.IsValid) return true;
+                if (__0 == null || !__1.IsValid) return true;
                 if (EntityRefExtensions.Has<UseNavDataComponent>(__1, __0)) return true;
-                int n = Interlocked.Increment(ref _guardCount);
-                LogNoNav(__0, __1, "GUARD skipped SearchPath", n);
-                return false;
             }
-            catch (Exception e) { Error("path-guard", e); return true; }
+            catch (Exception e) { LogNavHookException("path-guard", e); return true; }
+
+            try { LogNoNav(__0, __1, "GUARD skipped SearchPath", Interlocked.Increment(ref _guardCount)); }
+            catch (Exception e) { LogNavHookException("path-guard", e); }
+            return false;
         }
 
         private static void BeforeResolveNavData(Frame __0, EntityRef __1)
         {
             try
             {
-                if (!_enabled || __0 == null || !__1.IsValid) return;
+                if (__0 == null || !__1.IsValid) return;
                 if (EntityRefExtensions.Has<UseNavDataComponent>(__1, __0)) return;
                 LogNoNav(__0, __1, "NO-NAV resolve (native will throw)", Interlocked.Increment(ref _noNavCount));
             }
-            catch (Exception e) { Error("nav-probe", e); }
+            catch (Exception e) { LogNavHookException("nav-probe", e); }
+        }
+
+        private static void LogNavHookException(string stage, Exception e)
+        {
+            if (Interlocked.Increment(ref _navHookErrors) > 5) return;
+            try { Write(stage + " ERROR " + e.GetType().Name + ": " + e.Message); }
+            catch (Exception) { }
         }
 
         private static void LogNoNav(Frame f, EntityRef e, string what, int n)
