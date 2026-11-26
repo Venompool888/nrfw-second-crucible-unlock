@@ -703,6 +703,7 @@ namespace Necromancy
         {
             try
             {
+                FirstHit(ref _raisedUpdateHit, nameof(BeforeRaisedUpdate));
                 if (!_enabled || __0 == null) return;
                 _simFrame = __0;
                 if (_stuckTeleportInCombat || _stuckHoldOff) return;
@@ -753,6 +754,7 @@ namespace Necromancy
         {
             try
             {
+                FirstHit(ref _minionSpawnedHit, nameof(AfterMinionSpawned));
                 if (!_enabled || !__0.IsValid) return;
                 Minions[__0.Raw] = Environment.TickCount64;
                 if (!_stuckTeleportInCombat && !_stuckHoldOff) StuckHoldMinions.Add(__0.Raw);
@@ -798,6 +800,7 @@ namespace Necromancy
         {
             try
             {
+                FirstHit(ref _minionTeleportedHit, nameof(AfterMinionTeleported));
                 if (!_enabled) return;
                 long now = Environment.TickCount64;
                 lock (LastTeleportLog)
@@ -819,6 +822,7 @@ namespace Necromancy
         {
             try
             {
+                FirstHit(ref _raiseDataHit, nameof(BeforeRaiseData));
                 if (!_enabled || __instance == null) return true;
                 var d = __instance.MaxDistanceBeforeTeleport;
                 if (TeleportWritten.TryGetValue(__instance.Pointer, out long written) && written == d.RawValue) return true;
@@ -844,6 +848,7 @@ namespace Necromancy
         {
             try
             {
+                FirstHit(ref _enemyRegenHit, nameof(BeforeEnemyRegen));
                 if (!_enabled || __0 == null || !EntityRefExtensions.Has<RaisedMinionComponent>(__1, __0)) return true;
                 if (__0.IsVerified && Interlocked.Increment(ref _regenLogs) <= 5) Write("regen SKIPPED for raised minion entity=" + __1.Raw);
                 return false;
@@ -854,6 +859,7 @@ namespace Necromancy
         // A minion we expired leaves no raisable corpse.
         private static bool BeforeNpcDied(Frame __0, EntityRef __1)
         {
+            FirstHit(ref _npcDiedHit, nameof(BeforeNpcDied));
             if (!Expired.Contains(__1.Raw)) return true;
             if (__0 != null && __0.IsVerified) Write("expired minion " + __1.Raw + " leaves no corpse");
             return false;
@@ -900,6 +906,7 @@ namespace Necromancy
         {
             try
             {
+                FirstHit(ref _searchPathHit, nameof(BeforeSearchPath));
                 if (__0 == null || !__1.IsValid) return true;
                 if (EntityRefExtensions.Has<UseNavDataComponent>(__1, __0)) return true;
             }
@@ -914,6 +921,7 @@ namespace Necromancy
         {
             try
             {
+                FirstHit(ref _resolveNavDataHit, nameof(BeforeResolveNavData));
                 if (__0 == null || !__1.IsValid) return;
                 if (EntityRefExtensions.Has<UseNavDataComponent>(__1, __0)) return;
                 LogNoNav(__0, __1, "NO-NAV resolve (native will throw)", Interlocked.Increment(ref _noNavCount));
@@ -1100,6 +1108,14 @@ namespace Necromancy
         {
             if (Interlocked.Increment(ref _errors) <= 5) Write(stage + " ERROR " + e.GetType().Name + ": " + e.Message);
             if (_errors >= 5 && _enabled) { _enabled = false; Write("disabled after repeated errors; restart required"); }
+        }
+
+        private static int _searchPathHit, _resolveNavDataHit, _raisedUpdateHit, _minionSpawnedHit,
+            _minionTeleportedHit, _raiseDataHit, _enemyRegenHit, _npcDiedHit;
+
+        private static void FirstHit(ref int flag, string name)
+        {
+            if (Interlocked.Exchange(ref flag, 1) == 0) Write("hook FIRST HIT " + name);
         }
 
         private static void Write(string text)
