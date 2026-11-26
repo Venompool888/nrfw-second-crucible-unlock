@@ -160,6 +160,9 @@ Check(methods.Any(m => m.Type == Raise && m.Method == "get_MaxActiveMinions" && 
 Check(methods.Any(m => m.Type == Raise && m.Method == "get_UseCorpseNpcType" && (m.Return == "System.Boolean" || m.Return == "Il2CppQuantum.QBoolean")),
       "RaiseMinionActionData.UseCorpseNpcType readable (separates raiseMinion from revive)");
 Check(methods.Any(m => m.Type == "Il2CppQuantum.NpcData" && m.Method == "get_EnemyType"), "NpcData.EnemyType readable");
+Check(methods.Count(m => m.Type == "Il2CppQuantum.NpcDataRef" && m.Method == "Get" && m.Return == "Il2CppQuantum.NpcData" && m.Args.SequenceEqual(new[] { "Il2CppQuantum.Frame" })) == 1 &&
+      methods.Any(m => m.Type == "Il2CppQuantum.NpcDataRef" && m.Method == "get_IsDefault") && types.Contains("Il2CppQuantum.NpcAttachmentComponent"),
+      "minion NPC identity: NpcAttachmentComponent + NpcDataRef.Get(Frame) -> NpcData");
 Check(NecromancyPolicy.MinionNpcGuid("warrick_boss") == 2680182020363611965 && NecromancyPolicy.MinionNpcGuid(" Warrick_Boss ") == NecromancyPolicy.WarrickBossNpc &&
       NecromancyPolicy.MinionNpcGuid("warrick_enemy") == 670058593051072033 && NecromancyPolicy.MinionNpcGuid("wildling") == NecromancyPolicy.WildlingSwordNpc &&
       NecromancyPolicy.MinionNpcGuid("native") == 0 && NecromancyPolicy.MinionNpcGuid("") == 0 && NecromancyPolicy.MinionNpcGuid(null) == 0 &&
