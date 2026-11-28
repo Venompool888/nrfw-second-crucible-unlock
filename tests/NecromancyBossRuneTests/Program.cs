@@ -62,6 +62,29 @@ internal static class Program
               BossRunePolicy.RemoveGrant(ledger, "Hero B", "echo_knight") == ledger, "grant removal exact, case-insensitive");
         Check(NecromancyPolicy.DefaultMinionNpc == "native" && NecromancyPolicy.MinionNpcGuid(NecromancyPolicy.DefaultMinionNpc) == 0 &&
               NecromancyPolicy.MinionNpcGuid("warrick_boss") != 0, "native minion default, explicit boss still available");
+        Check(!NecromancyPolicy.BossFollowStillExpired(20, 0), "zero follow teleport limit disables the fallback");
+        Check(!NecromancyPolicy.BossFollowStillExpired(20, -1), "negative follow teleport limit disables the fallback");
+        Check(!NecromancyPolicy.BossFollowStillExpired(1.49, 1.5), "follow teleport does not expire below the limit");
+        Check(NecromancyPolicy.BossFollowStillExpired(1.5, 1.5), "follow teleport expires at the limit");
+        Check(NecromancyPolicy.BossFollowStillExpired(2, 1.5), "follow teleport expires above the limit");
+        Check(NecromancyPolicy.ClampBossFollowTeleportSeconds(-1f) == 0f, "negative follow teleport config clamps to zero");
+        Check(NecromancyPolicy.ClampBossFollowTeleportSeconds(1.5f) == 1.5f, "follow teleport config preserves fractional seconds");
+        Check(NecromancyPolicy.ClampBossFollowTeleportSeconds(12f) == 10f, "follow teleport config caps at ten seconds");
+        long t20 = 20L << 16;
+        Check(NecromancyPolicy.BossIdleShouldFollow(false, 8, 3, 3, 3, false, t20, null), "idle Boss minion away from its owner starts following");
+        Check(!NecromancyPolicy.BossIdleShouldFollow(true, 8, 3, 3, 3, false, t20, null), "idle-follow leaves an already following minion alone");
+        Check(!NecromancyPolicy.BossIdleShouldFollow(false, 3, 3, 9, 3, false, t20, null), "idle-follow needs the owner beyond the follow start distance");
+        Check(!NecromancyPolicy.BossIdleShouldFollow(false, 8, 3, 2.9, 3, false, t20, null), "idle-follow waits for the still time");
+        Check(!NecromancyPolicy.BossIdleShouldFollow(false, 8, 3, 5.9, 3, true, t20, null) &&
+              NecromancyPolicy.BossIdleShouldFollow(false, 8, 3, 6, 3, true, t20, null), "an action in progress doubles the idle-follow wait");
+        Check(!NecromancyPolicy.BossIdleShouldFollow(false, 8, 3, 9, 3, false, t20, 16L << 16) &&
+              NecromancyPolicy.BossIdleShouldFollow(false, 8, 3, 9, 3, false, t20, 14L << 16), "a hit in the last five seconds keeps the minion in combat");
+        Check(!NecromancyPolicy.BossIdleShouldFollow(false, 8, 3, 99, 0, false, t20, null), "zero idle-follow seconds disables it");
+        Check(NecromancyPolicy.BossIdleFollowEnd(10, 2, 1, true) == "hit" && NecromancyPolicy.BossIdleFollowEnd(3, 2, 1, false) == "arrived" &&
+              NecromancyPolicy.BossIdleFollowEnd(10, 2, 30, false) == "timeout" && NecromancyPolicy.BossIdleFollowEnd(10, 2, 29, false) == null,
+              "idle-follow ends on a hit, on arrival or after the time limit");
+        Check(NecromancyPolicy.ClampBossIdleFollowSeconds(-1f) == 0f && NecromancyPolicy.ClampBossIdleFollowSeconds(3f) == 3f &&
+              NecromancyPolicy.ClampBossIdleFollowSeconds(99f) == 30f, "idle-follow config clamps to 0..30 seconds");
         const long echo = 790324362694538264, warrick = 2680182020363611965, second = 1L << 16, quarter = second / 4;
         var entrance = BossEntrancePolicy.DefaultFor(echo);
         var expected = new BossEntrance(true, 203502697017737707, 131072, new[] { 2918908058815642059, 2653262915339319819 }, true, true, 0, 144179);
