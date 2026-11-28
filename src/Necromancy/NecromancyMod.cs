@@ -172,6 +172,7 @@ namespace Necromancy
                 EnsureEnabled(__0);
                 if (_grantRequested && !_grantDone) TryGrant(__0);
                 TickLifetime(__0);
+                if (_roarEnabled) try { TickRoarTraces(__0); } catch (Exception e) { RoarTraces.Clear(); Write("roar trace FAILED " + e.GetType().Name + ": " + e.Message); }
             }
             catch (Exception e) { Error("end-of-frame", e); }
         }
@@ -686,8 +687,14 @@ namespace Necromancy
                     LastRoar[minion.Raw] = now;
                     try
                     {
-                        int result = actions->Execute(__0, action, null, false, default, 0, false, true, default);
-                        Write("roar minion entity=" + minion.Raw + " action GUID=" + action.Guid.Value + " -> " + result);
+                        // 0.15.13 playtest: Execute on layer 0 (ActionLayer.Base, locomotion) returned an id but Warrick never
+                        // moved. Attacks run on ActionLayer.Action (1).
+                        int layer = ActionComponent.ActionLayer;
+                        int result = actions->Execute(__0, action, null, false, default, layer, false, true, default);
+                        bool running = actions->IsExecutingAction(__0, action);
+                        Write("roar minion entity=" + minion.Raw + " action GUID=" + action.Guid.Value + " layer=" + layer + " -> " + result +
+                              " executingNow=" + running);
+                        RoarTraces.Add((minion.Raw, action.Guid.Value, now, 0));
                     }
                     catch (Exception e) { Write("roar Execute FAILED entity=" + minion.Raw + " " + e.GetType().Name + ": " + e.Message); }
                 }
@@ -698,6 +705,37 @@ namespace Necromancy
             {
                 _roarEnabled = false;
                 Write("roar command DISABLED " + e.GetType().Name + ": " + e.Message);
+            }
+        }
+
+        // Read-only follow-up: is the commanded move still executing 0.5 s and 1.5 s later? Verified end-of-frame only.
+        private static readonly List<(ulong Minion, long Action, long Start, int Stage)> RoarTraces = new();
+
+        private static unsafe void TickRoarTraces(Frame f)
+        {
+            if (RoarTraces.Count == 0) return;
+            long now = f.TimeSinceStart.RawValue;
+            for (int i = RoarTraces.Count - 1; i >= 0; --i)
+            {
+                var tr = RoarTraces[i];
+                long due = tr.Stage == 0 ? (1L << 15) : (3L << 15);   // 0.5 s, then 1.5 s
+                if (now - tr.Start < due) continue;
+                var minion = new EntityRef { Raw = tr.Minion };
+                string state = "gone";
+                try
+                {
+                    if (EntityRefExtensions.Has<ActionComponent>(minion, f))
+                    {
+                        var ac = EntityRefExtensions.Get<ActionComponent>(minion, f);
+                        var data = Asset<ActionData>(f, tr.Action);
+                        state = ac == null || data == null ? "unreadable" :
+                            "executing=" + ac->IsExecutingAction(f, data) + " actionLayerBusy=" + ac->IsExecuting(f, ActionComponent.ActionLayer) +
+                            " baseLayerBusy=" + ac->IsExecuting(f, ActionComponent.BaseLayer);
+                    }
+                }
+                catch (Exception e) { state = "?" + e.GetType().Name; }
+                Write("roar trace +" + (tr.Stage == 0 ? "0.5" : "1.5") + "s entity=" + tr.Minion + " " + state);
+                if (tr.Stage == 0) RoarTraces[i] = (tr.Minion, tr.Action, tr.Start, 1); else RoarTraces.RemoveAt(i);
             }
         }
 

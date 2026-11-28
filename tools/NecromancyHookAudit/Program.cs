@@ -159,6 +159,15 @@ Check(methods.Any(m => m.Type == Raise && m.Method == "get_MaxActiveMinions" && 
 Check(methods.Any(m => m.Type == Raise && m.Method == "get_UseCorpseNpcType" && (m.Return == "System.Boolean" || m.Return == "Il2CppQuantum.QBoolean")),
       "RaiseMinionActionData.UseCorpseNpcType readable (separates raiseMinion from revive)");
 Check(methods.Any(m => m.Type == "Il2CppQuantum.NpcData" && m.Method == "get_EnemyType"), "NpcData.EnemyType readable");
+// T-012 0.15.14: the roar move goes on ActionComponent.ActionLayer (ActionLayer.Action = 1), not layer 0 (Base = locomotion).
+Check(methods.Count(m => m.Type == "Il2CppQuantum.ActionComponent" && m.Method == "get_ActionLayer" && m.Return == "System.Int32" && m.Args.Length == 0) == 1 &&
+      methods.Count(m => m.Type == "Il2CppQuantum.ActionComponent" && m.Method == "get_BaseLayer" && m.Return == "System.Int32" && m.Args.Length == 0) == 1,
+      "ActionComponent.ActionLayer / BaseLayer Int32 getters");
+Check(methods.Any(m => m.Type == "Il2CppQuantum.ActionComponent" && m.Method == "IsExecutingAction" && m.Return == "System.Boolean" &&
+          m.Args.SequenceEqual(new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.ActionData" })) &&
+      methods.Any(m => m.Type == "Il2CppQuantum.ActionComponent" && m.Method == "IsExecuting" && m.Return == "System.Boolean" &&
+          m.Args.SequenceEqual(new[] { "Il2CppQuantum.Frame", "System.Int32" })),
+      "ActionComponent.IsExecutingAction(Frame, ActionData) / IsExecuting(Frame, Int32) for the roar trace");
 Check(methods.Count(m => m.Type == "Il2CppQuantum.NpcDataRef" && m.Method == "Get" && m.Return == "Il2CppQuantum.NpcData" && m.Args.SequenceEqual(new[] { "Il2CppQuantum.Frame" })) == 1 &&
       methods.Any(m => m.Type == "Il2CppQuantum.NpcDataRef" && m.Method == "get_IsDefault") && types.Contains("Il2CppQuantum.NpcAttachmentComponent"),
       "minion NPC identity: NpcAttachmentComponent + NpcDataRef.Get(Frame) -> NpcData");
