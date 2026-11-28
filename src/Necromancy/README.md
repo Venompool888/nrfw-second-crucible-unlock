@@ -41,6 +41,12 @@ minion_teleport_distance_multiplier = 3
 - `minion_npc`（T-010）：raiseMinion 召出谁。默认 `native`（原版野人剑士）。也可填 `warrick_boss`（变异者沃里克）、`warrick_enemy`（巨型档）、`wildling`（原版野人剑士）或 NpcData GUID；已有配置不会自动重置。目标解析不到 NpcData 时保持原版。revive 和 Boss 符文不受此项影响。
 - `minion_max_active`（T-010）：换了召唤目标时 raiseMinion 同时在场上限，默认 1，0 = 原版 5，不会超过原版。沃里克按 Boss 档缩放（生命、伤害 ×0.1）。
 
+### 随从幽魂外观（T-017）
+
+- `UserData/NRFWNecromancyLook.cfg` 首次运行时生成，存盘后约 1 秒生效。每行 `key = value`，`#` 后是注释，键不区分大小写。
+- `look`：默认 `ghost`（冷色底色、发光、轻微抖动透明），`stock` 退回原版着色。`blood`：默认 `off`（随从不再新增积血），`on` 保留原版积血。`refresh_seconds`：隔多久重写外观，默认 5 秒，0 关闭定时重写。
+- 用 `raise.`、`revive.`、`boss.` 分别配置起尸、复活、Boss 随从。颜色键 `tint`、`overlay`、`effect_color`、`emissive` 填逗号分隔的 RGB 或 RGBA；数值键 `effect_amount`、`effect_local_y` 调发光，`dithered_alpha` 调透明度（1 为不透明）。这七项均可填 `none`，表示不写该属性。
+
 ### 表情反应（T-014，取代 T-012 的写死规则）
 
 - 反应表在 `UserData/NRFWNecromancyReactions.json`。文件不存在时插件按 `roar_gesture`／`roar_action` 写出默认表，里面只有一条 T-012 的规则：你的沃里克（Boss 版、巨型版）在你做「凶残之力」时放延迟范围攻击，每只随从冷却 3 秒。改完存盘，下次进游戏或读档时生效（会话开始时检查文件修改时间）。

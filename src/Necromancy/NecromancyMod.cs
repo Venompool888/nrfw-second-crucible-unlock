@@ -394,6 +394,7 @@ namespace Necromancy
                     nameof(AfterFormationSlot), typeof(int));
                 Patch(visualHarmony, typeof(Il2CppMoon.Forsaken.RaisedMinionVisualEffect), "ApplyTintEffect", Type.EmptyTypes, nameof(AfterApplyTint));
                 PatchPrefix(visualHarmony, typeof(Il2CppMoon.Forsaken.RaisedMinionVisualEffect), "ApplyTintEffect", Type.EmptyTypes, nameof(BeforeApplyTint), typeof(void));
+                InstallMinionLook(visualHarmony);
                 try
                 {
                     Patch(visualHarmony, typeof(Il2CppMoon.Forsaken.CharacterViewEffects), "OnDamageResolved", new[] { typeof(EventDamageResolved) },
@@ -581,7 +582,13 @@ namespace Necromancy
             AddedEffects.Remove(minion);
             try
             {
-                if (component != null) { TintAttempts.Remove(component.Pointer); TintSuccesses.Remove(component.Pointer); UnityEngine.Object.Destroy(component); }
+                if (component != null)
+                {
+                    RestoreMinionLook(component.Pointer);
+                    TintAttempts.Remove(component.Pointer);
+                    TintSuccesses.Remove(component.Pointer);
+                    UnityEngine.Object.Destroy(component);
+                }
                 if (++_visualLogs <= 150) Write("tint REMOVED added effect from pooled view of gone minion " + minion);
             }
             catch (Exception e) { Error("tint-remove", e); }
@@ -593,6 +600,7 @@ namespace Necromancy
             _tintInFlight = IntPtr.Zero;
             TintSuccesses.TryGetValue(__instance.Pointer, out int ok);
             TintSuccesses[__instance.Pointer] = ok + 1;
+            ApplyLook(__instance);
             if (Interlocked.Increment(ref _effectLogs) > 20) return;
             try
             {
@@ -609,6 +617,7 @@ namespace Necromancy
             {
                 long now = Environment.TickCount64;
                 foreach (var pair in Minions) if (now - pair.Value > 5000) { Minions.TryRemove(pair.Key, out _); Attached.Remove(pair.Key); RemoveAddedEffect(pair.Key); }
+                PumpMinionLook(now);
                 if (Minions.IsEmpty) return;
                 var effectType = Il2CppInterop.Runtime.Il2CppType.Of<Il2CppMoon.Forsaken.RaisedMinionVisualEffect>();
                 var views = UnityEngine.Object.FindObjectsOfType(Il2CppInterop.Runtime.Il2CppType.Of<Il2CppMoon.Forsaken.EntityView>());

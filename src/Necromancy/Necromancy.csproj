@@ -2,7 +2,7 @@
   <!-- 死灵起尸恢复插件：独立 DLL，不依赖 CrucibleUnlock。 -->
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework><PlatformTarget>x64</PlatformTarget>
-    <AssemblyName>NRFWNecromancy</AssemblyName><RootNamespace>Necromancy</RootNamespace><Version>0.18.4</Version>
+    <AssemblyName>NRFWNecromancy</AssemblyName><RootNamespace>Necromancy</RootNamespace><Version>0.19.17</Version>
     <LangVersion>latest</LangVersion><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath><DebugType>none</DebugType>
   </PropertyGroup>

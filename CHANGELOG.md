@@ -1,5 +1,9 @@
 # Version history
 
+## Necromancy 0.19.17 (T-017 test build; renumbered at merge)
+
+- T-017: Added hot-reloadable ghost materials for raised, revived, and Boss minions, with separate tint and glow layers, dithered transparency, a stock look option, and blood buildup disabled by default for minions.
+
 ## Main source — Third Crucible R17 integration, 2026-10-11
 
 - Integrated the user-approved R17 Third Crucible on the 0.9.17 main baseline: ten ordinary-enemy combat rooms, first-Crucible arenas, and second-Crucible progression/rewards. Rooms 5 and 6 share a sword/shield configuration; the route has nine distinct combinations. The six additional R16 combinations are excluded.
