@@ -44,7 +44,7 @@ minion_teleport_distance_multiplier = 3
 ### 怒吼指令（T-012）
 
 - `roar_enabled`：默认 `true`。本地角色发表情「怒吼」时，只有自己召出的两种沃里克会放插剑震波；每名随从冷却 3 秒（模拟时间）。
-- `roar_gesture`：默认 `"2126111680215882670"`（野兽之力 bestialPowerGestureData；游戏里没有叫 roar 的表情）。可填表情资产的十进制 GUID 或路径关键字（不区分大小写；发行版运行时资产路径为空，关键字实际匹配不上，请用 GUID）。前 60 次本地表情会记录 GUID、路径和是否匹配，认不出「怒吼」时可据此调整。
+- `roar_gesture`：默认 `"2126111680215882670"`（凶残之力 bestialPowerGestureData；游戏里没有叫 roar 的表情）。可填表情资产的十进制 GUID 或路径关键字（不区分大小写；发行版运行时资产路径为空，关键字实际匹配不上，请用 GUID）。前 60 次本地表情会记录 GUID、路径和是否匹配，认不出「怒吼」时可据此调整。
 - `roar_action`：默认 `"4386907888524794362"`（沃里克的延迟范围攻击 mutantSoldierAttackDelayedAOEData；下劈短震波 mutantSoldierAttackOverheadShortAOEData 是 `1578638975510328898`）。必须是动作（ActionData）的 GUID：插剑震波内／中／外圈（`3660829114871757151` 等）是招式生成的震波实体，不是动作，填了会在日志报出实际类型。
 
 ## 构建与离线核验
