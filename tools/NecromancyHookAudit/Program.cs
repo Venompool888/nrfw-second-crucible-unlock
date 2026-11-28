@@ -409,6 +409,10 @@ using (var pe = new PEReader(s))
     var us = MetadataTokens.UserStringHandle(1);
     while (!us.IsNil) { userStrings.Add(r.GetUserString(us)); us = r.GetNextHandle(us); }
     foreach (var h in NecromancyPolicy.Hooks) Check(userStrings.Contains(h.Method), "plugin patches '" + h.Method + "' by name");
+    // T-015 0.18.2: CrucibleUnlock JIT-compiles its view helpers before its own EntityView.GetActionView /
+    // InitializeResourceManager detours; patching those first from this plugin crashed the game at launch.
+    foreach (string forbidden in new[] { "GetActionView", "InitializeResourceManager" })
+        Check(!userStrings.Contains(forbidden), "plugin does not patch '" + forbidden + "' (CrucibleUnlock startup JIT order)");
     foreach (var entry in nativeEntrypoints)
         Check(userStrings.Contains(entry.Name), "compiled plugin resolves native entry " + entry.Name);
 
@@ -441,12 +445,10 @@ using (var pe = new PEReader(s))
     foreach (var (name, result, parameters) in new[]
     {
         ("AfterBossContentInit", "Void", new[] { Frame }),
-        ("BeforeBossResourceManagerReset", "Void", Array.Empty<string>()),
         ("BeforeBossCount", "System.Boolean", new[] { Frame, Entity, Q + "RaiseMinionActionData", "System.Int32&" }),
         ("BeforeBossHeroLoad", "Void", new[] { Frame }),
         ("AfterBossName", "Void", new[] { "Il2Cpp.HeroItemDataAsset", "System.String&" }),
         ("AfterBossDescription", "Void", new[] { "Il2Cpp.HeroItemDataAsset", "System.String&" }),
-        ("AfterBossActionView", "Void", new[] { Q + "ActionData", "Il2CppMoon.Forsaken.ActionView" }),
         ("AfterRaiseExecute", "Void", new[] { Frame, Entity, Q + "RaiseMinionActionData", "System.Boolean" }),
         ("AfterMinionSpawned", "Void", new[] { Entity, Guid }),
     })

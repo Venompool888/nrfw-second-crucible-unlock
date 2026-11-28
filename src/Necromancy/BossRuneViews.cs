@@ -27,12 +27,6 @@ namespace Necromancy
             internal bool ItemListed, ActionListed;
         }
 
-        private static void BeforeBossResourceManagerReset()
-        {
-            try { RetireBossViews(Il2CppMoon.Forsaken.Core.AssetCtx?.Pointer ?? IntPtr.Zero); }
-            catch (Exception e) { BossError("VIEW reset", e); }
-        }
-
         private static void RetireBossViews(IntPtr currentResolver)
         {
             foreach (var view in BossViews.Values) view.Rune.ViewReady = false;
@@ -95,6 +89,7 @@ namespace Necromancy
                     {
                         RegisterBossView(ctx, view, item, action);
                         BossViews.Add(id, view);
+                        EnsureBossTextHooks();
                         rune.ViewReady = true;
                         Write(BossLabel(rune.Rule) + " VIEW READY item/action TryFindWrapperImpl verified");
                     }
@@ -226,18 +221,6 @@ namespace Necromancy
                 if (rule != null) __result = _bossEnglish ? rule.DescEn : rule.DescZh;
             }
             catch (Exception e) { BossError("GetDescription", e); }
-        }
-
-        private static void AfterBossActionView(ActionData __0, ActionView __result)
-        {
-            try
-            {
-                if (__0 == null) return;
-                var rune = BossAction(_bossSession, __0.Guid.Value);
-                if (rune != null && Interlocked.Increment(ref rune.ActionViewLogs) <= 3)
-                    Write(BossLabel(rune.Rule) + " GetActionView A=" + BossId(rune.Rule.ActionGuid) + " null=" + (__result == null));
-            }
-            catch (Exception e) { BossError("GetActionView", e); }
         }
     }
 }

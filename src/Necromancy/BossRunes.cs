@@ -25,6 +25,23 @@ namespace Necromancy
         private static int _bossGrantDirty, _bossErrors;
         private static string _bossIconDirectory;
         private static string _bossTomeCharacter = "";
+        private static HarmonyLib.Harmony _bossHarmony;
+        private static bool _bossTextHooked;
+
+        // Deferred until the first Boss rune wrapper is registered (game fully started, after other mods'
+        // startup JIT work). One attempt; failure only loses the custom names.
+        private static void EnsureBossTextHooks()
+        {
+            if (_bossTextHooked || _bossHarmony == null) return;
+            _bossTextHooked = true;
+            try
+            {
+                Patch(_bossHarmony, typeof(HeroItemDataAsset), "GetName", Type.EmptyTypes, nameof(AfterBossName), typeof(string));
+                Patch(_bossHarmony, typeof(HeroItemDataAsset), "GetDescription", Type.EmptyTypes, nameof(AfterBossDescription), typeof(string));
+                Write("boss-runes text hooks installed (deferred)");
+            }
+            catch (Exception e) { Write("boss-runes text hooks FAILED " + e.GetType().Name + ": " + e.Message); }
+        }
 
         private sealed class BossSession
         {
@@ -42,7 +59,7 @@ namespace Necromancy
             internal RaiseMinionActionData Action;
             internal volatile bool ViewReady;
             internal bool GrantAttempted;
-            internal int ExecuteLogs, CountLogs, ActionViewLogs, SpawnLogs;
+            internal int ExecuteLogs, CountLogs, SpawnLogs;
         }
 
         private static AssetGuid BossGuid(long guid) => new AssetGuid { Value = guid };
@@ -71,17 +88,16 @@ namespace Necromancy
                 _bossRules = LoadBossRules(Path.Combine(directory, BossRunePolicy.FileName)).OrderBy(r => r.Key, StringComparer.Ordinal).ToArray();
                 if (!enabled) return;
                 _bossActions = new HashSet<long>(_bossRules.Where(r => r.Enabled).Select(r => r.ActionGuid));
+                // Simulation-only hooks at startup. Unity view classes (EntityView, HeroItemDataAsset, the
+                // resource manager) are NOT patched here: CrucibleUnlock JIT-compiles its view helpers before
+                // its own EntityView detours, and an earlier detour from this plugin made that compile crash
+                // the game at launch (0.18.0/0.18.1). Text hooks are installed later, once views are ready.
                 Patch(harmony, typeof(InitializeContentSystem), "OnInit", new[] { typeof(Frame) }, nameof(AfterBossContentInit));
-                PatchPrefix(harmony, typeof(InitializeQuantumAssetDatabase), "InitializeResourceManager", new[] { typeof(ViewFrame) },
-                    nameof(BeforeBossResourceManagerReset), typeof(void));
                 PatchPrefix(harmony, typeof(RaiseMinionActionData), "CountActiveMinions", new[] { typeof(Frame), typeof(EntityRef) },
                     nameof(BeforeBossCount), typeof(int));
                 PatchPrefix(harmony, typeof(PlayerSerialization), "LoadHeroFromPlayerSerializedData",
                     new[] { typeof(Frame), typeof(EntityRef), typeof(CharacterContents) }, nameof(BeforeBossHeroLoad), typeof(bool));
-                Patch(harmony, typeof(HeroItemDataAsset), "GetName", Type.EmptyTypes, nameof(AfterBossName), typeof(string));
-                Patch(harmony, typeof(HeroItemDataAsset), "GetDescription", Type.EmptyTypes, nameof(AfterBossDescription), typeof(string));
-                Patch(harmony, typeof(Il2CppMoon.Forsaken.EntityView), "GetActionView", new[] { typeof(ActionData), typeof(bool).MakeByRefType() },
-                    nameof(AfterBossActionView), typeof(ActionView));
+                _bossHarmony = harmony;
                 _bossEnabled = true;
                 Write("boss-runes hooks installed; enabled rules=" + _bossActions.Count);
 #if !BOSS_RUNE_PNG
