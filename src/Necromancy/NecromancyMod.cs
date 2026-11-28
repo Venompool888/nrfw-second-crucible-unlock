@@ -77,6 +77,7 @@ namespace Necromancy
             if (_enabled) InstallRaisedMinionDamageProtection();
             if (_enabled) InstallMinionLifecycle(category);
             if (_enabled) InstallRoarCommand(category);
+            if (_enabled) InstallBossRunes(category);
             Flush();
         }
 
@@ -103,6 +104,8 @@ namespace Necromancy
         public override void OnUpdate()
         {
             if (_enabled) CaptureHero();
+            if (_enabled && _bossEnabled) PumpBossViews();
+            SaveBossGrants();
             if (_enabled && _visualsOn && (++_visualTick % 20) == 0) EnsureMinionVisuals();
             if (_grantDone && _grantedEntry != null && _grantRequested)
             {
@@ -129,6 +132,9 @@ namespace Necromancy
             try
             {
                 Found.Clear(); Added.Clear(); _enableChecks = 0; _heroFrames = 0;
+                _bossSession = null;
+                BossStorages.Clear();
+                _bossReadWithoutSession = 0;
                 RaisedDamageOwners.Clear();
                 MinionProfiles.Clear();
                 MinionLastDamage.Clear();
@@ -181,6 +187,7 @@ namespace Necromancy
             {
                 EnsureEnabled(__0);
                 if (_grantRequested && !_grantDone) TryGrant(__0);
+                if (_bossEnabled) TickBossRunes(__0);
                 TickLifetime(__0);
                 if (_roarEnabled) try { TickRoarTraces(__0); } catch (Exception e) { RoarTraces.Clear(); Write("roar trace FAILED " + e.GetType().Name + ": " + e.Message); }
             }
@@ -299,9 +306,19 @@ namespace Necromancy
                 Write("force created gold Tome of Healing entity=" + tome.Raw + " added=" + added);
             }
             if (!tome.IsValid) { Write("force SKIP no Tome of Healing"); return; }
-            if (!EntityRefExtensions.Has<WeaponComponent>(tome, f)) { Write("force SKIP tome has no WeaponComponent"); return; }
+            var indices = new int[NecromancyPolicy.RunedTome.Length];
+            for (int r = 0; r < indices.Length; ++r)
+                indices[r] = RunesAPI.GetRune(f, new AssetRefHeroItemData { Id = new AssetGuid { Value = NecromancyPolicy.RunedTome[r] } }).m_index;
+            WriteTomeRunes(f, hero, tome, NecromancyPolicy.RuneKeys, indices);
+        }
+
+        // Layout-checked direct write of rune table indices into free, non-static, non-unique tome slots,
+        // then ArmamentReload. Returns how many runes ended up in the tome (written or already present).
+        private static unsafe int WriteTomeRunes(Frame f, EntityRef hero, EntityRef tome, string[] keys, int[] indices)
+        {
+            if (!EntityRefExtensions.Has<WeaponComponent>(tome, f)) { Write("force SKIP tome has no WeaponComponent"); return 0; }
             var wc = EntityRefExtensions.Get<WeaponComponent>(tome, f);
-            if (wc == null) { Write("force SKIP WeaponComponent pointer null"); return; }
+            if (wc == null) { Write("force SKIP WeaponComponent pointer null"); return 0; }
 
             int slotSize = HeroRuneSlot.SIZE, wcSize = WeaponComponent.SIZE, count = Constants.MaxRuneSlots, unique = Constants.UniqueRuneSlotIndex;
             int offSlots = (int)Marshal.OffsetOf<WeaponComponent>("_RuneSlots_");
@@ -314,7 +331,7 @@ namespace Necromancy
             Write("force " + layout);
             if (!NecromancyPolicy.SlotLayoutOk(slotSize, Marshal.SizeOf<HeroRuneSlot>(), wcSize, Marshal.SizeOf<WeaponComponent>(), offSlots, count,
                     offStatic, offUnlocked, offRune))
-            { Write("force ABORT layout mismatch; nothing written"); return; }
+            { Write("force ABORT layout mismatch; nothing written"); return 0; }
 
             byte* slots = (byte*)wc + offSlots;
             int Read(int s, int off) => *(int*)(slots + s * slotSize + off);
@@ -326,23 +343,26 @@ namespace Necromancy
             }
             Write("force before " + State());
             for (int s = 0; s < count; ++s)
-                if ((uint)Read(s, offStatic) > 1 || (uint)Read(s, offUnlocked) > 1) { Write("force ABORT slot " + s + " bool fields not 0/1; nothing written"); return; }
+                if ((uint)Read(s, offStatic) > 1 || (uint)Read(s, offUnlocked) > 1) { Write("force ABORT slot " + s + " bool fields not 0/1; nothing written"); return 0; }
 
             int empty = new RuneDataRef().m_index;
             var written = new List<string>();
-            for (int r = 0; r < NecromancyPolicy.RunedTome.Length; ++r)
+            int placed = 0;
+            for (int r = 0; r < indices.Length; ++r)
             {
-                int index = RunesAPI.GetRune(f, new AssetRefHeroItemData { Id = new AssetGuid { Value = NecromancyPolicy.RunedTome[r] } }).m_index;
+                int index = indices[r];
+                if (index == empty) { written.Add(keys[r] + "=no-rune-index"); continue; }
                 bool present = false;
                 for (int s = 0; s < count; ++s) if (Read(s, offRune) == index) present = true;
-                if (present) { written.Add(NecromancyPolicy.RuneKeys[r] + "=already"); continue; }
+                if (present) { written.Add(keys[r] + "=already"); ++placed; continue; }
                 int target = -1;
                 for (int s = 0; s < count && target < 0; ++s)
                     if (s != unique && Read(s, offStatic) == 0 && Read(s, offRune) == empty) target = s;
-                if (target < 0) { written.Add(NecromancyPolicy.RuneKeys[r] + "=no-free-slot"); continue; }
+                if (target < 0) { written.Add(keys[r] + "=no-free-slot"); continue; }
                 *(int*)(slots + target * slotSize + offUnlocked) = 1;
                 *(int*)(slots + target * slotSize + offRune) = index;
-                written.Add(NecromancyPolicy.RuneKeys[r] + "=slot" + target + "(index " + index + ", HasRune=" + RunesAPI.Weapon.HasRune(f, tome, target) + ")");
+                ++placed;
+                written.Add(keys[r] + "=slot" + target + "(index " + index + ", HasRune=" + RunesAPI.Weapon.HasRune(f, tome, target) + ")");
             }
             Write("FORCED tome entity=" + tome.Raw + ": " + string.Join(", ", written));
             Write("force after " + State());
@@ -352,6 +372,7 @@ namespace Necromancy
                 Write("force ArmamentReload requested");
             }
             catch (Exception e) { Write("force ArmamentReload failed " + e.GetType().Name + ": " + e.Message); }
+            return placed;
         }
 
         // ---- raised minion tint ------------------------------------------------------------
@@ -1114,10 +1135,9 @@ namespace Necromancy
         private static unsafe bool OffFollowWithinRange(RaisedMinionComponent* comp, double ownerDist) =>
             comp->IsFollowing.Value == 0 && ownerDist <= comp->MaxDistanceBeforeTeleport.RawValue / 65536.0;
 
-        // No __instance here: FrameEvents is an interop struct and binding its instance in a Harmony patch is not proven
-        // in this runtime. Register only; the profile is applied by RetryMinionProfiles in the next
-        // RaisedMinionSystem.Update, which has the frame.
-        private static void AfterMinionSpawned(EntityRef __0)
+        // Register only; the profile is applied by RetryMinionProfiles in the next RaisedMinionSystem.Update, which has
+        // the frame (no __instance: binding the FrameEvents interop struct instance in a Harmony patch is not proven).
+        private static void AfterMinionSpawned(EntityRef __0, AssetGuid __2)
         {
             try
             {
@@ -1127,6 +1147,7 @@ namespace Necromancy
                 if (!_stuckHoldOff && (!_stuckTeleportInCombat || !_heightTeleportInRange)) TeleportMinions.Add(__0.Raw);
                 if (!MinionProfiles.ContainsKey(__0.Raw))
                     PendingMinionProfiles.TryAdd(__0.Raw, _profileRetryTick + ProfileRetryFrames);
+                TrackBossSpawn(__0, __2);
             }
             catch (Exception e) { Write("spawn-register ERROR " + e.GetType().Name + ": " + e.Message); }
         }
@@ -1326,7 +1347,8 @@ namespace Necromancy
             {
                 FirstHit(ref _raiseDataHit, nameof(BeforeRaiseData));
                 if (!_enabled || __instance == null) return true;
-                try { ApplySummon(__0, __instance); } catch (Exception e) { Error("summon", e); }
+                // Boss rune actions keep their own summon target; they still get the teleport-distance multiplier below.
+                if (!IsPrivateBossAction(__instance.Guid.Value)) try { ApplySummon(__0, __instance); } catch (Exception e) { Error("summon", e); }
                 var d = __instance.MaxDistanceBeforeTeleport;
                 if (TeleportWritten.TryGetValue(__instance.Pointer, out long written) && written == d.RawValue) return true;
                 long scaled = NecromancyPolicy.ScaledTeleportRaw(d.RawValue, _teleportMultiplier);
@@ -1533,12 +1555,13 @@ namespace Necromancy
             try
             {
                 long rune = __2.Guid.Value;
-                if (!NecromancyPolicy.IsNecromancyRune(rune)) return;
+                bool boss = IsReadyBossItem(__0, rune);
+                if (!boss && !NecromancyPolicy.IsNecromancyRune(rune)) return;
                 if (!EntityRefExtensions.Has<ItemComponent>(__1, __0)) return;
                 var component = EntityRefExtensions.Get<ItemComponent>(__1, __0);
                 if (component == null) return;
                 long item = component->Data.Id.Value;
-                if (!NecromancyPolicy.TomeAccepts(item, rune)) return;
+                if (!(boss ? item == NecromancyPolicy.TomeOfHealing : NecromancyPolicy.TomeAccepts(item, rune))) return;
                 __result = true;
                 if (Interlocked.Increment(ref _compatLogs) <= 10) Write("tome-runes ALLOW entity=" + __1.Raw + " rune=" + rune);
             }
@@ -1552,7 +1575,8 @@ namespace Necromancy
             try
             {
                 long rune = __2.Guid.Value;
-                if (!NecromancyPolicy.ClasslessAccepts((int)__1->Class, rune)) return;
+                int weaponClass = (int)__1->Class;
+                if (!NecromancyPolicy.ClasslessAccepts(weaponClass, rune) && !(weaponClass == 0 && IsReadyBossItem(__0, rune))) return;
                 __result = true;
                 if (Interlocked.Increment(ref _compatLogs) <= 10) Write("tome-runes ALLOW classless weapon rune=" + rune);
             }
@@ -1598,10 +1622,15 @@ namespace Necromancy
             if (failure != null) BreakTeleportHolds(failure);
         }
 
-        private static void AfterRaiseExecute(Frame __0, EntityRef __1, bool __result)
+        private static void AfterRaiseExecute(Frame __0, EntityRef __1, RaiseMinionActionData __instance, bool __result)
         {
-            if (__0 != null && __0.IsVerified && Interlocked.Increment(ref _executes) <= 200)
-                Write("raise Execute caster=" + __1.Raw + " -> " + __result);
+            try
+            {
+                if (__instance != null && IsPrivateBossAction(__instance.Guid.Value)) LogBossExecute(__0, __1, __instance, __result);
+                else if (__0 != null && __0.IsVerified && Interlocked.Increment(ref _executes) <= 200)
+                    Write("raise Execute caster=" + __1.Raw + " -> " + __result);
+            }
+            catch (Exception e) { BossError("Execute log", e); }
         }
 
         private static void AfterCanRaise(Frame __0, EntityRef __1, bool __result)
