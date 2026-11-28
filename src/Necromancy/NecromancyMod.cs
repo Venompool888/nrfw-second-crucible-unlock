@@ -8,6 +8,7 @@ using System.Threading;
 using HarmonyLib;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using Il2CppMoon.TheLoop;
+using Il2CppPhoton.Deterministic;
 using Il2CppQuantum;
 using MelonLoader;
 
@@ -129,10 +130,13 @@ namespace Necromancy
             {
                 Found.Clear(); Added.Clear(); _enableChecks = 0; _heroFrames = 0;
                 RaisedDamageOwners.Clear();
+                MinionProfiles.Clear();
                 MinionLastDamage.Clear();
                 TeleportMinions.Clear();
                 HeldStuck.Clear();
                 HeldHeight.Clear();
+                PendingMinionProfiles.Clear();
+                _profileRetryTick = 0;
                 _damageProtectionLogs = 0;
                 LastRoar.Clear();
                 _resolvedRoarGuid = null;
@@ -585,7 +589,14 @@ namespace Necromancy
             try
             {
                 long now = Environment.TickCount64;
-                foreach (var pair in Minions) if (now - pair.Value > 5000) { Minions.TryRemove(pair.Key, out _); Attached.Remove(pair.Key); RemoveAddedEffect(pair.Key); }
+                foreach (var pair in Minions)
+                {
+                    if (now - pair.Value > 5000 && Minions.TryRemove(new KeyValuePair<ulong, long>(pair.Key, pair.Value)))
+                    {
+                        Attached.Remove(pair.Key);
+                        RemoveAddedEffect(pair.Key);
+                    }
+                }
                 if (Minions.IsEmpty) return;
                 var effectType = Il2CppInterop.Runtime.Il2CppType.Of<Il2CppMoon.Forsaken.RaisedMinionVisualEffect>();
                 var views = UnityEngine.Object.FindObjectsOfType(Il2CppInterop.Runtime.Il2CppType.Of<Il2CppMoon.Forsaken.EntityView>());
@@ -829,7 +840,7 @@ namespace Necromancy
             }
             catch (Exception e) { Write("nav-attachment probe FAILED " + e.GetType().Name + ": " + e.Message); }
             var stuckEntry = category.CreateEntry("minion_stuck_teleport_in_combat", false,
-                description: "true = vanilla stuck teleports; false = hold near the owner and while off-follow within teleport range, subject to the hold cap outside the near radius.");
+                description: "true = vanilla stuck teleports; false = hold near the owner and while off-follow within teleport range, subject to the hold cap outside the near radius; each minion's profile stuck= mode refines this.");
             _stuckTeleportInCombat = stuckEntry.Value;
             _stuckHoldMaxSeconds = category.CreateEntry("minion_stuck_hold_max_seconds", 10,
                 description: "Outside the near radius, seconds to hold stuck teleports without a hit in the last 5 seconds; 0 = unlimited.").Value;
@@ -839,6 +850,7 @@ namespace Necromancy
                 description: "Height difference in meters up to which far/height/stuck pull-backs are held (with horizontal distance <= the teleport distance); beyond it vanilla applies; 0 = no height limit.").Value;
             _heightTeleportInRange = category.CreateEntry("minion_height_teleport_in_range", false,
                 description: "true = vanilla height teleports; false = suppress them within the minion's teleport range.").Value;
+            LoadMinionProfiles(category);
             try
             {
                 PatchPrefix(h, typeof(RaisedMinionSystem), "Update", new[] { typeof(Frame) }, nameof(BeforeRaisedUpdate), typeof(void));
@@ -899,6 +911,12 @@ namespace Necromancy
         private static int _stuckResets, _stuckLogs, _stuckHoldMaxSeconds, _heightLogs;
         private static float _stuckHoldNearRadius;
         private static readonly HashSet<ulong> TeleportMinions = new(); // sim thread; no visual-cache timeout
+        private static readonly Dictionary<string, MinionProfile> TierProfiles = new();
+        private static Dictionary<long, MinionProfile> _npcProfiles;
+        private static readonly ConcurrentDictionary<ulong, (string Name, StuckHoldMode Mode)> MinionProfiles = new();
+        private static readonly Dictionary<ulong, int> PendingMinionProfiles = new(); // sim thread; deadline in verified updates
+        private const int ProfileRetryFrames = 30;   // verified updates to wait for NpcData before using the default profile
+        private static int _profileRetryTick;
         private static readonly Dictionary<ulong, (long Duration, bool Released)> HeldStuck = new();
         private static readonly HashSet<ulong> HeldHeight = new();
         private static Frame _simFrame; // teleport events fire inside RaisedMinionSystem.Update
@@ -910,6 +928,28 @@ namespace Necromancy
         private static readonly List<(EntityRef Minion, int Field, long Original)> FollowStartRestore = new();
         private static float _heightHoldMaxDy;
 
+        internal static string MinionProfileName(ulong minionRaw) =>
+            MinionProfiles.TryGetValue(minionRaw, out var profile) ? profile.Name : "";
+
+        private static void LoadMinionProfiles(MelonPreferences_Category category)
+        {
+            var errors = new List<string>();
+            foreach (var (tier, defaults) in new[]
+            {
+                ("boss", "stuck=offfollow"),
+                ("giant", "stuck=offfollow"),
+                ("elite", "stuck=offfollow"),
+                ("normal", "stuck=offfollow")
+            })
+            {
+                string key = "minion_profile_" + tier;
+                TierProfiles[tier] = NecromancyPolicy.ParseMinionProfile(category.CreateEntry(key, defaults).Value, errors, key + " ");
+            }
+            _npcProfiles = NecromancyPolicy.ParseMinionProfileOverrides(category.CreateEntry("minion_profile_overrides", "",
+                description: "Per-NPC profile instead of the tier profile: guid:key=value,key=value;guid:key=value").Value, errors);
+            foreach (string error in errors) Write("minion profile config: " + error);
+        }
+
         private static unsafe void BeforeRaisedUpdate(Frame __0)
         {
             if (FollowStartRestore.Count > 0) RestoreFollowStartDistances(__0);
@@ -918,22 +958,26 @@ namespace Necromancy
                 FirstHit(ref _raisedUpdateHit, nameof(BeforeRaisedUpdate));
                 if (!_enabled || __0 == null) return;
                 _simFrame = __0;
-                if (_stuckHoldOff || (_stuckTeleportInCombat && _heightTeleportInRange)) return;
                 bool verified = __0.IsVerified;
+                if (verified) RetryMinionProfiles(__0);
+                if (_stuckHoldOff || (_stuckTeleportInCombat && _heightTeleportInRange)) return;
                 List<ulong> gone = null;
                 foreach (ulong raw in TeleportMinions)
                 {
                     var minion = new EntityRef { Raw = raw };
                     if (!EntityRefExtensions.Has<RaisedMinionComponent>(minion, __0))
                     {
-                        if (verified) (gone ??= new()).Add(raw);
+                        if (verified) (gone ??= new List<ulong>()).Add(raw);
                         continue;
                     }
+                    if (verified) Minions[raw] = Environment.TickCount64;
+                    // Profile not applied yet (NpcData pending) = default hold behavior, same as an unprofiled 0.16.1 minion.
+                    var mode = MinionProfiles.TryGetValue(raw, out var profile) ? profile.Mode : StuckHoldMode.OffFollow;
                     var comp = EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0);
                     if (comp == null) continue;
                     long before = comp->StuckDuration.RawValue;
                     if (before == 0) HeldStuck.Remove(raw);
-                    bool checkStuck = !_stuckTeleportInCombat && before > 0;
+                    bool checkStuck = !_stuckTeleportInCombat && mode != StuckHoldMode.Vanilla && before > 0;
                     if (_heightTeleportInRange && !checkStuck) continue;
                     var ownerTransform = GetSimTransform(__0, comp->Owner);
                     var minionTransform = GetSimTransform(__0, minion);
@@ -972,13 +1016,15 @@ namespace Necromancy
                     HeldStuck.TryGetValue(raw, out var held);
                     if (!near) held.Duration += __0.DeltaTime.RawValue;
                     long? lastHit = MinionLastDamage.TryGetValue(raw, out long hit) ? hit : null;
-                    if (!NecromancyPolicy.ShouldHoldStuckTeleport(following, withinRange, near,
+                    if (!NecromancyPolicy.ShouldHoldStuck(mode, following, withinRange, near,
                         held.Duration, _stuckHoldMaxSeconds, __0.TimeSinceStart.RawValue, lastHit))
                     {
                         if (!held.Released)
+                        {
                             Write("stuck-teleport released (no progress " + (held.Duration / 65536.0).ToString("0.##") +
                                   "s, no hits) entity=" + NecromancyPolicy.EntityLabel(raw));
-                        HeldStuck[raw] = (held.Duration, true);
+                            HeldStuck[raw] = (held.Duration, true);
+                        }
                         continue;
                     }
                     if (near) HeldStuck.Remove(raw);
@@ -986,12 +1032,14 @@ namespace Necromancy
                     comp->StuckDuration = default;
                     int n = Interlocked.Increment(ref _stuckResets);
                     if (verified && before >= (2L << 16) && Interlocked.Increment(ref _stuckLogs) <= 100)
-                        Write("stuck-teleport held (" + (near ? "near owner" : following ? "following in range" : "off-follow in range") + ") entity=" +
+                        Write("stuck-teleport held (" + (near ? "near owner" : following ? "following in range" : "off-follow in range") +
+                              ", stuck=" + mode.ToString().ToLowerInvariant() + ") entity=" +
                               NecromancyPolicy.EntityLabel(raw) + " stuck=" + (before / 65536.0).ToString("0.##") + "s resets=" + n);
                 }
                 if (gone != null) foreach (ulong raw in gone)
                 {
                     TeleportMinions.Remove(raw);
+                    MinionProfiles.TryRemove(raw, out _);
                     HeldStuck.Remove(raw);
                     HeldHeight.Remove(raw);
                     MinionLastDamage.TryRemove(raw, out _);
@@ -1013,6 +1061,9 @@ namespace Necromancy
         private static unsafe bool OffFollowWithinRange(RaisedMinionComponent* comp, double ownerDist) =>
             comp->IsFollowing.Value == 0 && ownerDist <= comp->MaxDistanceBeforeTeleport.RawValue / 65536.0;
 
+        // No __instance here: FrameEvents is an interop struct and binding its instance in a Harmony patch is not proven
+        // in this runtime. Register only; the profile is applied by RetryMinionProfiles in the next
+        // RaisedMinionSystem.Update, which has the frame.
         private static void AfterMinionSpawned(EntityRef __0)
         {
             try
@@ -1021,8 +1072,86 @@ namespace Necromancy
                 if (!_enabled || !__0.IsValid) return;
                 Minions[__0.Raw] = Environment.TickCount64;
                 if (!_stuckHoldOff && (!_stuckTeleportInCombat || !_heightTeleportInRange)) TeleportMinions.Add(__0.Raw);
+                if (!MinionProfiles.ContainsKey(__0.Raw))
+                    PendingMinionProfiles.TryAdd(__0.Raw, _profileRetryTick + ProfileRetryFrames);
             }
             catch (Exception e) { Write("spawn-register ERROR " + e.GetType().Name + ": " + e.Message); }
+        }
+
+        private static void RetryMinionProfiles(Frame frame)
+        {
+            ++_profileRetryTick;
+            foreach (var pending in PendingMinionProfiles)
+            {
+                bool last = _profileRetryTick >= pending.Value;
+                try
+                {
+                    if (TryApplyMinionProfile(frame, new EntityRef { Raw = pending.Key }, useDefault: last) || last)
+                        PendingMinionProfiles.Remove(pending.Key);
+                }
+                catch (Exception e)
+                {
+                    if (last) PendingMinionProfiles.Remove(pending.Key);
+                    Write("minion profile retry ERROR " + e.GetType().Name + ": " + e.Message);
+                }
+            }
+        }
+
+        private static unsafe bool TryApplyMinionProfile(Frame frame, EntityRef minion, bool useDefault)
+        {
+            if (MinionProfiles.ContainsKey(minion.Raw)) return true;
+            if (!EntityRefExtensions.Has<RaisedMinionComponent>(minion, frame)) return false;
+            var comp = EntityRefExtensions.Get<RaisedMinionComponent>(minion, frame);
+            if (comp == null) return false;
+            long? guid = null;
+            EnemyType? type = null;
+            try
+            {
+                NpcData npc = null;
+                if (EntityRefExtensions.Has<NpcAttachmentComponent>(minion, frame))
+                {
+                    var attachment = EntityRefExtensions.Get<NpcAttachmentComponent>(minion, frame);
+                    if (attachment != null && !attachment->NpcData.IsDefault) npc = attachment->NpcData.Get(frame);
+                }
+                if (npc == null && !useDefault) return false;
+                guid = npc?.Guid.Value;
+                type = npc?.EnemyType;
+            }
+            catch (Exception)
+            {
+                if (!useDefault) return false;
+                guid = null;
+                type = null;
+            }
+            var (name, profile) = NecromancyPolicy.SelectMinionProfile(guid, (int?)type, TierProfiles, _npcProfiles);
+            var mode = profile.StuckHold.GetValueOrDefault();
+            var applied = frame.IsVerified ? new List<string>() : null;
+            ApplyProfileValue(ref comp->MaxDistanceBeforeTeleport, profile.TeleportDistance, "teleport", applied);
+            ApplyProfileValue(ref comp->FollowStartDistance, profile.FollowStart, "follow_start", applied);
+            ApplyProfileValue(ref comp->FollowStopDistance, profile.FollowStop, "follow_stop", applied);
+            ApplyProfileValue(ref comp->FormationRadius, profile.FormationRadius, "formation_radius", applied);
+            ApplyProfileValue(ref comp->EnemySearchRadius, profile.EnemySearchRadius, "enemy_search_radius", applied);
+            ApplyProfileValue(ref comp->FollowSpeed, profile.FollowSpeed, "follow_speed", applied, multiplier: true);
+            ApplyProfileValue(ref comp->PlayerAvoidanceRadius, profile.AvoidRadius, "avoid_radius", applied);
+            ApplyProfileValue(ref comp->PlayerAvoidanceSpeed, profile.AvoidSpeed, "avoid_speed", applied, multiplier: true);
+            MinionProfiles[minion.Raw] = (name, mode);
+            if (applied != null)
+            {
+                var effectiveMode = _stuckTeleportInCombat ? StuckHoldMode.Vanilla : mode;
+                applied.Add("stuck=" + effectiveMode.ToString().ToLowerInvariant());
+                string typeText = type == null ? "?" : Enum.IsDefined(typeof(EnemyType), type.Value) ? type.ToString() : $"unknown({(int)type.Value})";
+                Write(FormattableString.Invariant($"minion PROFILE entity={NecromancyPolicy.EntityLabel(minion.Raw)} npc={guid?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "?"} type={typeText} profile={name} applied={string.Join(",", applied)}"));
+            }
+            return true;
+        }
+
+        private static void ApplyProfileValue(ref FP field, double? value, string key, List<string> applied, bool multiplier = false)
+        {
+            if (!value.HasValue) return;
+            double raw = Math.Round(value.Value * (multiplier ? field.RawValue : 65536d));
+            if (raw < long.MinValue || raw >= long.MaxValue) return;
+            field.RawValue = (long)raw;
+            applied?.Add(FormattableString.Invariant($"{key}={value.Value}"));
         }
 
         // Which native branch fired (static analysis T-011): far = 3D owner distance > comp.MaxDistanceBeforeTeleport;

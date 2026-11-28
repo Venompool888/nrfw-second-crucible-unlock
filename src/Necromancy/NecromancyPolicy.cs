@@ -1,9 +1,98 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+
 namespace Necromancy
 {
+    internal enum StuckHoldMode { Vanilla, OffFollow, Never }
+
+    internal sealed record MinionProfile(
+        double? TeleportDistance = null, double? FollowStart = null, double? FollowStop = null,
+        double? FormationRadius = null, double? EnemySearchRadius = null, double? FollowSpeed = null,
+        double? AvoidRadius = null, double? AvoidSpeed = null, StuckHoldMode? StuckHold = null);
+
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.16.1";
+        internal const string Version = "0.16.2-t013";
+
+        internal static MinionProfile ParseMinionProfile(string text, ICollection<string> errors, string source = "")
+        {
+            var profile = new MinionProfile();
+            foreach (string token in (text ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            {
+                int equals = token.IndexOf('=');
+                if (equals < 0) { errors.Add(source + $"'{token}': expected key=value"); continue; }
+                string key = token[..equals].Trim().ToLowerInvariant();
+                string value = token[(equals + 1)..].Trim();
+                double? Number(double? previous)
+                {
+                    if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double number) &&
+                        number >= 0 && number * 65536d < long.MaxValue) return number;
+                    errors.Add(source + $"'{token}': expected a nonnegative number in FP range");
+                    return previous;
+                }
+                if (key == "stuck")
+                {
+                    StuckHoldMode? mode = value.ToLowerInvariant() switch
+                    {
+                        "vanilla" => StuckHoldMode.Vanilla,
+                        "offfollow" => StuckHoldMode.OffFollow,
+                        "never" => StuckHoldMode.Never,
+                        _ => null
+                    };
+                    if (mode.HasValue) profile = profile with { StuckHold = mode };
+                    else errors.Add(source + $"'{token}': expected vanilla, offfollow or never");
+                    continue;
+                }
+                profile = key switch
+                {
+                    "teleport" => profile with { TeleportDistance = Number(profile.TeleportDistance) },
+                    "follow_start" => profile with { FollowStart = Number(profile.FollowStart) },
+                    "follow_stop" => profile with { FollowStop = Number(profile.FollowStop) },
+                    "formation_radius" => profile with { FormationRadius = Number(profile.FormationRadius) },
+                    "enemy_search_radius" => profile with { EnemySearchRadius = Number(profile.EnemySearchRadius) },
+                    "follow_speed" => profile with { FollowSpeed = Number(profile.FollowSpeed) },
+                    "avoid_radius" => profile with { AvoidRadius = Number(profile.AvoidRadius) },
+                    "avoid_speed" => profile with { AvoidSpeed = Number(profile.AvoidSpeed) },
+                    _ => profile
+                };
+            }
+            return profile;
+        }
+
+        internal static Dictionary<long, MinionProfile> ParseMinionProfileOverrides(string text, ICollection<string> errors)
+        {
+            var overrides = new Dictionary<long, MinionProfile>();
+            foreach (string token in (text ?? "").Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            {
+                int colon = token.IndexOf(':');
+                if (colon < 0 || !long.TryParse(token.AsSpan(0, colon), NumberStyles.Integer, CultureInfo.InvariantCulture, out long guid) || guid == 0)
+                {
+                    errors.Add($"'{token}': expected a nonzero decimal GUID followed by ':'");
+                    continue;
+                }
+                overrides[guid] = ParseMinionProfile(token[(colon + 1)..], errors, FormattableString.Invariant($"npc:{guid} "));
+            }
+            return overrides;
+        }
+
+        internal static (string Name, MinionProfile Profile) SelectMinionProfile(long? guid, int? enemyType,
+            IReadOnlyDictionary<string, MinionProfile> tiers, IReadOnlyDictionary<long, MinionProfile> overrides)
+        {
+            if (guid.HasValue && overrides.TryGetValue(guid.Value, out var profile))
+                return (FormattableString.Invariant($"npc:{guid.Value}"), profile);
+            // Interop EnemyType: Normal=0, Giant=1, Elite=2, Boss=3, Critters=4, PlotEnemy=5.
+            string tier = enemyType switch { 1 => "giant", 2 => "elite", 3 => "boss", _ => "normal" };
+            return (enemyType.HasValue ? tier : "default", tiers[tier]);
+        }
+
+        // Per-minion stuck mode on top of the 0.16.1 hold rules: offfollow = those rules unchanged (default);
+        // never = a following minion is held like an off-follow one (hits extend the hold); vanilla = no stuck hold.
+        internal static bool ShouldHoldStuck(StuckHoldMode mode, bool following, bool withinRange, bool near,
+            long heldRaw, int maxSeconds, long nowRaw, long? lastHitRaw) =>
+            mode != StuckHoldMode.Vanilla &&
+            ShouldHoldStuckTeleport(following && mode != StuckHoldMode.Never, withinRange, near, heldRaw, maxSeconds, nowRaw, lastHitRaw);
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA

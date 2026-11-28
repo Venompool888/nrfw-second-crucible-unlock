@@ -32,12 +32,18 @@ grant_character = "你的角色名"
 granted_characters = ""
 minion_lifetime_seconds = 600
 minion_teleport_distance_multiplier = 3
+minion_stuck_teleport_in_combat = false
+minion_profile_boss = "stuck=offfollow"
+minion_profile_giant = "stuck=offfollow"
+minion_profile_elite = "stuck=offfollow"
+minion_profile_normal = "stuck=offfollow"
+minion_profile_overrides = ""
 ```
 
 - `grant_character` 默认为空，即不发放；填上角色名（不区分大小写）才会给这个角色发。
 - 想给已发过的角色再发一次，从 `granted_characters` 里删掉它的名字。
 - `minion_lifetime_seconds` 填 0 表示随从一直存在，直到被打死。
-- `minion_teleport_distance_multiplier`：随从离玩家多远才传送回来，乘在原版 20 米上（默认 3 = 60 米，1 = 原版）。
+- `minion_teleport_distance_multiplier`：没单独设 `teleport` 时，传回距离按原版 20 米乘此倍数（默认 3 = 60 米，1 = 原版）。
 - `minion_npc`（T-010）：raiseMinion 召出谁。默认 `warrick_boss`（变异者沃里克 npcWarrickBoss `2680182020363611965`）；`warrick_enemy`（npcWarrickEnemy，巨型档，同一套 AI）、`wildling`（原版野人剑士）、`native`（不改原版数据），或直接填 NpcData GUID。目标解析不到 NpcData 时保持原版。revive 不受影响。
 - `minion_max_active`（T-010）：换了召唤目标时 raiseMinion 同时在场上限，默认 1，0 = 原版 5，不会超过原版。沃里克按 Boss 档缩放（生命、伤害 ×0.1）。
 
@@ -46,6 +52,11 @@ minion_teleport_distance_multiplier = 3
 - `roar_enabled`：默认 `true`。本地角色发表情「怒吼」时，只有自己召出的两种沃里克会放插剑震波；每名随从冷却 3 秒（模拟时间）。
 - `roar_gesture`：默认 `"2126111680215882670"`（凶残之力 bestialPowerGestureData；游戏里没有叫 roar 的表情）。可填表情资产的十进制 GUID 或路径关键字（不区分大小写；发行版运行时资产路径为空，关键字实际匹配不上，请用 GUID）。前 60 次本地表情会记录 GUID、路径和是否匹配，认不出「怒吼」时可据此调整。
 - `roar_action`：默认 `"4386907888524794362"`（沃里克的延迟范围攻击 mutantSoldierAttackDelayedAOEData；下劈短震波 mutantSoldierAttackOverheadShortAOEData 是 `1578638975510328898`）。必须是动作（ActionData）的 GUID：插剑震波内／中／外圈（`3660829114871757151` 等）是招式生成的震波实体，不是动作，填了会在日志报出实际类型。
+
+- `minion_profile_boss` / `giant` / `elite` / `normal` 分别用于 Boss、巨型、精英和普通随从；NPC 数据暂时取不到时，重试后用普通档。
+- `minion_profile_overrides` 按十进制 NPC 资产 GUID 整条替换分档配置，例如 `"123:teleport=50,stuck=never;456:follow_start=6"`。
+- `teleport`、`follow_start`、`follow_stop`、`formation_radius`、`enemy_search_radius`、`avoid_radius` 的单位是米；`follow_speed` 和 `avoid_speed` 是速度倍数。没填的数值保持召唤时的值。
+- `stuck=offfollow`（默认）沿用 0.16.1 的卡住拦截规则：离主人 10 米内一律不传，范围内跟随中最多拦 10 秒、未跟随时最近 5 秒打中过敌人可续拦；`never` 让跟随中的随从也按未跟随的规则拦；`vanilla` 不拦这名随从的卡住传送。高度与远距离拦截不分档，仍由全局配置控制。`minion_stuck_teleport_in_combat=true` 强制所有随从使用原版卡住逻辑。
 
 ## 构建与离线核验
 

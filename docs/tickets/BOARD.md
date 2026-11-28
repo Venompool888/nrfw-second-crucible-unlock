@@ -8,7 +8,11 @@
 
 ## 待做（0）
 
-## 进行中（0）
+## 进行中（1）
+
+| 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 待决定 |
+|---|---|---|---|---|---|---|
+| [T-013](T-013.md) | [#17](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/17) | feature | P2 | necromancy | 召唤物分档行为配置 | 默认数值 |
 
 ## 测试中（0）
 

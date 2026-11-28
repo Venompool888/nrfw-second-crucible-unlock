@@ -13,9 +13,19 @@ var layoutFields = new[]
     (Type: "Il2CppQuantum.Damage", Field: "HitEntity", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x28),
     (Type: "Il2CppQuantum.Damage", Field: "Proxy", FieldType: "Il2CppQuantum.PayloadProxyGroup", Offset: 0xb8),
     (Type: "Il2CppQuantum.DamageResponse", Field: "Type", FieldType: "Il2CppQuantum.DamagePayloadResponseType", Offset: 8),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "IsFollowing", FieldType: "Il2CppQuantum.QBoolean", Offset: 0x04),
     (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "Owner", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x10),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "EnemySearchRadius", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x20),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "FollowSpeed", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x30),
     (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "FollowStartDistance", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x38),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "FollowStopDistance", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x40),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "FormationRadius", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x48),
     (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "MaxDistanceBeforeTeleport", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x50),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "PlayerAvoidanceRadius", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x58),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "PlayerAvoidanceSpeed", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x60),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "StuckDuration", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x70),
+    (Type: "Il2CppQuantum.NpcAttachmentComponent", Field: "NpcData", FieldType: "Il2CppQuantum.NpcDataRef", Offset: 0x18),
+    (Type: "Il2CppQuantum.AssetGuid", Field: "Value", FieldType: "System.Int64", Offset: 0x00),
     (Type: "Il2CppQuantum.TransformComponent", Field: "RawPosition", FieldType: "Il2CppPhoton.Deterministic.FPVector3", Offset: 0x08),
     (Type: "Il2CppQuantum.ProjectileComponent", Field: "InstigatorRef", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x30),
     (Type: "Il2CppQuantum.CascadeInstanceComponent", Field: "Caster", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x40)
@@ -32,6 +42,7 @@ var checkedFields = layoutFields.Concat(roarFields).ToLookup(field => field.Type
 var layouts = new HashSet<(string Type, string Field, string FieldType, int Offset)>();
 var types = new HashSet<string>();
 var bases = new Dictionary<string, string>();
+var enemyTypes = new Dictionary<string, int>();
 foreach (string assembly in new[] { "Il2Cppmoon.quantum.forsaken", "Il2Cpp__forsaken", "Il2CppQuantum.Engine",
                                     "Il2CppQuantum.Deterministic", "Il2CppInterop.Runtime" })
 {
@@ -46,6 +57,20 @@ foreach (string assembly in new[] { "Il2Cppmoon.quantum.forsaken", "Il2Cpp__fors
         {
             var m = r.GetMethodDefinition(mh); var sg = m.DecodeSignature(p, (object)null);
             methods.Add((tn, r.GetString(m.Name), sg.ReturnType, sg.ParameterTypes.ToArray(), m.Attributes.HasFlag(System.Reflection.MethodAttributes.Static)));
+        }
+        if (tn == "Il2CppQuantum.EnemyType")
+        {
+            foreach (var handle in r.GetTypeDefinition(th).GetFields())
+            {
+                var field = r.GetFieldDefinition(handle);
+                var value = field.GetDefaultValue();
+                if (!value.IsNil)
+                {
+                    var constant = r.GetConstant(value);
+                    if (constant.TypeCode == ConstantTypeCode.Int32)
+                        enemyTypes.Add(r.GetString(field.Name), r.GetBlobReader(constant.Value).ReadInt32());
+                }
+            }
         }
         foreach (var candidate in checkedFields[tn])
         {
@@ -135,6 +160,22 @@ Check(NecromancyPolicy.MatchesRoarAsset("  ROAR ", 123, "gestures/heroRoarData")
 Check(!NecromancyPolicy.LifetimeExpired(0, (3L << 16) - 1, NecromancyPolicy.RoarCooldownSeconds) &&
       NecromancyPolicy.LifetimeExpired(0, 3L << 16, NecromancyPolicy.RoarCooldownSeconds), "roar cooldown: exactly 3 sim seconds");
 
+foreach (var (type, method, result, parameters, isStatic) in new[]
+{
+    ("Il2CppQuantum.Frame+FrameEvents", "get__f", "Il2CppQuantum.Frame", Array.Empty<string>(), false),
+    ("Il2CppQuantum.NpcDataRef", "get_IsDefault", "System.Boolean", Array.Empty<string>(), false),
+    ("Il2CppQuantum.NpcDataRef", "Get", "Il2CppQuantum.NpcData", new[] { "Il2CppQuantum.Frame" }, false),
+    ("Il2CppQuantum.NpcData", "get_EnemyType", "Il2CppQuantum.EnemyType", Array.Empty<string>(), false),
+    ("Il2CppQuantum.AssetObject", "get_Guid", "Il2CppQuantum.AssetGuid", Array.Empty<string>(), false),
+    ("Il2CppQuantum.EntityRefExtensions", "Has", "System.Boolean", new[] { "Il2CppQuantum.EntityRef", "Il2CppQuantum.Frame" }, true),
+    ("Il2CppQuantum.EntityRefExtensions", "Get", "!!0*", new[] { "Il2CppQuantum.EntityRef", "Il2CppQuantum.Frame" }, true)
+})
+    Check(methods.Count(m => m.Type == type && m.Method == method && m.Return == result && m.Static == isStatic &&
+          m.Args.SequenceEqual(parameters)) == 1, "minion profile call " + type + "." + method);
+Check(bases.TryGetValue("Il2CppQuantum.EnemyType", out var enemyTypeBase) && enemyTypeBase == "System.Enum" && enemyTypes.Count == 6 &&
+      new[] { "Normal", "Giant", "Elite", "Boss", "Critters", "PlotEnemy" }.Select((name, i) => enemyTypes.TryGetValue(name, out int value) && value == i).All(ok => ok),
+      "EnemyType enum: Normal=0, Giant=1, Elite=2, Boss=3, Critters=4, PlotEnemy=5");
+
 foreach (string t in new[] { "Il2CppQuantum.CorpseMarkerSystem", "Il2CppQuantum.RaisedMinionSystem" })
     Check(methods.Any(m => m.Type == t && m.Method == ".ctor" && m.Args.Length == 0), t + " has parameterless constructor");
 Check(methods.Any(m => m.Type == "Il2CppQuantum.InventoryAPI" && m.Method == "PreviewAwardItemImmediate" && m.Args.SequenceEqual(new[] {
@@ -165,6 +206,38 @@ Check(NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 11L << 16, 10
       NecromancyPolicy.ShouldHoldStuckTeleport(true, true, false, 9L << 16, 0, 20L << 16, null) &&
       !NecromancyPolicy.ShouldHoldStuckTeleport(false, false, false, 0, 0, 20L << 16, 20L << 16),
       "stuck teleport hold beyond near radius: off-follow and in range, recent hit or below cap, 0 uncaps");
+var profileErrors = new List<string>();
+var bossProfile = NecromancyPolicy.ParseMinionProfile(" Teleport=60,follow_start=8,follow_stop=2.5, formation_radius=3,enemy_search_radius=15,follow_speed=1.5,avoid_radius=1,avoid_speed=0.75,stuck=OFFFOLLOW,future_key=ignored ", profileErrors);
+Check(bossProfile == new MinionProfile(60, 8, 2.5, 3, 15, 1.5, 1, 0.75, StuckHoldMode.OffFollow) && profileErrors.Count == 0,
+      "minion profile parser: all fields, invariant decimals, ignores unknown keys");
+var normalProfile = NecromancyPolicy.ParseMinionProfile("teleport=NaN,follow_start=-1,follow_stop=,stuck=bad,avoid_speed=1e100,missing_equals,stuck=vanilla", profileErrors);
+Check(normalProfile == new MinionProfile(StuckHold: StuckHoldMode.Vanilla) && profileErrors.Count == 6 &&
+      NecromancyPolicy.ParseMinionProfile("", profileErrors) == new MinionProfile(), "minion profile parser: malformed values are reported, omitted fields stay null");
+profileErrors.Clear();
+var overrides = NecromancyPolicy.ParseMinionProfileOverrides("42:stuck=never; bad-guid:teleport=99; missing_colon; 77:follow_speed=x,follow_stop=3; 42:teleport=50,stuck=never", profileErrors);
+Check(overrides.Count == 2 && overrides[42] == new MinionProfile(TeleportDistance: 50, StuckHold: StuckHoldMode.Never) &&
+      overrides[77] == new MinionProfile(FollowStop: 3) && profileErrors.Count == 3 && profileErrors.Any(e => e.Contains("77") && e.Contains("follow_speed")),
+      "minion override parser: resolves decimal GUIDs, last entry wins, reports invalid entries and fields");
+var tiers = new Dictionary<string, MinionProfile>
+{
+    ["boss"] = bossProfile, ["giant"] = new(TeleportDistance: 60), ["elite"] = new(FollowStart: 6), ["normal"] = normalProfile
+};
+Check(NecromancyPolicy.SelectMinionProfile(42, 3, tiers, overrides) == ("npc:42", overrides[42]) &&
+      NecromancyPolicy.SelectMinionProfile(99, 3, tiers, overrides) == ("boss", bossProfile) &&
+      NecromancyPolicy.SelectMinionProfile(99, 1, tiers, overrides) == ("giant", tiers["giant"]) &&
+      NecromancyPolicy.SelectMinionProfile(99, 2, tiers, overrides) == ("elite", tiers["elite"]) &&
+      new[] { 0, 4, 5, 99 }.All(type => NecromancyPolicy.SelectMinionProfile(99, type, tiers, overrides) == ("normal", normalProfile)) &&
+      NecromancyPolicy.SelectMinionProfile(null, null, tiers, overrides) == ("default", normalProfile),
+      "minion profile selection: GUID wins over tier, unclassified types use normal, unresolved uses default");
+Check(NecromancyPolicy.ShouldHoldStuck(StuckHoldMode.OffFollow, true, true, false, 5L << 16, 10, 20L << 16, null) &&
+      !NecromancyPolicy.ShouldHoldStuck(StuckHoldMode.OffFollow, true, true, false, 11L << 16, 10, 20L << 16, 19L << 16) &&
+      NecromancyPolicy.ShouldHoldStuck(StuckHoldMode.Never, true, true, false, 11L << 16, 10, 20L << 16, 19L << 16) &&
+      !NecromancyPolicy.ShouldHoldStuck(StuckHoldMode.Never, true, true, false, 11L << 16, 10, 20L << 16, null) &&
+      NecromancyPolicy.ShouldHoldStuck(StuckHoldMode.OffFollow, false, true, true, 11L << 16, 10, 20L << 16, null) &&
+      !NecromancyPolicy.ShouldHoldStuck(StuckHoldMode.Vanilla, false, true, true, 0, 10, 20L << 16, 20L << 16) &&
+      !NecromancyPolicy.ShouldHoldStuck(StuckHoldMode.Vanilla, false, true, false, 0, 0, 20L << 16, 20L << 16) &&
+      !NecromancyPolicy.ShouldHoldStuck(StuckHoldMode.Never, false, false, false, 0, 0, 20L << 16, 20L << 16),
+      "minion stuck mode: offfollow = 0.16.1 rules, never = following held like off-follow, vanilla never holds");
 Check(NecromancyPolicy.EntityLabel(9223372084099418004UL) == "E.01940.011" && NecromancyPolicy.EntityLabel(9223372118459156023UL) == "E.01591.019",
       "entity label matches the Unity log form E.index.version");
 Check(types.Contains("Il2CppQuantum.UseNavDataComponent") && types.Contains("Il2CppQuantum.CorpseMarkerComponent"), "UseNavDataComponent / CorpseMarkerComponent exist");
