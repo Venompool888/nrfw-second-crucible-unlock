@@ -14,11 +14,7 @@
 
 ## 进行中（0）
 
-## 测试中（1）
-
-| 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 |
-|---|---|---|---|---|---|
-| [T-015](T-015.md) | [#23](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/23) | feature | P2 | necromancy | 自制 Boss 召唤符文（每枚召一种 Boss、带自己的图标）——首批沃里克、回声骑士 |
+## 测试中（0）
 
 ## 已合入（5）
 
@@ -30,10 +26,11 @@
 | [T-004](T-004.md) | [#5](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/5) | bug | P2 | necromancy | 治疗宝典镶不上死灵符文 | PR #14 · `6a3e998` |
 | [T-005](T-005.md) | [#6](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/6) | bug | P3 | necromancy | 召唤出的随从没有颜色区别 | PR #14 · `6a3e998` |
 
-## 试玩验证通过（8）
+## 试玩验证通过（9）
 
 | 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 合入 | 验证 |
 |---|---|---|---|---|---|---|---|
+| [T-015](T-015.md) | [#23](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/23) | feature | P2 | necromancy | 自制 Boss 召唤符文（每枚召一种 Boss、带自己的图标）——首批沃里克、回声骑士 | PR #25 · `43a3b2b` | 2026-11-28 · 0.18.4 日志 |
 | [T-003](T-003.md) | [#4](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/4) | bug | P1 | necromancy | 起尸系统在原版里没有注册，起尸无法运行 | PR #14 · `6a3e998` | 2026-11-28 · 0.17.0 日志 |
 | [T-006](T-006.md) | [#7](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/7) | bug | P2 | necromancy | 随从与玩家互相误伤（联机玩家之间的友伤保持不变） | PR #14 · `6a3e998` | 2026-11-28 · 0.17.0 日志（仅「随从不伤召唤者」） |
 | [T-007](T-007.md) | [#8](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/8) | bug | P2 | necromancy | 随从跟着传送后血量回满 | PR #14 · `6a3e998` | 2026-11-28 · 0.15.16 日志 |
