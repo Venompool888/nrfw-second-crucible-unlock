@@ -41,20 +41,26 @@ minion_teleport_distance_multiplier = 3
 - `minion_npc`（T-010）：raiseMinion 召出谁。默认 `warrick_boss`（变异者沃里克 npcWarrickBoss `2680182020363611965`）；`warrick_enemy`（npcWarrickEnemy，巨型档，同一套 AI）、`wildling`（原版野人剑士）、`native`（不改原版数据），或直接填 NpcData GUID。目标解析不到 NpcData 时保持原版。revive 不受影响。
 - `minion_max_active`（T-010）：换了召唤目标时 raiseMinion 同时在场上限，默认 1，0 = 原版 5，不会超过原版。沃里克按 Boss 档缩放（生命、伤害 ×0.1）。
 
-### 怒吼指令（T-012）
+### 表情反应（T-014，取代 T-012 的写死规则）
 
-- `roar_enabled`：默认 `true`。本地角色发表情「怒吼」时，只有自己召出的两种沃里克会放插剑震波；每名随从冷却 3 秒（模拟时间）。
-- `roar_gesture`：默认 `"2126111680215882670"`（凶残之力 bestialPowerGestureData；游戏里没有叫 roar 的表情）。可填表情资产的十进制 GUID 或路径关键字（不区分大小写；发行版运行时资产路径为空，关键字实际匹配不上，请用 GUID）。前 60 次本地表情会记录 GUID、路径和是否匹配，认不出「怒吼」时可据此调整。
-- `roar_action`：默认 `"4386907888524794362"`（沃里克的延迟范围攻击 mutantSoldierAttackDelayedAOEData；下劈短震波 mutantSoldierAttackOverheadShortAOEData 是 `1578638975510328898`）。必须是动作（ActionData）的 GUID：插剑震波内／中／外圈（`3660829114871757151` 等）是招式生成的震波实体，不是动作，填了会在日志报出实际类型。
+- 反应表在 `UserData/NRFWNecromancyReactions.json`。文件不存在时插件按 `roar_gesture`／`roar_action` 写出默认表，里面只有一条 T-012 的规则：你的沃里克（Boss 版、巨型版）在你做「凶残之力」时放延迟范围攻击，每只随从冷却 3 秒。改完存盘，下次进游戏或读档时生效（会话开始时检查文件修改时间）。
+- 每条规则：`who`（NPC 资产 GUID／`profile:名字`／`tier:boss|giant|elite|normal`／`*`，可写一组）、`gesture`（表情 GUID）、`action`（动作 GUID，一个或一组，最多 16 个）、`pick`（`first`／`random`／`cycle`）、`cooldown`（秒，0–600，默认 3）、`mode`（目前只有 `force`）、`name`（日志用）。GUID 建议写成带引号的字符串。
+- 匹配：发表情时，你召出的每只随从各自取最具体的一条规则（NPC GUID ＞ profile ＞ 档位 ＞ `*`，同级取文件里靠前的），各放各的招；没有规则的随从不受影响。冷却按随从计。`random` 用（随从, 模拟时间）的哈希选，不动游戏的随机数。
+- `profile:` 要等 T-013（召唤物分档配置）合入才会匹配，现在写了只会在日志提示一次。
+- 写错的规则被跳过，日志 `reactions rule REJECTED rule #n: 原因`；整个文件读不了（JSON 坏、没有 `rules`、`version` 不是 1）时日志 `reactions file INVALID`，并退回内置的沃里克规则。`mode: prefer`（让 AI 自己选招时加权）还没做，写了会被拒。
+- `roar_enabled`：总开关，默认 `true`。`roar_gesture`／`roar_action` 现在只在生成默认表时用；已有反应表时改它们没有效果，删掉 JSON 文件即可按新值重新生成。
+- 日志：每次做表情 `gesture GUID=… matched=yes|no`（前 60 次）；放招 `reaction minion entity=… npc=名字/档位 rule=#n(name) action GUID=… layer=1 -> 结果 executingNow=…`；+0.5 s／+1.5 s `reaction trace … executing=…`；没人放招时 `reaction gesture matched but no minion commanded: … [每只随从的原因]`；动作 GUID 不是 ActionData 时 `reaction action not resolved: GUID (asset type …)`。
+- 已知 GUID：表情凶残之力 bestialPower `2126111680215882670`、fisticuffs `1770795828947168763`；沃里克的动作：延迟范围攻击 `4386907888524794362`、下劈短震波 `1578638975510328898`、跳劈（快）`2630019745959013014`。插剑震波内／中／外圈（`3660829114871757151` 等）是招式生成的震波实体，不是动作。其他敌人的动作 GUID 要靠离线读包（T-014 第二阶段的本地对照表）。
 
 ## 构建与离线核验
 
 ```powershell
 ./.dotnet/dotnet.exe build src/Necromancy/Necromancy.csproj -c Release
 ./.dotnet/dotnet.exe run --project tools/NecromancyHookAudit -c Release -- vendor/generated src/Necromancy/bin/Release/NRFWNecromancy.dll
+./.dotnet/dotnet.exe run --project tests/NecromancyReactionTests -c Release
 ```
 
-审计只读 PE 元数据：核对全部 hook 签名唯一存在、调用的接口签名、类型继承，并测试纯逻辑（符文放行、布局校验、按角色发放、敌我规则、时限换算、传回距离倍数）。
+审计只读 PE 元数据：核对全部 hook 签名唯一存在、调用的接口签名、类型继承，并测试纯逻辑（符文放行、布局校验、按角色发放、敌我规则、时限换算、传回距离倍数）。`NecromancyReactionTests` 不需要游戏文件，测反应表的读取、匹配优先级、冷却、选招和必须被拒的写法。
 
 ## 限制
 

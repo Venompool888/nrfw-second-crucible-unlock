@@ -135,6 +135,14 @@ Check(NecromancyPolicy.MatchesRoarAsset("  ROAR ", 123, "gestures/heroRoarData")
 Check(!NecromancyPolicy.LifetimeExpired(0, (3L << 16) - 1, NecromancyPolicy.RoarCooldownSeconds) &&
       NecromancyPolicy.LifetimeExpired(0, 3L << 16, NecromancyPolicy.RoarCooldownSeconds), "roar cooldown: exactly 3 sim seconds");
 
+// T-014: the default reaction table is T-012's rule, so behaviour with a fresh file is unchanged.
+{
+    var table = GestureReactions.Parse(GestureReactions.DefaultJson(2126111680215882670, 4386907888524794362), out string tableError);
+    Check(table != null && table.Errors.Length == 0 && table.Rules.Length == 1 &&
+          GestureReactions.Match(table, 2126111680215882670, NecromancyPolicy.WarrickBossNpc, null, "Boss")?.Actions.SequenceEqual(new[] { 4386907888524794362 }) == true &&
+          GestureReactions.Match(table, 2126111680215882670, NecromancyPolicy.WildlingSwordNpc, null, "Normal") == null,
+          "default reaction table = T-012 Warrick rule (" + (tableError ?? "ok") + ")");
+}
 foreach (string t in new[] { "Il2CppQuantum.CorpseMarkerSystem", "Il2CppQuantum.RaisedMinionSystem" })
     Check(methods.Any(m => m.Type == t && m.Method == ".ctor" && m.Args.Length == 0), t + " has parameterless constructor");
 Check(methods.Any(m => m.Type == "Il2CppQuantum.InventoryAPI" && m.Method == "PreviewAwardItemImmediate" && m.Args.SequenceEqual(new[] {
@@ -290,6 +298,10 @@ using (var pe = new PEReader(s))
     }
 
     Check(strings.Contains("PreviewAwardItemImmediate"), "plugin calls PreviewAwardItemImmediate");
+    // T-014: the built DLL carries the table-driven reaction path (a DLL built before T-014 fails these).
+    Check(userStrings.Contains(GestureReactions.FileName) && userStrings.Any(u => u.StartsWith("reaction minion entity=")),
+        "plugin loads " + GestureReactions.FileName + " and logs reaction commands");
+    Check(!userStrings.Any(u => u.StartsWith("roar minion entity=")), "plugin no longer runs the hard-coded Warrick roar path");
     Check(!strings.Contains("TryGetPointer"), "plugin never calls Frame.TryGetPointer (its out T* wrapper needs the missing UIntPtr..ctor(IntPtr))");
     foreach (var (type, name, sig) in new[] {
 

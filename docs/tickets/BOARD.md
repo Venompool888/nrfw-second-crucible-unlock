@@ -4,17 +4,17 @@
 
 状态：待审批 → 待做 → 进行中 → 测试中 → 已合入 → 试玩验证通过。审批通过前不动工。
 
-## 待审批（1）
-
-| 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 待决定 |
-|---|---|---|---|---|---|---|
-| [T-014](T-014.md) | [#20](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/20) | feature | P2 | necromancy | 通用表情 → 招式反应（任何召唤物、多种表情各有反应） | 反应表格式、默认模式、反应范围、对照表是否公开 |
+## 待审批（0）
 
 ## 待做（0）
 
 ## 进行中（0）
 
-## 测试中（0）
+## 测试中（1）
+
+| 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 分支 |
+|---|---|---|---|---|---|---|
+| [T-014](T-014.md) | [#20](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/20) | feature | P2 | necromancy | 通用表情 → 招式反应（任何召唤物、多种表情各有反应） | `t/T-014-gesture-reactions` |
 
 ## 已合入（4）
 
