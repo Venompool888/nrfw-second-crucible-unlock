@@ -123,8 +123,6 @@ foreach (var (type, name, result, get, set) in new[]
     (Q + "ItemData", "OldItemData", Q + "AssetRefHeroItemData", true, true),
     (Q + "ItemAttachments", "Guid", Guid, true, true),
     (Q + "ItemAttachments", "OldItemId", Q + "AssetRefHeroItemData", true, true),
-    (Q + "HealthComponent", "m_infiniteEnabled", Q + "QBoolean", true, false),
-    (Q + "HealthComponent", "m_amount", "Il2CppPhoton.Deterministic.FP", true, false),
     ("Il2Cpp.AssetBase", "AssetGuid", Guid, true, true),
     ("Il2Cpp.AssetBase", "AssetObject", Asset, true, false),
 })
@@ -468,6 +466,10 @@ using (var pe = new PEReader(s))
     Check(userStrings.Contains(GestureReactions.FileName) && userStrings.Any(u => u.StartsWith("reaction minion entity=")),
         "plugin loads " + GestureReactions.FileName + " and logs reaction commands");
     Check(!userStrings.Any(u => u.StartsWith("roar minion entity=")), "plugin no longer runs the hard-coded Warrick roar path");
+    // T-015 0.18.3: the Boss rune count must use native AiUtils.ExistsAlive; a managed Has<PendingDestructionComponent> /
+    // Get<HealthComponent> threw NullReferenceException in play and blocked re-summoning after a Boss died.
+    Check(!r.TypeReferences.Any(h => r.GetString(r.GetTypeReference(h).Name) == "PendingDestructionComponent"),
+        "plugin does not touch PendingDestructionComponent from managed code (use AiUtils.ExistsAlive)");
     Check(!strings.Contains("TryGetPointer"), "plugin never calls Frame.TryGetPointer (its out T* wrapper needs the missing UIntPtr..ctor(IntPtr))");
     foreach (var (type, name, sig) in new[] {
 
@@ -478,6 +480,7 @@ using (var pe = new PEReader(s))
         ("Il2CppQuantum.ItemStatsSystem", "GetOrInitializeAllRunes", "Il2CppQuantum.Frame"),
         ("Il2CppQuantum.RunesAPI+Weapon", "HasRune", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,System.Int32"),
         ("Il2CppQuantum.RunesAPI", "GetRune", "Il2CppQuantum.Frame,Il2CppQuantum.AssetRefHeroItemData"),
+        ("Il2CppQuantum.AiUtils", "ExistsAlive", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef"),
         ("Il2CppQuantum.RuntimeCharacterDataAPI", "TryGetCharacterRef", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,Il2CppQuantum.RuntimeCharacterReference&"),
         ("Il2CppQuantum.SavesAPIReferenceExtensions", "GetName", "Il2CppQuantum.RuntimeCharacterReference,Il2CppQuantum.Frame"),
         ("Il2CppQuantum.InventoryAPI", "PreviewAwardItemImmediate", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,Il2CppQuantum.AssetRefHeroItemData,System.Int32,Il2CppQuantum.NewInventoryItemSource") })

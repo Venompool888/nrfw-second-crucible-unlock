@@ -315,12 +315,15 @@ namespace Necromancy
                 foreach (var pair in __0.GetComponentIterator<RaisedMinionComponent>())
                 {
                     var entity = pair.Entity;
-                    if (!entity.IsValid || !__0.Exists(entity)) continue;
+                    if (!entity.IsValid) continue;
                     var minion = EntityRefExtensions.Get<RaisedMinionComponent>(entity, __0);
-                    if (minion == null || minion->Owner.Raw != __1.Raw || minion->RaiseActionGuid.Value != guid ||
-                        EntityRefExtensions.Has<PendingDestructionComponent>(entity, __0) || !EntityRefExtensions.Has<HealthComponent>(entity, __0)) continue;
-                    var health = EntityRefExtensions.Get<HealthComponent>(entity, __0);
-                    if (health != null && (health->m_infiniteEnabled.Value != 0 || health->m_amount.RawValue > 0)) ++count;
+                    if (minion == null || minion->Owner.Raw != __1.Raw || minion->RaiseActionGuid.Value != guid) continue;
+                    // AiUtils.ExistsAlive (RVA 0x05BA8FE0) = ExistsAndNotPendingDestruction + TryGet<HealthComponent> +
+                    // (infinite || amount > 0): the same liveness test as the native CountActiveMinions. 0.18.2 called
+                    // Has<PendingDestructionComponent>/Has/Get<HealthComponent> from managed code instead; one of those
+                    // generic instantiations is not callable through interop (NullReferenceException on a dying boss),
+                    // the original then counted every minion and the Echo Knight could not be re-summoned.
+                    if (AiUtils.ExistsAlive(__0, entity)) ++count;
                 }
                 __result = count;
                 if (count >= rune.Rule.MaxActive && __0.IsVerified && Interlocked.Increment(ref rune.CountLogs) <= 3)
