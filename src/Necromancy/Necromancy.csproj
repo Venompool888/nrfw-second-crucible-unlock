@@ -2,11 +2,15 @@
   <!-- 死灵起尸恢复插件：独立 DLL，不依赖 CrucibleUnlock。 -->
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework><PlatformTarget>x64</PlatformTarget>
-    <AssemblyName>NRFWNecromancy</AssemblyName><RootNamespace>Necromancy</RootNamespace><Version>0.17.1</Version>
+    <AssemblyName>NRFWNecromancy</AssemblyName><RootNamespace>Necromancy</RootNamespace><Version>0.19.1</Version>
     <LangVersion>latest</LangVersion><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath><DebugType>none</DebugType>
   </PropertyGroup>
+  <PropertyGroup Condition="Exists('../../vendor/generated/UnityEngine.ImageConversionModule.dll')">
+    <DefineConstants>$(DefineConstants);BOSS_RUNE_PNG</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
+    <Reference Include="UnityEngine.ImageConversionModule" Condition="Exists('../../vendor/generated/UnityEngine.ImageConversionModule.dll')"><HintPath>../../vendor/generated/UnityEngine.ImageConversionModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="0Harmony"><HintPath>../../vendor/refs/0Harmony.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MelonLoader"><HintPath>../../vendor/refs/MelonLoader.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Il2CppInterop.Runtime"><HintPath>../../vendor/generated/Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>

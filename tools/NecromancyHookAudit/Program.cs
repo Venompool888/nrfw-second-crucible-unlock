@@ -18,7 +18,16 @@ var layoutFields = new[]
     (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "MaxDistanceBeforeTeleport", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x50),
     (Type: "Il2CppQuantum.TransformComponent", Field: "RawPosition", FieldType: "Il2CppPhoton.Deterministic.FPVector3", Offset: 0x08),
     (Type: "Il2CppQuantum.ProjectileComponent", Field: "InstigatorRef", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x30),
-    (Type: "Il2CppQuantum.CascadeInstanceComponent", Field: "Caster", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x40)
+    (Type: "Il2CppQuantum.CascadeInstanceComponent", Field: "Caster", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x40),
+    // T-016 round 3: Boss-rune minions get NavMeshTracker dynamic search; nav index is read for the log.
+    (Type: "Il2CppQuantum.NavMeshTrackerComponent", Field: "NavMeshDynamicSearch", FieldType: "Il2CppQuantum.QBoolean", Offset: 0x08),
+    (Type: "Il2CppQuantum.NavMeshTrackerComponent", Field: "State", FieldType: "Il2CppQuantum.NavMeshTrackerState", Offset: 0),
+    (Type: "Il2CppQuantum.UseNavDataComponent", Field: "NavDataIndex", FieldType: "Il2CppQuantum.RuntimeNavigationDataRef", Offset: 0),
+    (Type: "Il2CppQuantum.RuntimeNavigationDataRef", Field: "m_index", FieldType: "System.Int32", Offset: 0),
+    // T-016 idle-follow: zeroed for one Update so TryFindNearbyEnemy (radius read at comp+0x20) finds nothing.
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "EnemySearchRadius", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x20),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "IsFollowing", FieldType: "Il2CppQuantum.QBoolean", Offset: 0x04),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "FollowStopDistance", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x40)
 };
 var roarFields = new[]
 {
@@ -28,18 +37,54 @@ var roarFields = new[]
     (Type: "Il2CppQuantum.EntityRef", Field: "Raw", FieldType: "System.UInt64", Offset: 0),
     (Type: "Il2CppPhoton.Deterministic.FP", Field: "RawValue", FieldType: "System.Int64", Offset: 0),
 };
-var checkedFields = layoutFields.Concat(roarFields).ToLookup(field => field.Type);
+const string Q = "Il2CppQuantum.";
+const string Arrays = "Il2CppInterop.Runtime.InteropTypes.Arrays.";
+const string Collections = "Il2CppSystem.Collections.Generic.";
+const string Storage = Q + "InstanceDataStorageSystem";
+const string Resolver = "Il2Cpp.RuntimeAssetResolutionContext";
+const string Frame = Q + "Frame";
+const string Guid = Q + "AssetGuid";
+const string Entity = Q + "EntityRef";
+const string Asset = Q + "AssetObject";
+const string Serializer = Q + "IAssetSerializer";
+const string Bytes = Arrays + "Il2CppStructArray`1<System.Byte>";
+const string Actions = Arrays + "Il2CppStructArray`1<Il2CppQuantum.AssetRefActionData>";
+const string Classes = Arrays + "Il2CppStructArray`1<Il2CppQuantum.WeaponClass>";
+string[] bossTables = { "RuneData", "ItemData", "CommodityData", "ItemAttachments" };
+(string Type, string Field, string FieldType, int Offset)[] bossFields = bossTables
+    .Select(t => (Type: Q + t + "Id", Field: "InternalId", FieldType: "System.Int64", Offset: 0))
+    .Concat(new[] { "AssetRefActionData", "AssetRefHeroItemData", "AssetRefHeroRuneData", "AssetRefNpcData" }
+        .Select(t => (Type: Q + t, Field: "Id", FieldType: Guid, Offset: 0)))
+    .Concat(new[] {
+        (Q + "RuneDataRef", "m_index", "System.Int32", 0),
+        (Q + "RaisedMinionComponent", "RaiseActionGuid", Guid, 8),
+        (Q + "QBoolean", "Value", "System.Int32", 0),
+        (Q + "InventoryEnumeratorEntry", "Entity", Entity, 0),
+    }).ToArray();
+var entranceFields = new[]
+{
+    (Type: Q + "AiControllerComponent", Field: "IsDisabled", FieldType: Q + "QBoolean", Offset: 0x14),
+    (Type: Q + "DamageResolverComponent", Field: "IgnoreDamage", FieldType: Q + "QBoolean", Offset: 0),
+};
+var checkedFields = layoutFields.Concat(roarFields).Concat(bossFields).Concat(entranceFields).ToLookup(field => field.Type);
 var layouts = new HashSet<(string Type, string Field, string FieldType, int Offset)>();
+var explicitLayouts = new HashSet<string>();
 var types = new HashSet<string>();
 var bases = new Dictionary<string, string>();
-foreach (string assembly in new[] { "Il2Cppmoon.quantum.forsaken", "Il2Cpp__forsaken", "Il2CppQuantum.Engine",
-                                    "Il2CppQuantum.Deterministic", "Il2CppInterop.Runtime" })
+var assemblies = new List<string> { "Il2Cppmoon.quantum.forsaken", "Il2Cpp__forsaken", "Il2CppQuantum.Engine",
+    "Il2CppQuantum.Deterministic", "Il2CppInterop.Runtime", "Il2Cppmscorlib", "UnityEngine.CoreModule" };
+bool bossPng = File.Exists(Path.Combine(args[0], "UnityEngine.ImageConversionModule.dll"));
+if (bossPng) assemblies.Add("UnityEngine.ImageConversionModule");
+foreach (string assembly in assemblies)
 {
     using var s = File.OpenRead(Path.Combine(args[0], assembly + ".dll")); using var pe = new PEReader(s); var r = pe.GetMetadataReader();
     foreach (var th in r.TypeDefinitions)
     {
         string tn = p.GetTypeFromDefinition(r, th, 0); types.Add(tn);
-        var bt = r.GetTypeDefinition(th).BaseType;
+        var definition = r.GetTypeDefinition(th);
+        if ((definition.Attributes & System.Reflection.TypeAttributes.LayoutMask) == System.Reflection.TypeAttributes.ExplicitLayout)
+            explicitLayouts.Add(tn);
+        var bt = definition.BaseType;
         if (!bt.IsNil) bases[tn] = bt.Kind == HandleKind.TypeDefinition ? p.GetTypeFromDefinition(r, (TypeDefinitionHandle)bt, 0)
             : bt.Kind == HandleKind.TypeReference ? p.GetTypeFromReference(r, (TypeReferenceHandle)bt, 0) : "?";
         foreach (var mh in r.GetTypeDefinition(th).GetMethods())
@@ -61,11 +106,134 @@ foreach (string assembly in new[] { "Il2Cppmoon.quantum.forsaken", "Il2Cpp__fors
 int failures = 0;
 void Check(bool ok, string what) { Console.WriteLine((ok ? "PASS: " : "FAIL: ") + what); if (!ok) failures++; }
 
+Check(NecromancyPolicy.Hooks.Length == 27, "27 hooks: the 26 before T-018 (which added none) plus T-016 IsTargetStillValid");
 foreach (var h in NecromancyPolicy.Hooks)
 {
     int n = methods.Count(m => m.Type == h.Type && m.Method == h.Method && m.Return == h.Return && m.Args.SequenceEqual(h.Args));
     Check(n == 1, $"hook {h.Type}.{h.Method}({string.Join(", ", h.Args)}) -> {h.Return} unique");
 }
+void BossCall(string type, string name, string result, bool isStatic, params string[] parameters) =>
+    Check(methods.Count(m => m.Type == type && m.Method == name && m.Return == result && m.Static == isStatic &&
+        m.Args.SequenceEqual(parameters)) == 1, $"boss-rune call {type}.{name}({string.Join(",", parameters)}) -> {result}");
+foreach (var field in bossFields) Check(layouts.Contains(field), "boss-rune field " + field.Type + "." + field.Field);
+foreach (var t in bossTables)
+{
+    BossCall(Q + t, ".ctor", "Void", false);
+    BossCall(Storage, "get_m_storage" + t, Storage + "+Storage`1<" + Q + t + ">", false);
+    BossCall(Storage, "Add", Q + t + "Ref", false, Q + t);
+    BossCall(Storage, "Resolve", Q + t + "Ref", false, Q + t + "Id");
+    BossCall(Q + t + "Ref", "Get", Q + t, false, Frame);
+}
+foreach (var t in new[] { "RuneData", "ItemData", "CommodityData", "UpgradesData", "WeaponData", "EquipmentData", "ArmorData", "CraftableData" })
+    BossCall(Q + t + "Ref", "get_IsDefault", "System.Boolean", false);
+foreach (var (type, name, result, get, set) in new[]
+{
+    (Asset, "Guid", Guid, false, true), (Asset, "Path", "System.String", false, true),
+    (Q + "HeroRuneData", "Actions", Actions, true, true),
+    (Q + "HeroRuneData", "CompatibleClasses", Classes, true, false),
+    (Q + "HeroRuneData", "IsUtility", "System.Boolean", true, false),
+    (Q + "RuneData", "Actions", Actions, true, true),
+    (Q + "RuneData", "CompatibleClasses", Classes, false, true),
+    (Q + "RuneData", "IsUtility", "System.Boolean", false, true),
+    (Q + "RuneData", "OldData", Q + "AssetRefHeroRuneData", true, true),
+    (Q + "RaiseMinionActionData", "MinionNpcData", Q + "AssetRefNpcData", true, true),
+    (Q + "RaiseMinionActionData", "UseCorpseNpcType", "System.Boolean", true, true),
+    (Q + "RaiseMinionActionData", "MaxActiveMinions", "System.Int32", true, true),
+    (Q + "RaiseMinionActionData", "HealthMultiplierBoss", "Il2CppPhoton.Deterministic.FP", true, true),
+    (Q + "RaiseMinionActionData", "HealthMultiplierGiant", "Il2CppPhoton.Deterministic.FP", true, true),
+    (Q + "RaiseMinionActionData", "HealthMultiplierElite", "Il2CppPhoton.Deterministic.FP", true, true),
+    (Q + "RaiseMinionActionData", "HealthMultiplierNormal", "Il2CppPhoton.Deterministic.FP", true, true),
+    (Q + "ItemData", "OldItemData", Q + "AssetRefHeroItemData", true, true),
+    (Q + "ItemAttachments", "Guid", Guid, true, true),
+    (Q + "ItemAttachments", "OldItemId", Q + "AssetRefHeroItemData", true, true),
+    ("Il2Cpp.AssetBase", "AssetGuid", Guid, true, true),
+    ("Il2Cpp.AssetBase", "AssetObject", Asset, true, false),
+})
+{
+    if (get) BossCall(type, "get_" + name, result, false);
+    if (set) BossCall(type, "set_" + name, "Void", false, result);
+}
+foreach (var t in new[] { "RuneData", "ItemData", "CommodityData", "UpgradesData", "WeaponData", "EquipmentData", "ArmorData", "CraftableData" })
+{
+    BossCall(Q + "ItemAttachments", "get_" + t, Q + t + "Ref", false);
+    if (bossTables.Contains(t)) BossCall(Q + "ItemAttachments", "set_" + t, "Void", false, Q + t + "Ref");
+}
+foreach (var (name, type) in new[] { ("MaxItemsInStack", "System.Int32"), ("SalePrice", "System.Int32"), ("ItemValue", "System.Int32"),
+             ("CanBeSold", "System.Boolean"), ("CanBeDestroyed", "System.Boolean"), ("FilterType", Q + "SecondaryItemType") })
+{
+    BossCall(Q + "CommodityData", "get_" + name, type, false);
+    BossCall(Q + "CommodityData", "set_" + name, "Void", false, type);
+}
+foreach (var (type, name, result, isStatic, parameters) in new[]
+{
+    (Frame, "get_InstanceDataStorage", Storage, false, ""),
+    (Q + "Core.FrameBase", "get_DynamicAssetDB", Q + "DynamicAssetDB", false, ""),
+    (Q + "Core.FrameBase", "FindAsset", "!!0", false, Guid),
+    (Q + "Core.FrameBase", "AddAsset", "Void", false, Asset + "," + Guid),
+    (Q + "Core.FrameBase", "Exists", "System.Boolean", false, Entity),
+    (Q + "DynamicAssetDB", "FindAsset", Asset, false, Guid),
+    (Q + "Core.FrameContext", "get_AssetSerializer", Serializer, false, ""),
+    (Q + "IAssetSerializerExtensions", "AssetToByteArray", Bytes, true, Serializer + "," + Asset),
+    (Q + "IAssetSerializerExtensions", "AssetsFromByteArray", Arrays + "Il2CppReferenceArray`1<" + Asset + ">", true, Serializer + "," + Bytes),
+    (Arrays + "Il2CppArrayBase`1", "get_Length", "System.Int32", false, ""),
+    (Arrays + "Il2CppReferenceArray`1", "get_Item", "!0", false, "System.Int32"),
+    (Arrays + "Il2CppStructArray`1", "get_Item", "!0", false, "System.Int32"),
+    (Arrays + "Il2CppStructArray`1", "set_Item", "Void", false, "System.Int32,!0"),
+    ("Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase", "get_Pointer", "System.IntPtr", false, ""),
+    (Storage + "+Storage`1", "get_m_lookup", Collections + "Dictionary`2<System.Int64,System.Int32>", false, ""),
+    (Q + "EntityRefExtensions", "Has", "System.Boolean", true, Entity + "," + Frame),
+    (Q + "EntityRefExtensions", "Get", "!!0*", true, Entity + "," + Frame),
+    (Q + "ActionData", "GetCurrentTimelineTime", "Il2CppPhoton.Deterministic.FP", false, Frame + "," + Entity),
+    (Q + "RunesAPI", "GetRune", Q + "RuneDataRef", true, Frame + "," + Q + "AssetRefHeroItemData"),
+    (Q + "RunesAPI+Weapon", "TryFindRune", "System.Boolean", true, Frame + "," + Entity + "," + Q + "RuneDataRef,System.Int32&"),
+    (Q + "InventoryAPI", "GetInventoryEntity", Entity, true, Frame + "," + Entity),
+    (Q + "InventoryAPI", "GetItemMatchingCount", "System.Int32", true, Frame + "," + Entity + "," + Q + "AssetRefHeroItemData,System.Boolean"),
+    (Q + "InventoryAPI", "PreviewAwardItemImmediate", "Void", true, Frame + "," + Entity + "," + Q + "AssetRefHeroItemData,System.Int32," + Q + "NewInventoryItemSource"),
+    (Q + "InventoryAPI", "GetInventoryItems", Q + "InventoryEnumerable", true, Frame + "," + Entity + ",System.Boolean,System.Boolean"),
+    (Q + "InventoryEnumerable", "GetEnumerator", Q + "InventoryEnumerator", false, ""),
+    (Q + "InventoryEnumerator", "MoveNext", "System.Boolean", false, ""),
+    (Q + "InventoryEnumerator", "get_Current", Q + "InventoryEnumeratorEntry", false, ""),
+    (Q + "EquipmentAPI", "GetItemEntity", Entity, true, Frame + "," + Q + "EquipmentSlot," + Entity),
+    ("Il2CppMoon.Forsaken.Core", "get_AssetCtx", "Il2Cpp.IAssetWrapperResolver", true, ""),
+    ("Il2CppMoon.Forsaken.Core", "get_ResourceManager", Q + "IResourceManager", true, ""),
+    (Resolver, "TryFindWrapperImpl", "System.Boolean", false, Guid + ",Il2Cpp.AssetBase&,System.Boolean"),
+    (Resolver, "get_m_allAssets", Collections + "List`1<" + Asset + ">", false, ""),
+    (Resolver, "get_m_assetByGuid", Collections + "Dictionary`2<" + Guid + "," + Asset + ">", false, ""),
+    (Resolver, "get_m_loadedWrappers", Collections + "Dictionary`2<" + Guid + ",Il2Cpp.AssetBase>", false, ""),
+    (Resolver, "get_m_wrappersBeingLoaded", Collections + "Dictionary`2<" + Guid + ",Il2CppMoon.Collections.DenseStorageHandle>", false, ""),
+    (Collections + "Dictionary`2", "ContainsKey", "System.Boolean", false, "!0"),
+    (Collections + "Dictionary`2", "TryGetValue", "System.Boolean", false, "!0,!1&"),
+    (Collections + "Dictionary`2", "Add", "Void", false, "!0,!1"),
+    (Collections + "Dictionary`2", "Remove", "System.Boolean", false, "!0"),
+    (Collections + "List`1", "Add", "Void", false, "!0"),
+    (Collections + "List`1", "Remove", "System.Boolean", false, "!0"),
+    ("UnityEngine.Object", "Instantiate", "!!0", true, "!!0"),
+    ("UnityEngine.Object", "Destroy", "Void", true, "UnityEngine.Object"),
+    ("UnityEngine.Object", "set_hideFlags", "Void", false, "UnityEngine.HideFlags"),
+    ("UnityEngine.Object", "op_Equality", "System.Boolean", true, "UnityEngine.Object,UnityEngine.Object"),
+    ("UnityEngine.Object", "op_Inequality", "System.Boolean", true, "UnityEngine.Object,UnityEngine.Object"),
+}) BossCall(type, name, result, isStatic, parameters.Length == 0 ? Array.Empty<string>() : parameters.Split(','));
+if (bossPng)
+{
+    BossCall("UnityEngine.ImageConversion", "LoadImage", "System.Boolean", true, "UnityEngine.Texture2D", Bytes, "System.Boolean");
+    BossCall(Arrays + "Il2CppStructArray`1", ".ctor", "Void", false, "!0[]");
+    BossCall("UnityEngine.Texture2D", ".ctor", "Void", false, "System.Int32", "System.Int32");
+    BossCall("UnityEngine.Texture", "get_width", "System.Int32", false);
+    BossCall("UnityEngine.Texture", "get_height", "System.Int32", false);
+    BossCall("UnityEngine.Rect", ".ctor", "Void", false, "System.Single", "System.Single", "System.Single", "System.Single");
+    BossCall("UnityEngine.Vector2", ".ctor", "Void", false, "System.Single", "System.Single");
+    BossCall("UnityEngine.Sprite", "Create", "UnityEngine.Sprite", true, "UnityEngine.Texture2D", "UnityEngine.Rect", "UnityEngine.Vector2", "System.Single");
+    BossCall("Il2Cpp.HeroItemDataAsset", "set_ItemIcon", "Void", false, "UnityEngine.Sprite");
+    BossCall("Il2Cpp.HeroItemDataAsset", "set_ItemTexture", "Void", false, "UnityEngine.Sprite");
+    BossCall("Il2Cpp.AnimatedActionDataCommonAsset", "set_Icon", "Void", false, "UnityEngine.Sprite");
+}
+
+foreach (var field in entranceFields)
+    Check(layouts.Contains(field) && explicitLayouts.Contains(field.Type) && bases.GetValueOrDefault(field.Type) == "System.ValueType",
+        "entrance explicit value type field " + field.Type + "." + field.Field + " : " + field.FieldType);
+Check(methods.Count(m => m.Type == Q + "ActionComponent" && m.Method == "Abort" && m.Return == "Void" && !m.Static &&
+    m.Args.SequenceEqual(new[] { Frame, "System.Int32" })) == 1, "entrance call ActionComponent.Abort(Frame, Int32) -> Void");
+
 var nativeEntrypoints = new[]
 {
     (Type: "Il2CppQuantum.DamageResolverSystem", Name: "ResolveDamage", Return: "Void", Static: true,
@@ -176,6 +344,15 @@ Check(NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 11L << 16, 10
 Check(NecromancyPolicy.EntityLabel(9223372084099418004UL) == "E.01940.011" && NecromancyPolicy.EntityLabel(9223372118459156023UL) == "E.01591.019",
       "entity label matches the Unity log form E.index.version");
 Check(types.Contains("Il2CppQuantum.UseNavDataComponent") && types.Contains("Il2CppQuantum.CorpseMarkerComponent"), "UseNavDataComponent / CorpseMarkerComponent exist");
+foreach (var (type, name, result, parameters) in new[]
+{
+    ("Il2CppQuantum.ComponentTypeId", "GetComponentIndex", "System.Int32", "System.String"),
+    ("Il2CppQuantum.Core.FrameBase", "Has", "System.Boolean", "Il2CppQuantum.EntityRef,System.Int32"),
+    ("Il2CppQuantum.Core.FrameBase", "GetPointer", "Void*", "Il2CppQuantum.EntityRef,System.Int32"),
+})
+    Check(methods.Count(m => m.Type == type && m.Method == name && m.Return == result && m.Static == (name == "GetComponentIndex") &&
+        string.Join(",", m.Args) == parameters) == 1, $"nav call {type}.{name}({parameters}) -> {result}");
+Check(bases.TryGetValue("Il2CppQuantum.Frame", out var frameBase) && frameBase == "Il2CppQuantum.Core.FrameBase", "Frame derives from FrameBase (non-generic Has/GetPointer)");
 Check(NecromancyPolicy.InHoldRange(59, 7.9, 60, 8) && !NecromancyPolicy.InHoldRange(61, 0, 60, 8) && !NecromancyPolicy.InHoldRange(10, -8.1, 60, 8) &&
       NecromancyPolicy.InHoldRange(55, 30, 60, 0), "hold range: horizontal <= teleport distance and |dy| <= max dy (0 = no limit)");
 // T-010 summon swap: field types the plugin writes, and the setting/limit rules.
@@ -205,8 +382,8 @@ Check(NecromancyPolicy.MinionNpcGuid("warrick_boss") == 2680182020363611965 && N
       NecromancyPolicy.MinionNpcGuid("warrick_enemy") == 670058593051072033 && NecromancyPolicy.MinionNpcGuid("wildling") == NecromancyPolicy.WildlingSwordNpc &&
       NecromancyPolicy.MinionNpcGuid("native") == 0 && NecromancyPolicy.MinionNpcGuid("") == 0 && NecromancyPolicy.MinionNpcGuid(null) == 0 &&
       NecromancyPolicy.MinionNpcGuid("123") == 123 && NecromancyPolicy.MinionNpcGuid("-5") == 0 && NecromancyPolicy.MinionNpcGuid("warrick") == 0 &&
-      NecromancyPolicy.MinionNpcGuid(NecromancyPolicy.DefaultMinionNpc) == NecromancyPolicy.WarrickBossNpc,
-      "minion_npc: presets, GUID, native/empty/unknown/negative keep shipped data; default is Warrick boss");
+      NecromancyPolicy.DefaultMinionNpc == "native" && NecromancyPolicy.MinionNpcGuid(NecromancyPolicy.DefaultMinionNpc) == 0,
+      "minion_npc: presets, GUID, native/empty/unknown/negative keep shipped data; default is native");
 Check(NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, 1, 5) == 1 && NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, 0, 5) == 5 &&
       NecromancyPolicy.MinionMaxActive(0, 1, 5) == 5 && NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, 9, 5) == 5 &&
       NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, -2, 5) == 5 && NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, 3, 5) == 3,
@@ -269,6 +446,11 @@ using (var pe = new PEReader(s))
     var us = MetadataTokens.UserStringHandle(1);
     while (!us.IsNil) { userStrings.Add(r.GetUserString(us)); us = r.GetNextHandle(us); }
     foreach (var h in NecromancyPolicy.Hooks) Check(userStrings.Contains(h.Method), "plugin patches '" + h.Method + "' by name");
+    Check(userStrings.Any(u => u.StartsWith("entrance start", StringComparison.Ordinal)), "plugin logs entrance start");
+    // T-015 0.18.2: CrucibleUnlock JIT-compiles its view helpers before its own EntityView.GetActionView /
+    // InitializeResourceManager detours; patching those first from this plugin crashed the game at launch.
+    foreach (string forbidden in new[] { "GetActionView", "InitializeResourceManager" })
+        Check(!userStrings.Contains(forbidden), "plugin does not patch '" + forbidden + "' (CrucibleUnlock startup JIT order)");
     foreach (var entry in nativeEntrypoints)
         Check(userStrings.Contains(entry.Name), "compiled plugin resolves native entry " + entry.Name);
 
@@ -297,11 +479,44 @@ using (var pe = new PEReader(s))
         Check(matches == 1, "compiled Windows x64 damage delegate " + name);
     }
 
+    var pluginType = r.TypeDefinitions.Single(h => p.GetTypeFromDefinition(r, h, 0) == "Necromancy.NecromancyMod");
+    foreach (var (name, result, parameters) in new[]
+    {
+        ("AfterBossContentInit", "Void", new[] { Frame }),
+        ("BeforeBossCount", "System.Boolean", new[] { Frame, Entity, Q + "RaiseMinionActionData", "System.Int32&" }),
+        ("BeforeBossHeroLoad", "Void", new[] { Frame }),
+        ("AfterBossName", "Void", new[] { "Il2Cpp.HeroItemDataAsset", "System.String&" }),
+        ("AfterBossDescription", "Void", new[] { "Il2Cpp.HeroItemDataAsset", "System.String&" }),
+        ("AfterRaiseExecute", "Void", new[] { Frame, Entity, Q + "RaiseMinionActionData", "System.Boolean" }),
+        ("AfterMinionSpawned", "Void", new[] { Entity, Guid }),
+        ("BeforeTargetStillValid", "System.Boolean", new[] { Entity, "System.Boolean&" }),
+    })
+    {
+        int matches = r.GetTypeDefinition(pluginType).GetMethods().Count(h =>
+        {
+            var m = r.GetMethodDefinition(h);
+            if (r.GetString(m.Name) != name || !m.Attributes.HasFlag(System.Reflection.MethodAttributes.Static)) return false;
+            var sg = m.DecodeSignature(p, (object)null);
+            return sg.ReturnType == result && sg.ParameterTypes.SequenceEqual(parameters);
+        });
+        Check(matches == 1 && userStrings.Contains(name), "compiled boss-rune callback " + name);
+    }
+    Check(strings.Contains("LoadImage") == bossPng, "plugin PNG support matches the ImageConversion reference");
     Check(strings.Contains("PreviewAwardItemImmediate"), "plugin calls PreviewAwardItemImmediate");
     // T-014: the built DLL carries the table-driven reaction path (a DLL built before T-014 fails these).
     Check(userStrings.Contains(GestureReactions.FileName) && userStrings.Any(u => u.StartsWith("reaction minion entity=")),
         "plugin loads " + GestureReactions.FileName + " and logs reaction commands");
     Check(!userStrings.Any(u => u.StartsWith("roar minion entity=")), "plugin no longer runs the hard-coded Warrick roar path");
+    // T-015 0.18.3: the Boss rune count must use native AiUtils.ExistsAlive; a managed Has<PendingDestructionComponent> /
+    // Get<HealthComponent> threw NullReferenceException in play and blocked re-summoning after a Boss died.
+    Check(!r.TypeReferences.Any(h => r.GetString(r.GetTypeReference(h).Name) == "PendingDestructionComponent"),
+        "plugin does not touch PendingDestructionComponent from managed code (use AiUtils.ExistsAlive)");
+    // T-016 round 3: the tracker is reached only through the non-generic index path; no managed generic over
+    // NavMeshTrackerComponent (unproven in play) may be compiled into the plugin.
+    Check(strings.Contains("GetComponentIndex") && strings.Contains("GetPointer") && userStrings.Any(u => u.StartsWith("boss-minion NAV ")),
+        "plugin turns on Boss-minion nav dynamic search via ComponentTypeId index");
+    Check(!Enumerable.Range(1, r.GetTableRowCount(TableIndex.MethodSpec)).Any(i => r.GetMethodSpecification(MetadataTokens.MethodSpecificationHandle(i)).DecodeSignature(p, (object)null).Any(a => a.Contains("NavMeshTrackerComponent"))),
+        "plugin has no generic instantiation over NavMeshTrackerComponent");
     Check(!strings.Contains("TryGetPointer"), "plugin never calls Frame.TryGetPointer (its out T* wrapper needs the missing UIntPtr..ctor(IntPtr))");
     foreach (var (type, name, sig) in new[] {
 
@@ -312,6 +527,7 @@ using (var pe = new PEReader(s))
         ("Il2CppQuantum.ItemStatsSystem", "GetOrInitializeAllRunes", "Il2CppQuantum.Frame"),
         ("Il2CppQuantum.RunesAPI+Weapon", "HasRune", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,System.Int32"),
         ("Il2CppQuantum.RunesAPI", "GetRune", "Il2CppQuantum.Frame,Il2CppQuantum.AssetRefHeroItemData"),
+        ("Il2CppQuantum.AiUtils", "ExistsAlive", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef"),
         ("Il2CppQuantum.RuntimeCharacterDataAPI", "TryGetCharacterRef", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,Il2CppQuantum.RuntimeCharacterReference&"),
         ("Il2CppQuantum.SavesAPIReferenceExtensions", "GetName", "Il2CppQuantum.RuntimeCharacterReference,Il2CppQuantum.Frame"),
         ("Il2CppQuantum.InventoryAPI", "PreviewAwardItemImmediate", "Il2CppQuantum.Frame,Il2CppQuantum.EntityRef,Il2CppQuantum.AssetRefHeroItemData,System.Int32,Il2CppQuantum.NewInventoryItemSource") })
