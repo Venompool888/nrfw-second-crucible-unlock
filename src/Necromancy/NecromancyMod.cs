@@ -44,6 +44,8 @@ namespace Necromancy
                 description: "Character (case-insensitive) that gets a Gold Tome of Healing with raiseMinion/revive/healMinions written into its slots, plus the runes loose. Once per character.");
             _grantedEntry = category.CreateEntry("granted_characters", "",
                 description: "Characters already given the necromancy tome (comma-separated). Remove a name to grant it again.");
+            _followDiagnosticsEnabled = category.CreateEntry("minion_follow_diagnostics", true,
+                description: "Log minion follow state and movement when away from the owner.").Value;
             _targetCharacter = (_targetEntry.Value ?? "").Trim();
             _grantRequested = NecromancyPolicy.ShouldGrantCharacter(_targetCharacter, _grantedEntry.Value);
             _logPath = Path.Combine(MelonLoader.Utils.MelonEnvironment.UserDataDirectory, "NRFWNecromancy.log");
@@ -137,6 +139,9 @@ namespace Necromancy
                 RaisedDamageOwners.Clear();
                 MinionLastDamage.Clear();
                 TeleportMinions.Clear();
+                MinionFollowSamples.Clear();
+                _followDiagnosticLines = 0;
+                _followDiagnosticsFailed = false;
                 HeldStuck.Clear();
                 HeldHeight.Clear();
                 _damageProtectionLogs = 0;
@@ -1463,6 +1468,11 @@ namespace Necromancy
 
         // ---- diagnostics -------------------------------------------------------------------
 
+        private const int FollowDiagnosticLimit = 1500;
+        private static bool _followDiagnosticsEnabled, _followDiagnosticsFailed;
+        private static int _followDiagnosticLines;
+        private static readonly Dictionary<ulong, (long Time, Il2CppPhoton.Deterministic.FPVector3 Position)> MinionFollowSamples = new();
+
         private static void AfterCorpseUpdate(Frame __0)
         {
             if (__0 != null && __0.IsVerified && Interlocked.Increment(ref _corpseTicks) == 1) Write("CorpseMarkerSystem running");
@@ -1476,6 +1486,54 @@ namespace Necromancy
                 if (__0 != null && __0.IsVerified && Interlocked.Increment(ref _raisedTicks) == 1) Write("RaisedMinionSystem running");
             }
             catch (Exception e) { BreakTeleportHolds(e); }
+            LogMinionFollow(__0);
+        }
+
+        private static unsafe void LogMinionFollow(Frame f)
+        {
+            if (!_followDiagnosticsEnabled || _followDiagnosticsFailed || _followDiagnosticLines >= FollowDiagnosticLimit) return;
+            try
+            {
+                if (!_enabled || f == null || !f.IsVerified) return;
+                long now = f.TimeSinceStart.RawValue;
+                foreach (var pair in f.GetComponentIterator<RaisedMinionComponent>())
+                {
+                    var minion = pair.Entity;
+                    bool sampled = MinionFollowSamples.TryGetValue(minion.Raw, out var last);
+                    if (sampled && now - last.Time < (1L << 16)) continue;
+                    var comp = EntityRefExtensions.Get<RaisedMinionComponent>(minion, f);
+                    if (comp == null) continue;
+                    var minionTransform = GetSimTransform(f, minion);
+                    if (minionTransform == null) continue;
+                    var pos = minionTransform->RawPosition;
+                    MinionFollowSamples[minion.Raw] = (now, pos);
+
+                    var ownerTransform = GetSimTransform(f, comp->Owner);
+                    if (ownerTransform == null) continue;
+                    var owner = ownerTransform->RawPosition;
+                    double dx = (owner.X.RawValue - pos.X.RawValue) / 65536.0,
+                           dy = (owner.Y.RawValue - pos.Y.RawValue) / 65536.0,
+                           dz = (owner.Z.RawValue - pos.Z.RawValue) / 65536.0;
+                    double horizSq = dx * dx + dz * dz;
+                    double ownerDist = Math.Sqrt(horizSq + dy * dy);
+                    double stop = comp->FollowStopDistance.RawValue / 65536.0;
+                    if (!(ownerDist > stop + 1.0)) continue;
+
+                    string moved = sampled ? NecromancyPolicy.DistanceRaw(last.Position.X.RawValue, last.Position.Y.RawValue,
+                        last.Position.Z.RawValue, pos.X.RawValue, pos.Y.RawValue, pos.Z.RawValue).ToString("0.##") + "m" : "?";
+                    Write(FormattableString.Invariant($"minion FOLLOW entity={NecromancyPolicy.EntityLabel(minion.Raw)} RaiseActionGuid=0x{comp->RaiseActionGuid.Value:X16} IsFollowing={(comp->IsFollowing.Value != 0)} moved={moved} ownerDist={ownerDist:0.##}m horiz={Math.Sqrt(horizSq):0.##}m dy={dy:0.##}m StuckDuration={comp->StuckDuration.RawValue / 65536.0:0.##}s FollowStartDistance={comp->FollowStartDistance.RawValue / 65536.0:0.##}m FollowStopDistance={stop:0.##}m MaxDistanceBeforeTeleport={comp->MaxDistanceBeforeTeleport.RawValue / 65536.0:0.##}m"));
+                    if (++_followDiagnosticLines == FollowDiagnosticLimit)
+                    {
+                        Write($"minion follow diagnostics reached {FollowDiagnosticLimit} lines; stopped for this session");
+                        break;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                _followDiagnosticsFailed = true;
+                Write("minion follow diagnostics disabled: " + e.GetType().Name + ": " + e.Message);
+            }
         }
 
         private static unsafe void RestoreFollowStartDistances(Frame __0)
