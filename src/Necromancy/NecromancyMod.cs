@@ -142,6 +142,9 @@ namespace Necromancy
                 MinionFollowSamples.Clear();
                 BossFollowAnchors.Clear();
                 BossNavIndex.Clear();
+                BossTargetSuppressed.Clear();
+                BossIdleAnchors.Clear();
+                _bossIdleLogs = 0;
                 BossNavMissing.Clear();
                 _bossNavLogs = 0;
                 _followDiagnosticLines = 0;
@@ -934,6 +937,20 @@ namespace Necromancy
             _bossNavDynamic = category.CreateEntry("boss_minion_nav_dynamic_search", true,
                 description: "T-016: let Boss rune minions re-pick the navmesh after changing area (turns on their NavMeshTracker dynamic search). false = vanilla Boss AI setting.").Value;
             Write("boss_minion_nav_dynamic_search=" + _bossNavDynamic);
+            _bossIdleFollowSeconds = NecromancyPolicy.ClampBossIdleFollowSeconds(
+                category.CreateEntry("boss_minion_idle_follow_seconds", 3f,
+                    description: "T-016: seconds a Boss rune minion may stand still (not following, no hits) while its owner is beyond the follow distance before its attack target is dropped so it walks back; doubled while it is executing an action; <= 0 disables, capped at 30.").Value);
+            Write("boss_minion_idle_follow_seconds=" + _bossIdleFollowSeconds.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+            if (_bossIdleFollowSeconds > 0)
+            {
+                try
+                {
+                    PatchPrefix(h, typeof(RaisedMinionSystem), "IsTargetStillValid", new[] { typeof(Frame), typeof(EntityRef), typeof(EntityRef) },
+                        nameof(BeforeTargetStillValid), typeof(bool));
+                    Write("boss-minion idle-follow hook installed");
+                }
+                catch (Exception e) { _bossIdleFollowFailed = true; Write("boss-minion idle-follow hook FAILED " + e.GetType().Name + ": " + e.Message); }
+            }
             try
             {
                 PatchPrefix(h, typeof(RaisedMinionSystem), "Update", new[] { typeof(Frame) }, nameof(BeforeRaisedUpdate), typeof(void));
@@ -1004,7 +1021,8 @@ namespace Necromancy
         // FollowStartDistance values raised for this frame (sim thread only). Restored by the postfix; if Update threw and
         // the postfix did not run, the next prefix restores them first. No Harmony __state/finalizer: neither is proven on
         // detoured IL2CPP methods in this runtime.
-        // Field: 0 = FollowStartDistance (height branch), 1 = MaxDistanceBeforeTeleport (far branch).
+        // Field: 0 = FollowStartDistance (height branch), 1 = MaxDistanceBeforeTeleport (far branch),
+        // 2 = EnemySearchRadius (T-016 idle-follow: no nearby-enemy search during this Update).
         private static readonly List<(EntityRef Minion, int Field, long Original)> FollowStartRestore = new();
         private static float _heightHoldMaxDy;
 
@@ -1019,9 +1037,10 @@ namespace Necromancy
                 _simFrame = __0;
                 bool bossFollow = _bossEnabled && _bossFollowTeleportSeconds > 0 && !_bossFollowTeleportFailed;
                 bool bossNav = _bossEnabled && _bossNavDynamic && !_bossNavFailed;
-                if (!holdTeleports && !bossFollow && !bossNav) return;
+                bool bossIdle = _bossEnabled && _bossIdleFollowSeconds > 0 && !_bossIdleFollowFailed;
+                if (!holdTeleports && !bossFollow && !bossNav && !bossIdle) return;
                 bool verified = __0.IsVerified;
-                if (!holdTeleports && !bossNav && !verified) return;
+                if (!holdTeleports && !bossNav && !bossIdle && !verified) return;
                 List<ulong> gone = null;
                 foreach (ulong raw in TeleportMinions)
                 {
@@ -1035,6 +1054,7 @@ namespace Necromancy
                     if (comp == null) continue;
                     // Written on predicted and verified frames alike (sim state); only logging is verified-only.
                     if (bossNav && !_bossNavFailed) EnsureBossNavDynamic(__0, minion, comp, verified);
+                    if (bossIdle && !_bossIdleFollowFailed) ApplyBossIdleFollow(__0, minion, comp, verified);
                     long before = comp->StuckDuration.RawValue;
                     bool forceStuck = verified && bossFollow && !_bossFollowTeleportFailed && TryBossFollowTeleport(__0, minion, comp);
                     if (!holdTeleports) continue;
@@ -1098,6 +1118,8 @@ namespace Necromancy
                 if (gone != null) foreach (ulong raw in gone)
                 {
                     TeleportMinions.Remove(raw);
+                    BossTargetSuppressed.Remove(raw);
+                    BossIdleAnchors.Remove(raw);
                     if (!holdTeleports) continue;
                     HeldStuck.Remove(raw);
                     HeldHeight.Remove(raw);
@@ -1215,6 +1237,102 @@ namespace Necromancy
             return true;
         }
 
+        // T-016 idle-follow (native RaisedMinionSystem.Update 0x05B497F0, public 22928553): the follow branch runs only
+        // when the minion has no attack target (flag from AiControllerComponent.AttackTargetRef, then the owner's
+        // target, then TryFindNearbyEnemy within EnemySearchRadius; 0x05B4A26F-0x05B4A3A6, IsFollowing=0 at 0x05B4A8C0).
+        // IsTargetStillValid (0x05B4C6D0) checks existence, team and health but not distance. A Boss-rune minion that
+        // stands still with a target while its owner walks away therefore never follows. While a minion is in
+        // BossTargetSuppressed, IsTargetStillValid answers false for it and its EnemySearchRadius is 0 for the
+        // duration of Update, so the native code clears the target itself and takes the follow branch.
+        private static float _bossIdleFollowSeconds;
+        private static bool _bossIdleFollowFailed;
+        private static int _targetValidHit;
+        private static int _bossIdleLogs;
+        private static readonly Dictionary<ulong, long> BossTargetSuppressed = new(); // minion -> sim time started; sim thread
+        private static readonly Dictionary<ulong, (long Time, Il2CppPhoton.Deterministic.FPVector3 Position)> BossIdleAnchors = new();
+
+        private static bool BeforeTargetStillValid(EntityRef __1, ref bool __result)
+        {
+            try
+            {
+                FirstHit(ref _targetValidHit, nameof(BeforeTargetStillValid));
+                if (BossTargetSuppressed.Count == 0 || !BossTargetSuppressed.ContainsKey(__1.Raw)) return true;
+                __result = false;
+                return false;
+            }
+            catch { return true; }
+        }
+
+        private static unsafe bool MinionActionBusy(Frame f, EntityRef minion)
+        {
+            if (!EntityRefExtensions.Has<ActionComponent>(minion, f)) return false;
+            var actions = EntityRefExtensions.Get<ActionComponent>(minion, f);
+            return actions != null && actions->IsExecuting(f, ActionComponent.ActionLayer);
+        }
+
+        private static unsafe void ApplyBossIdleFollow(Frame f, EntityRef minion, RaisedMinionComponent* comp, bool verified)
+        {
+            try
+            {
+                long action = comp->RaiseActionGuid.Value;
+                if (!IsPrivateBossAction(action)) return;
+                ulong raw = minion.Raw;
+                bool active = BossTargetSuppressed.TryGetValue(raw, out long started);
+                if (!active && !verified) return;
+                var transform = GetSimTransform(f, minion);
+                var ownerTransform = GetSimTransform(f, comp->Owner);
+                if (transform == null || ownerTransform == null) return;
+                var pos = transform->RawPosition;
+                var owner = ownerTransform->RawPosition;
+                double ownerDist = NecromancyPolicy.DistanceRaw(pos.X.RawValue, pos.Y.RawValue, pos.Z.RawValue,
+                    owner.X.RawValue, owner.Y.RawValue, owner.Z.RawValue);
+                long now = f.TimeSinceStart.RawValue;
+                long? lastHit = MinionLastDamage.TryGetValue(raw, out long hit) ? hit : null;
+                if (active && verified)
+                {
+                    string end = NecromancyPolicy.BossIdleFollowEnd(ownerDist, comp->FollowStopDistance.RawValue / 65536.0,
+                        (now - started) / 65536.0, lastHit != null && lastHit.Value > started);
+                    if (end != null)
+                    {
+                        BossTargetSuppressed.Remove(raw);
+                        BossIdleAnchors[raw] = (now, pos);
+                        if (Interlocked.Increment(ref _bossIdleLogs) <= 300)
+                            Write(FormattableString.Invariant($"boss-minion IDLE-FOLLOW end entity={NecromancyPolicy.EntityLabel(raw)} reason={end} after={(now - started) / 65536.0:0.#}s ownerDist={ownerDist:0.#}m"));
+                        return;
+                    }
+                }
+                if (!active)
+                {
+                    bool following = comp->IsFollowing.Value != 0;
+                    if (following || !BossIdleAnchors.TryGetValue(raw, out var anchor) ||
+                        NecromancyPolicy.DistanceRaw(anchor.Position.X.RawValue, anchor.Position.Y.RawValue, anchor.Position.Z.RawValue,
+                            pos.X.RawValue, pos.Y.RawValue, pos.Z.RawValue) >= 0.3)
+                    {
+                        BossIdleAnchors[raw] = (now, pos);
+                        return;
+                    }
+                    double still = (now - anchor.Time) / 65536.0;
+                    if (still < _bossIdleFollowSeconds) return;
+                    bool busy = MinionActionBusy(f, minion);
+                    if (!NecromancyPolicy.BossIdleShouldFollow(following, ownerDist, comp->FollowStartDistance.RawValue / 65536.0,
+                            still, _bossIdleFollowSeconds, busy, now, lastHit))
+                        return;
+                    BossTargetSuppressed[raw] = now;
+                    if (Interlocked.Increment(ref _bossIdleLogs) <= 300)
+                        Write(FormattableString.Invariant($"boss-minion IDLE-FOLLOW start entity={NecromancyPolicy.EntityLabel(raw)} A={BossId(action)} still={still:0.#}s ownerDist={ownerDist:0.#}m actionBusy={busy}"));
+                }
+                // Restored right after this Update (AfterRaisedUpdate) or at the start of the next one.
+                FollowStartRestore.Add((minion, 2, comp->EnemySearchRadius.RawValue));
+                comp->EnemySearchRadius.RawValue = 0;
+            }
+            catch (Exception e)
+            {
+                _bossIdleFollowFailed = true;
+                BossTargetSuppressed.Clear();
+                Write("boss-minion IDLE-FOLLOW disabled: " + e.GetType().Name + ": " + e.Message);
+            }
+        }
+
         private static void DisableBossFollowTeleport(Exception e)
         {
             if (_bossFollowTeleportFailed) return;
@@ -1243,7 +1361,8 @@ namespace Necromancy
                 if (!_enabled || !__0.IsValid) return;
                 Minions[__0.Raw] = Environment.TickCount64;
                 if ((!_stuckHoldOff && (!_stuckTeleportInCombat || !_heightTeleportInRange)) ||
-                    ((_bossFollowTeleportSeconds > 0 && !_bossFollowTeleportFailed || _bossNavDynamic && !_bossNavFailed) &&
+                    ((_bossFollowTeleportSeconds > 0 && !_bossFollowTeleportFailed || _bossNavDynamic && !_bossNavFailed ||
+                      _bossIdleFollowSeconds > 0 && !_bossIdleFollowFailed) &&
                      IsPrivateBossAction(__2.Value)))
                     TeleportMinions.Add(__0.Raw);
                 TrackBossSpawn(__0, __2);
@@ -1661,7 +1780,7 @@ namespace Necromancy
 
                     string moved = sampled ? NecromancyPolicy.DistanceRaw(last.Position.X.RawValue, last.Position.Y.RawValue,
                         last.Position.Z.RawValue, pos.X.RawValue, pos.Y.RawValue, pos.Z.RawValue).ToString("0.##") + "m" : "?";
-                    Write(FormattableString.Invariant($"minion FOLLOW entity={NecromancyPolicy.EntityLabel(minion.Raw)} RaiseActionGuid=0x{comp->RaiseActionGuid.Value:X16} IsFollowing={(comp->IsFollowing.Value != 0)} moved={moved} ownerDist={ownerDist:0.##}m horiz={Math.Sqrt(horizSq):0.##}m dy={dy:0.##}m StuckDuration={comp->StuckDuration.RawValue / 65536.0:0.##}s FollowStartDistance={comp->FollowStartDistance.RawValue / 65536.0:0.##}m FollowStopDistance={stop:0.##}m MaxDistanceBeforeTeleport={comp->MaxDistanceBeforeTeleport.RawValue / 65536.0:0.##}m"));
+                    Write(FormattableString.Invariant($"minion FOLLOW entity={NecromancyPolicy.EntityLabel(minion.Raw)} RaiseActionGuid=0x{comp->RaiseActionGuid.Value:X16} IsFollowing={(comp->IsFollowing.Value != 0)} moved={moved} ownerDist={ownerDist:0.##}m horiz={Math.Sqrt(horizSq):0.##}m dy={dy:0.##}m StuckDuration={comp->StuckDuration.RawValue / 65536.0:0.##}s FollowStartDistance={comp->FollowStartDistance.RawValue / 65536.0:0.##}m FollowStopDistance={stop:0.##}m MaxDistanceBeforeTeleport={comp->MaxDistanceBeforeTeleport.RawValue / 65536.0:0.##}m actionBusy={MinionActionBusy(f, minion)} idleFollow={BossTargetSuppressed.ContainsKey(minion.Raw)}"));
                     if (++_followDiagnosticLines == FollowDiagnosticLimit)
                     {
                         Write($"minion follow diagnostics reached {FollowDiagnosticLimit} lines; stopped for this session");
@@ -1689,6 +1808,7 @@ namespace Necromancy
                     {
                         var c = EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0);
                         if (field == 1) c->MaxDistanceBeforeTeleport.RawValue = original;
+                        else if (field == 2) c->EnemySearchRadius.RawValue = original;
                         else c->FollowStartDistance.RawValue = original;
                     }
                     pending.RemoveAt(i);

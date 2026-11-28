@@ -23,7 +23,11 @@ var layoutFields = new[]
     (Type: "Il2CppQuantum.NavMeshTrackerComponent", Field: "NavMeshDynamicSearch", FieldType: "Il2CppQuantum.QBoolean", Offset: 0x08),
     (Type: "Il2CppQuantum.NavMeshTrackerComponent", Field: "State", FieldType: "Il2CppQuantum.NavMeshTrackerState", Offset: 0),
     (Type: "Il2CppQuantum.UseNavDataComponent", Field: "NavDataIndex", FieldType: "Il2CppQuantum.RuntimeNavigationDataRef", Offset: 0),
-    (Type: "Il2CppQuantum.RuntimeNavigationDataRef", Field: "m_index", FieldType: "System.Int32", Offset: 0)
+    (Type: "Il2CppQuantum.RuntimeNavigationDataRef", Field: "m_index", FieldType: "System.Int32", Offset: 0),
+    // T-016 idle-follow: zeroed for one Update so TryFindNearbyEnemy (radius read at comp+0x20) finds nothing.
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "EnemySearchRadius", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x20),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "IsFollowing", FieldType: "Il2CppQuantum.QBoolean", Offset: 0x04),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "FollowStopDistance", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x40)
 };
 var roarFields = new[]
 {
@@ -467,6 +471,7 @@ using (var pe = new PEReader(s))
         ("AfterBossDescription", "Void", new[] { "Il2Cpp.HeroItemDataAsset", "System.String&" }),
         ("AfterRaiseExecute", "Void", new[] { Frame, Entity, Q + "RaiseMinionActionData", "System.Boolean" }),
         ("AfterMinionSpawned", "Void", new[] { Entity, Guid }),
+        ("BeforeTargetStillValid", "System.Boolean", new[] { Entity, "System.Boolean&" }),
     })
     {
         int matches = r.GetTypeDefinition(pluginType).GetMethods().Count(h =>
