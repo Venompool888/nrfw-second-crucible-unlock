@@ -195,7 +195,11 @@ namespace Necromancy
             {
                 EnsureEnabled(__0);
                 if (_grantRequested && !_grantDone) TryGrant(__0);
-                if (_bossEnabled) TickBossRunes(__0);
+                if (_bossEnabled)
+                {
+                    TickEntrances(__0);
+                    TickBossRunes(__0);
+                }
                 TickLifetime(__0);
                 if (_roarEnabled) try { TickRoarTraces(__0); } catch (Exception e) { RoarTraces.Clear(); Write("roar trace FAILED " + e.GetType().Name + ": " + e.Message); }
             }
@@ -772,6 +776,7 @@ namespace Necromancy
                 foreach (var raw in Minions.Keys)
                     if (keys.Add(raw)) candidates.Add(new EntityRef { Raw = raw });
                 seen.Add("iterator=" + fromIterator + " recorded=" + Minions.Count);
+                var entrances = _bossSession?.Entrances.Count > 0 ? BossSessionFor(__0)?.Entrances : null;
                 foreach (var minion in candidates)
                 {
                     if (!EntityRefExtensions.Has<RaisedMinionComponent>(minion, __0)) { seen.Add("gone:" + minion.Raw); continue; }
@@ -781,6 +786,7 @@ namespace Necromancy
                     ulong owner = rc == null ? 0 : rc->Owner.Raw;
                     if (owner != hero.Raw) { seen.Add("other-owner:" + owner); continue; }
                     ++owned;
+                    if (entrances?.ContainsKey(minion.Raw) == true) { seen.Add(minion.Raw + "(entrance)"); continue; }
                     var npcData = MinionNpcData(__0, minion);
                     long npc = npcData?.Guid.Value ?? 0;
                     string tier = npcData == null ? "" : npcData.EnemyType.ToString();
@@ -808,11 +814,7 @@ namespace Necromancy
                     LastReaction[minion.Raw] = now;
                     try
                     {
-                        // 0.15.13 playtest: Execute on layer 0 (ActionLayer.Base, locomotion) returned an id but Warrick never
-                        // moved. Attacks run on ActionLayer.Action (1).
-                        int layer = ActionComponent.ActionLayer;
-                        int result = actions->Execute(__0, action, null, false, default, layer, false, true, default);
-                        bool running = actions->IsExecutingAction(__0, action);
+                        int result = ForceExecute(__0, actions, action, out bool running, out int layer);
                         Write("reaction minion entity=" + minion.Raw + " npc=" + who + " rule=" + rule.Label + " action GUID=" + action.Guid.Value +
                               " layer=" + layer + " -> " + result + " executingNow=" + running);
                         RoarTraces.Add((minion.Raw, action.Guid.Value, now, 0));
@@ -827,6 +829,16 @@ namespace Necromancy
                 _roarEnabled = false;
                 Write("roar command DISABLED " + e.GetType().Name + ": " + e.Message);
             }
+        }
+
+        private static unsafe int ForceExecute(Frame f, ActionComponent* actions, ActionData action, out bool running, out int layer, long startRaw = 0)
+        {
+            // Layer 0 is locomotion: a forced attack returned an id there but did not play in testing.
+            layer = ActionComponent.ActionLayer;
+            var startTime = new Il2CppPhoton.Deterministic.FP { RawValue = startRaw };
+            int result = actions->Execute(f, action, null, false, startTime, layer, false, true, default);
+            running = actions->IsExecutingAction(f, action);
+            return result;
         }
 
         // Read-only follow-up: is the commanded move still executing 0.5 s and 1.5 s later? Verified end-of-frame only.
@@ -1143,7 +1155,7 @@ namespace Necromancy
                 if (transform == null) return false;
                 var pos = transform->RawPosition;
                 long now = f.TimeSinceStart.RawValue;
-                if (!BossFollowAnchors.TryGetValue(minion.Raw, out var anchor) || comp->IsFollowing.Value == 0 ||
+                if (!BossFollowAnchors.TryGetValue(minion.Raw, out var anchor) || comp->IsFollowing.Value == 0 || EntranceActive(minion.Raw) ||
                     NecromancyPolicy.DistanceRaw(anchor.Position.X.RawValue, anchor.Position.Y.RawValue, anchor.Position.Z.RawValue,
                         pos.X.RawValue, pos.Y.RawValue, pos.Z.RawValue) >= 0.3)
                 {
@@ -1263,6 +1275,14 @@ namespace Necromancy
             catch { return true; }
         }
 
+        // T-018 summon entrance: the minion stands still on purpose while its entrance actions play, so neither the
+        // idle-follow nor the follow-teleport fallback may count that time. Sim thread, same as TickEntrances.
+        private static bool EntranceActive(ulong raw)
+        {
+            var session = _bossSession;
+            return session != null && session.Entrances.ContainsKey(raw);
+        }
+
         private static unsafe bool MinionActionBusy(Frame f, EntityRef minion)
         {
             if (!EntityRefExtensions.Has<ActionComponent>(minion, f)) return false;
@@ -1304,7 +1324,7 @@ namespace Necromancy
                 if (!active)
                 {
                     bool following = comp->IsFollowing.Value != 0;
-                    if (following || !BossIdleAnchors.TryGetValue(raw, out var anchor) ||
+                    if (following || EntranceActive(raw) || !BossIdleAnchors.TryGetValue(raw, out var anchor) ||
                         NecromancyPolicy.DistanceRaw(anchor.Position.X.RawValue, anchor.Position.Y.RawValue, anchor.Position.Z.RawValue,
                             pos.X.RawValue, pos.Y.RawValue, pos.Z.RawValue) >= 0.3)
                     {

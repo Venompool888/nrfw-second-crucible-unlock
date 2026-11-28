@@ -4,8 +4,11 @@
 
 状态：待审批 → 待做 → 进行中 → 测试中 → 已合入 → 试玩验证通过。审批通过前不动工。
 
-## 待审批（0）
+## 待审批（1）
 
+| 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 |
+|---|---|---|---|---|---|
+| [T-017](T-017.md) | [#26](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/26) | feature | P3 | necromancy | 随从幽魂外观重做（不积血、分层冷色、可配置）——第一阶段只改材质 |
 
 ## 待做（0）
 
@@ -27,10 +30,11 @@
 | [T-004](T-004.md) | [#5](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/5) | bug | P2 | necromancy | 治疗宝典镶不上死灵符文 | PR #14 · `6a3e998` |
 | [T-005](T-005.md) | [#6](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/6) | bug | P3 | necromancy | 召唤出的随从没有颜色区别 | PR #14 · `6a3e998` |
 
-## 试玩验证通过（9）
+## 试玩验证通过（10）
 
 | 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 合入 | 验证 |
 |---|---|---|---|---|---|---|---|
+| [T-018](T-018.md) | [#27](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/27) | feature | P3 | necromancy | 回声骑士召唤出场演出（玩家凶残之力起手 → 从天而降带 AOE → Taunt Short → 正常随从逻辑） | PR #35 · `dfc1316` | 2026-11-28 · 0.18.4-t018.3 日志 |
 | [T-015](T-015.md) | [#23](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/23) | feature | P2 | necromancy | 自制 Boss 召唤符文（每枚召一种 Boss、带自己的图标）——首批沃里克、回声骑士 | PR #25 · `43a3b2b` | 2026-11-28 · 0.18.4 日志 |
 | [T-003](T-003.md) | [#4](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/4) | bug | P1 | necromancy | 起尸系统在原版里没有注册，起尸无法运行 | PR #14 · `6a3e998` | 2026-11-28 · 0.17.0 日志 |
 | [T-006](T-006.md) | [#7](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/7) | bug | P2 | necromancy | 随从与玩家互相误伤（联机玩家之间的友伤保持不变） | PR #14 · `6a3e998` | 2026-11-28 · 0.17.0 日志（仅「随从不伤召唤者」） |

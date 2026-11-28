@@ -9,5 +9,6 @@
   <ItemGroup>
     <Compile Include="../../src/Necromancy/NecromancyPolicy.cs" Link="NecromancyPolicy.cs" />
     <Compile Include="../../src/Necromancy/BossRunePolicy.cs" Link="BossRunePolicy.cs" />
+    <Compile Include="../../src/Necromancy/BossEntrancePolicy.cs" Link="BossEntrancePolicy.cs" />
   </ItemGroup>
 </Project>

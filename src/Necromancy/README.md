@@ -61,6 +61,13 @@ minion_teleport_distance_multiplier = 3
 - 图标放 `UserData/NRFWNecromancyBossRunes/`，`icon` 只填文件名，例如 `warrick.png`。建议 **512×512 透明底 PNG**，主体居中，左右各留约 45 px、上下各留约 25 px。留空、缺图或解码失败时用原版图标。
 - **卸载前备份角色档**：卸载、关闭或删掉对应配置后，读档会跳过散装的未知 GUID，武器槽里的该符文会变成空槽；此时另存就会丢失。先用备份测试发放、镶嵌、施放和退出重读；本阶段只记录缺失的英雄 ActionView，不做重绑。
 
+### Boss 召唤出场（T-018）
+
+- `boss_entrance_enabled` 默认 `true`；关闭只跳过出场，不影响召唤。单条符文可用 `entrance.enabled: false` 关闭。没写 `entrance` 时仅回声骑士有默认出场：玩家动作在 2 秒截断；随从召出当帧直接从下砸动作时间轴 2.2 秒处开始（已在高空，不经过地下那段），落地后接 Taunt Short。
+- 在 Boss 符文表的 `entrance` 里填 `minion_actions`（按顺序执行的 1–4 个动作 GUID）。`player_action` 省略或填 0 时不播放玩家动作；`player_action_seconds` 为 0.1–10 秒（默认 2）。GUID 建议用十进制字符串。
+- `minion_delay_seconds` 是首招前奏到重放的等待时间，`minion_start_seconds` 是首招正式播放的时间轴起点；两者均为 0–10 秒，默认 0。延迟为 0 时跳过前奏，直接从指定起点播放。
+- `invincible`、`pause_ai` 默认 `true`，只在出场期间生效；该随从也不会响应表情。配置无效或动作资产找不到时仍正常召出。修改后重启游戏。
+
 ## 构建与离线核验
 
 ```powershell
