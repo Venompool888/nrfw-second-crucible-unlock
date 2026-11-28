@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 
 namespace Performance
 {
@@ -35,6 +36,8 @@ namespace Performance
         public float HalfResTransparencyCap { get; init; }
         public int MainLightShadowMaxRes { get; init; }
         public int OtherLightShadowMaxRes { get; init; }
+        public int ShadowCascadeMaxCount { get; init; }
+        public float ShadowCasterMinAreaMin { get; init; }
         public int PcssSearchSamples { get; init; }
         public int PcssMinSamples { get; init; }
         public int PcssMaxSamples { get; init; }
@@ -53,7 +56,7 @@ namespace Performance
     /// </summary>
     public static class PerformancePolicy
     {
-        public const string Version = "0.1.0";
+        public const string Version = "0.2.0";
 
         // UberGCLogic.CleanupType
         public const int CleanupGc = 0;
@@ -86,6 +89,17 @@ namespace Performance
                 "Il2CppUberShader.optimizations.gc.UberGCLogic+CleanupTrigger",
                 "Il2CppUberShader.optimizations.gc.UberGCLogic+CleanupOutsideOfGameplayTrigger"),
             new HookSpec("Il2CppQuantum.LadderData", "KickDown", "System.Boolean", "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef"),
+            // CPU stage profiler hooks (no ref-struct parameters)
+            new HookSpec("Il2Cpp.MoonRenderPipelineView", "Render", "Void", "UnityEngine.Rendering.ScriptableRenderContext", "UnityEngine.Camera", "UnityEngine.Camera"),
+            new HookSpec("Il2Cpp.MoonRenderPipelineView", "Cull", "System.Boolean"),
+            new HookSpec("Il2Cpp.MoonRenderPipelineView", "CullShadowCasters", "Void"),
+            new HookSpec("Il2Cpp.MoonRenderPipelineView", "DrawVisibleGeometryPart1", "Void"),
+            new HookSpec("Il2Cpp.MoonRenderPipelineView", "UpdateLightsPart2", "Void"),
+            new HookSpec("Il2Cpp.MoonRenderPipelineView", "UpdateLightsPart3", "Void"),
+            new HookSpec("Il2Cpp.MoonRenderPipelineView", "DrawVisibleGeometryPart2", "Void"),
+            new HookSpec("Il2Cpp.MoonRenderPipelineView", "PostProcessing", "Void"),
+            new HookSpec("Il2Cpp.MoonRenderPipelineView", "DrawUI", "System.Boolean"),
+            new HookSpec("Il2CppMoon.AnimationControl.MoonClothUpdate", "TickLate", "Void", "Il2CppMoon.TheLoop.ViewFrame"),
         };
 
         private static readonly PresetProfile UltraSmartProfile = new()
@@ -97,16 +111,18 @@ namespace Performance
             HalfResTransparencyCap = 0.60f,
             MainLightShadowMaxRes = 2048,
             OtherLightShadowMaxRes = 256,
+            ShadowCascadeMaxCount = 3,
+            ShadowCasterMinAreaMin = 0.0025f,
             PcssSearchSamples = 6,
             PcssMinSamples = 3,
             PcssMaxSamples = 6,
             VolumetricSamples = 12,
             SsrMaxSteps = 20,
-            ReflPlaneScalingCap = 0.40f,
-            MaxReflPlanesCap = 2,
-            SmallObjectsMinScreenHeight = 0.022f,
-            SmallObjectsMaxMinDist = 45f,
-            ClothDistanceCulling = 28f,
+            ReflPlaneScalingCap = 0.35f,
+            MaxReflPlanesCap = 1,
+            SmallObjectsMinScreenHeight = 0.028f,
+            SmallObjectsMaxMinDist = 35f,
+            ClothDistanceCulling = 24f,
         };
 
         private static readonly PresetProfile BalancedProProfile = new()
@@ -118,16 +134,18 @@ namespace Performance
             HalfResTransparencyCap = 0.50f,
             MainLightShadowMaxRes = 2048,
             OtherLightShadowMaxRes = 256,
+            ShadowCascadeMaxCount = 3,
+            ShadowCasterMinAreaMin = 0.0040f,
             PcssSearchSamples = 5,
             PcssMinSamples = 2,
             PcssMaxSamples = 5,
             VolumetricSamples = 10,
             SsrMaxSteps = 16,
-            ReflPlaneScalingCap = 0.35f,
-            MaxReflPlanesCap = 2,
-            SmallObjectsMinScreenHeight = 0.026f,
-            SmallObjectsMaxMinDist = 38f,
-            ClothDistanceCulling = 24f,
+            ReflPlaneScalingCap = 0.30f,
+            MaxReflPlanesCap = 1,
+            SmallObjectsMinScreenHeight = 0.035f,
+            SmallObjectsMaxMinDist = 30f,
+            ClothDistanceCulling = 20f,
         };
 
         private static readonly PresetProfile MaxFpsProfile = new()
@@ -139,16 +157,18 @@ namespace Performance
             HalfResTransparencyCap = 0.50f,
             MainLightShadowMaxRes = 2048,
             OtherLightShadowMaxRes = 256,
+            ShadowCascadeMaxCount = 2,
+            ShadowCasterMinAreaMin = 0.0065f,
             PcssSearchSamples = 4,
             PcssMinSamples = 2,
             PcssMaxSamples = 4,
             VolumetricSamples = 8,
             SsrMaxSteps = 12,
             ReflPlaneScalingCap = 0.25f,
-            MaxReflPlanesCap = 1,
-            SmallObjectsMinScreenHeight = 0.030f,
-            SmallObjectsMaxMinDist = 30f,
-            ClothDistanceCulling = 20f,
+            MaxReflPlanesCap = 0,
+            SmallObjectsMinScreenHeight = 0.045f,
+            SmallObjectsMaxMinDist = 24f,
+            ClothDistanceCulling = 16f,
         };
 
         public static PresetProfile GetProfile(PerfPreset preset) => preset switch
@@ -179,9 +199,20 @@ namespace Performance
         }
 
         /// <summary>
-        /// Computes a clamped depth-hierarchy mip index for FlashLight raymarching, bypassing
-        /// the vanilla FSR/DLSS lock to mip 0 whenever internal render height meets minRes.
+        /// Only recapture the vanilla SRP snapshot on initialization, asset pointer change, or
+        /// when UpdateQualityPreset is actually about to apply a new preset (Selected != Current).
+        /// Prevents per-frame UpdateQualityPreset calls from overwriting vanilla with mod values.
         /// </summary>
+        public static bool ShouldRecaptureVanillaSnapshot(
+            int selectedPreset,
+            int currentPreset,
+            bool hasSnapshot,
+            bool assetPointerChanged)
+        {
+            if (!hasSnapshot || assetPointerChanged) return true;
+            return selectedPreset != currentPreset;
+        }
+
         public static int ComputeFlashLightDepthMip(
             int baseMip,
             int customOffset,
@@ -196,7 +227,6 @@ namespace Performance
             if (!forceHalfResEnabled || resDivider <= 1 || pixelHeight < minRes)
                 return Clamp(baseMip, 0, maxMip);
 
-            // resDivider=2 -> +1 mip; resDivider=4 -> +2 mip, etc., matching vanilla FlashLightGetDepthMipIndex.
             int divOffset = Math.Max(1, resDivider - 1);
             int target = Math.Max(0, customOffset) + divOffset;
             return Clamp(target, 0, maxMip);
@@ -211,10 +241,6 @@ namespace Performance
             return ClampFloat(Math.Min(vanillaScale, clampedCap), 0.35f, 1.0f);
         }
 
-        /// <summary>
-        /// Blocks Proactive/Panic UnloadUnusedAssets stutters during active/idle gameplay while
-        /// preserving Gc, Fader, Teleporter cleanups, and falling back to allow if free RAM is low/unknown.
-        /// </summary>
         public static bool ShouldBlockCleanup(
             int cleanupType,
             int cleanupTrigger,
@@ -230,13 +256,25 @@ namespace Performance
             return true;
         }
 
-        /// <summary>
-        /// Caps a resolution enum integer without ever upgrading a lower preset's value.
-        /// </summary>
         public static int CapShadowResolution(int current, int maxAllowed)
         {
             if (current <= 0 || maxAllowed <= 0) return current;
             return current > maxAllowed ? maxAllowed : current;
+        }
+
+        public static int CapCascadeCount(int current, int maxAllowed)
+        {
+            int clampedMax = Clamp(maxAllowed, 2, 4);
+            if (current <= 0) return clampedMax;
+            int clampedCur = Clamp(current, 1, 4);
+            return clampedCur > clampedMax ? clampedMax : clampedCur;
+        }
+
+        public static float RaiseMinArea(float current, float floor)
+        {
+            if (float.IsNaN(current) || float.IsInfinity(current) || current < 0f) current = 0f;
+            float clampedFloor = ClampFloat(floor, 0f, 0.05f);
+            return current < clampedFloor ? clampedFloor : current;
         }
 
         public static int Clamp(int value, int min, int max)
@@ -246,9 +284,71 @@ namespace Performance
             => value < min ? min : (value > max ? max : value);
     }
 
+    public static class CpuStageId
+    {
+        public const int RenderTotal = 0;
+        public const int Cull = 1;
+        public const int ShadowCull = 2;
+        public const int GBufferP1 = 3;
+        public const int CsmL2 = 4;
+        public const int OtherLightsL3 = 5;
+        public const int LightFwdP2 = 6;
+        public const int PostFx = 7;
+        public const int Ui = 8;
+        public const int Cloth = 9;
+        public const int Count = 10;
+
+        public static readonly string[] Names =
+        {
+            "RenderTotal", "Cull", "ShadowCull", "GBuffer(P1)", "CSM(L2)",
+            "OtherLights(L3)", "Light+Fwd(P2)", "PostFX", "UI", "Cloth",
+        };
+    }
+
     /// <summary>
-    /// Fixed-capacity frame-time ring buffer for zero-allocation FPS / 1% Low / P99 telemetry.
+    /// Zero-allocation per-stage CPU tick accumulator with exponential moving average smoothing.
     /// </summary>
+    public sealed class CpuStageTracker
+    {
+        private readonly long[] _frameTicks = new long[CpuStageId.Count];
+        private readonly float[] _emaMs = new float[CpuStageId.Count];
+        private readonly float _alpha;
+        private readonly double _ticksToMs;
+
+        public CpuStageTracker(float alpha = 0.08f, long ticksPerSecond = 0)
+        {
+            _alpha = PerformancePolicy.ClampFloat(alpha, 0.01f, 1.0f);
+            long freq = ticksPerSecond > 0 ? ticksPerSecond : Stopwatch.Frequency;
+            _ticksToMs = 1000.0 / Math.Max(1L, freq);
+        }
+
+        public void AddElapsed(int stageIndex, long startTicks, long endTicks)
+        {
+            if ((uint)stageIndex >= CpuStageId.Count) return;
+            long delta = endTicks - startTicks;
+            if (delta > 0) _frameTicks[stageIndex] += delta;
+        }
+
+        public void EndFrame()
+        {
+            for (int i = 0; i < CpuStageId.Count; i++)
+            {
+                float ms = (float)(_frameTicks[i] * _ticksToMs);
+                _frameTicks[i] = 0;
+                _emaMs[i] = _emaMs[i] == 0f ? ms : (_emaMs[i] * (1f - _alpha) + ms * _alpha);
+            }
+        }
+
+        public void Reset()
+        {
+            Array.Clear(_frameTicks, 0, _frameTicks.Length);
+            Array.Clear(_emaMs, 0, _emaMs.Length);
+        }
+
+        public float GetEmaMs(int stageIndex)
+            => (uint)stageIndex < CpuStageId.Count ? _emaMs[stageIndex] : 0f;
+    }
+
     public sealed class FrameStatsRing
     {
         private readonly float[] _samples;
@@ -296,7 +396,6 @@ namespace Performance
             double avgMs = sum / _count;
             double avgFps = avgMs > 0.0 ? 1000.0 / avgMs : 0.0;
 
-            // 1% low = average of the slowest 1% of frames (at least 1 frame), matching standard frametime benchmarks.
             int slowCount = Math.Max(1, _count / 100);
             double slowSum = 0.0;
             for (int i = _count - slowCount; i < _count; i++)

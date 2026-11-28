@@ -2,7 +2,7 @@
   <!-- 独立性能优化与管线诊断插件，不依赖 CrucibleUnlock 或 NRFWNecromancy。 -->
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework><PlatformTarget>x64</PlatformTarget>
-    <AssemblyName>NRFWPerformance</AssemblyName><RootNamespace>Performance</RootNamespace><Version>0.1.0</Version>
+    <AssemblyName>NRFWPerformance</AssemblyName><RootNamespace>Performance</RootNamespace><Version>0.2.0</Version>
     <LangVersion>latest</LangVersion><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath><DebugType>none</DebugType>
   </PropertyGroup>

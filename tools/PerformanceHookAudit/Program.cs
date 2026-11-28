@@ -86,6 +86,7 @@ CheckCall(Mrp, "get_m_MaxWorkerThreadCnt", "System.Int32", true);
 foreach (var (prop, propType) in new[]
 {
     ("SelectedQualityPreset", Mrpa + "+QualityPreset"),
+    ("CurrentQualityPreset", Mrpa + "+QualityPreset"),
     ("LimitWorkerThreadCnt", Mrpa + "+LimitWorkers"),
     ("WorkerThreadCnt", "System.Int32"),
     ("iMXAOShadingRate", Mrpa + "+IMXAOShadingRate"),
@@ -98,6 +99,8 @@ foreach (var (prop, propType) in new[]
     ("ExcludePareticleSystemShadowCasters", "System.Boolean"),
     ("MainLightShadowMapResolution", Mrpa + "+ShadowResolution"),
     ("ShadowMapResolution", Mrpa + "+TexResolution"),
+    ("ShadowCascadeCount", "System.Int32"),
+    ("ShadowCasterMinArea", "System.Single"),
     ("PCSSSearchNumSamples", "System.Int32"),
     ("PCSSMinNumSamples", "System.Int32"),
     ("PCSSMaxNumSamples", "System.Int32"),
@@ -116,6 +119,7 @@ foreach (var (prop, propType) in new[]
     CheckCall(Mrpa, "set_" + prop, "Void", false, propType);
 }
 
+CheckCall(Mrpv, "get_ViewType", Mrpv + "+Type", false);
 CheckCall(Mrpv, "get_LastCameraPixelWidth", "System.Int32", false);
 CheckCall(Mrpv, "get_LastCameraPixelHeight", "System.Int32", false);
 CheckCall(Mrpv, "get_DepthHierarchyMipCount", "System.Int32", false);
@@ -170,6 +174,13 @@ using (var pe = new PEReader(s))
     var memberNames = new HashSet<string>();
     foreach (var h in r.MemberReferences)
         memberNames.Add(r.GetString(r.GetMemberReference(h).Name));
+
+    var pluginMethods = new HashSet<string>();
+    var pluginType = r.TypeDefinitions.Single(h => p.GetTypeFromDefinition(r, h, 0) == "Performance.PerformanceMod");
+    foreach (var mh in r.GetTypeDefinition(pluginType).GetMethods())
+        pluginMethods.Add(r.GetString(r.GetMethodDefinition(mh).Name));
+    Check(pluginMethods.Contains("BeforeUpdateQualityPreset") && pluginMethods.Contains("AfterUpdateQualityPreset"),
+        "plugin defines BeforeUpdateQualityPreset & AfterUpdateQualityPreset dirty-check pair");
 
     foreach (var h in PerformancePolicy.Hooks)
         Check(userStrings.Contains(h.Method), "plugin patches '" + h.Method + "' by name");

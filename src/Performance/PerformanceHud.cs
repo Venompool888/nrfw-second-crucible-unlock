@@ -2,7 +2,6 @@ using System;
 using Il2Cpp;
 #if HAS_IMGUI
 using UnityEngine;
-using UnityEngine.Profiling;
 #endif
 
 namespace Performance
@@ -23,7 +22,7 @@ namespace Performance
             try
             {
                 EnsureStyles();
-                const float x = 14f, y = 14f, w = 382f, h = 472f;
+                const float x = 14f, y = 14f, w = 404f, h = 556f;
                 GUI.Box(new Rect(x, y, w, h), "", _boxStyle);
 
                 float cy = y + 8f;
@@ -43,7 +42,7 @@ namespace Performance
                 GUI.Label(new Rect(x + 10f, cy, w - 20f, 18f), $"Active: {(Enabled ? ActivePreset.ToString() : "Disabled")}  |  BlockedUnload: {_blockedUnloads}  |  LadderGuard: {_ladderGuards}", _labelStyle); cy += 24f;
 
                 // Preset buttons
-                float bw = 86f;
+                float bw = 91f;
                 DrawPresetBtn(new Rect(x + 10f, cy, bw, 22f), "Vanilla", PerfPreset.Vanilla);
                 DrawPresetBtn(new Rect(x + 10f + (bw + 6f), cy, bw, 22f), "UltraSmart", PerfPreset.UltraSmart);
                 DrawPresetBtn(new Rect(x + 10f + (bw + 6f) * 2, cy, bw, 22f), "BalancedPro", PerfPreset.BalancedPro);
@@ -51,47 +50,47 @@ namespace Performance
                 cy += 28f;
 
                 // Toggle grid (2 columns)
-                float tw = 176f;
+                float tw = 187f;
                 if (DrawToggleBtn(new Rect(x + 10f, cy, tw, 22f), "iMXAO Half-Res", HalfResAo)) { HalfResAo = !HalfResAo; ReapplyCurrentAsset(); }
-                if (DrawToggleBtn(new Rect(x + 196f, cy, tw, 22f), "FlashLight Half-Res", HalfResFlashLight)) { HalfResFlashLight = !HalfResFlashLight; ReapplyCurrentAsset(); }
+                if (DrawToggleBtn(new Rect(x + 207f, cy, tw, 22f), "FlashLight Half-Res", HalfResFlashLight)) { HalfResFlashLight = !HalfResFlashLight; ReapplyCurrentAsset(); }
                 cy += 25f;
                 if (DrawToggleBtn(new Rect(x + 10f, cy, tw, 22f), "Half-Res Transp", HalfResTransparency)) { HalfResTransparency = !HalfResTransparency; ReapplyCurrentAsset(); }
-                if (DrawToggleBtn(new Rect(x + 196f, cy, tw, 22f), "Shadow / PCSS Cap", OptimizeShadows)) { OptimizeShadows = !OptimizeShadows; ReapplyCurrentAsset(); }
+                if (DrawToggleBtn(new Rect(x + 207f, cy, tw, 22f), "Shadow / Casc / PCSS", OptimizeShadows)) { OptimizeShadows = !OptimizeShadows; ReapplyCurrentAsset(); }
                 cy += 25f;
                 if (DrawToggleBtn(new Rect(x + 10f, cy, tw, 22f), "Volumetric LowRes", OptimizeVolumetrics)) { OptimizeVolumetrics = !OptimizeVolumetrics; ReapplyCurrentAsset(); }
-                if (DrawToggleBtn(new Rect(x + 196f, cy, tw, 22f), "SSR Steps Cap", OptimizeSsr)) { OptimizeSsr = !OptimizeSsr; ReapplyCurrentAsset(); }
+                if (DrawToggleBtn(new Rect(x + 207f, cy, tw, 22f), "SSR Steps Cap", OptimizeSsr)) { OptimizeSsr = !OptimizeSsr; ReapplyCurrentAsset(); }
                 cy += 25f;
                 if (DrawToggleBtn(new Rect(x + 10f, cy, tw, 22f), "Planar Refl Cap", OptimizeReflections)) { OptimizeReflections = !OptimizeReflections; ReapplyCurrentAsset(); }
-                if (DrawToggleBtn(new Rect(x + 196f, cy, tw, 22f), "Cull / Cloth Trim", OptimizeCullingCloth)) { OptimizeCullingCloth = !OptimizeCullingCloth; ReapplyCurrentAsset(); }
+                if (DrawToggleBtn(new Rect(x + 207f, cy, tw, 22f), "Cull / Cloth Trim", OptimizeCullingCloth)) { OptimizeCullingCloth = !OptimizeCullingCloth; ReapplyCurrentAsset(); }
                 cy += 25f;
                 if (DrawToggleBtn(new Rect(x + 10f, cy, tw, 22f), "Unlock Workers", UnlockWorkers)) { UnlockWorkers = !UnlockWorkers; ReapplyCurrentAsset(); }
-                if (DrawToggleBtn(new Rect(x + 196f, cy, tw, 22f), "Block Active Unload", BlockActiveUnloads)) { BlockActiveUnloads = !BlockActiveUnloads; }
+                if (DrawToggleBtn(new Rect(x + 207f, cy, tw, 22f), "Block Active Unload", BlockActiveUnloads)) { BlockActiveUnloads = !BlockActiveUnloads; }
                 cy += 25f;
                 if (DrawToggleBtn(new Rect(x + 10f, cy, tw, 22f), "Exp: No AssetBlend", ExpDisableAssetBlending)) { ExpDisableAssetBlending = !ExpDisableAssetBlending; ReapplyCurrentAsset(); }
-                if (DrawToggleBtn(new Rect(x + 196f, cy, tw, 22f), "Exp: SSR Hi-Z", ExpSsrHiZ)) { ExpSsrHiZ = !ExpSsrHiZ; ReapplyCurrentAsset(); }
-                cy += 28f;
+                if (DrawToggleBtn(new Rect(x + 207f, cy, tw, 22f), "Exp: SSR Hi-Z", ExpSsrHiZ)) { ExpSsrHiZ = !ExpSsrHiZ; ReapplyCurrentAsset(); }
+                cy += 25f;
+                if (DrawToggleBtn(new Rect(x + 10f, cy, tw, 22f), "CPU Stage Prof", CpuProfilerEnabled)) { CpuProfilerEnabled = !CpuProfilerEnabled; if (!CpuProfilerEnabled) CpuStages.Reset(); }
+                if (GUI.Button(new Rect(x + 207f, cy, tw, 22f), "Save Config", _btnStyle)) SavePreferences();
+                cy += 27f;
 
-                if (GUI.Button(new Rect(x + 10f, cy, 176f, 22f), "Save Config", _btnStyle)) SavePreferences();
-                if (GUI.Button(new Rect(x + 196f, cy, 176f, 22f), "Dump Snapshot (F11)", _btnStyle)) DumpDetailedSnapshot("HUD");
-                cy += 28f;
+                if (GUI.Button(new Rect(x + 10f, cy, w - 20f, 22f), "Dump Detailed Snapshot to Log (F11)", _btnStyle))
+                    DumpDetailedSnapshot("HUD");
+                cy += 26f;
 
-                // Pass sampler probe
-                string passInfo = "Pass samplers: inactive in Final Build (use F10 + GPU ms)";
-                if (view != null)
+                // CPU Stage Breakdown (2 columns)
+                GUI.Label(new Rect(x + 10f, cy, w - 20f, 18f), CpuProfilerEnabled ? "--- CPU Render Stages (ms/frame EMA) ---" : "--- CPU Stage Profiler OFF ---", _labelStyle);
+                cy += 18f;
+                if (CpuProfilerEnabled)
                 {
-                    string activeLine = "";
-                    int hits = 0;
-                    foreach (var (name, sampler) in EnumerateSamplers(view))
+                    for (int i = 0; i < CpuStageId.Count; i += 2)
                     {
-                        if (sampler == null) continue;
-                        var rec = sampler.UnitySampler?.GetRecorder();
-                        if (rec == null || !rec.isValid || rec.sampleBlockCount <= 0) continue;
-                        hits++;
-                        if (hits <= 6) activeLine += $"{name}:{rec.gpuElapsedNanoseconds / 1e6:0.0}ms ";
+                        string left = $"{CpuStageId.Names[i],-14}: {CpuStages.GetEmaMs(i),5:0.00} ms";
+                        string right = i + 1 < CpuStageId.Count ? $"{CpuStageId.Names[i + 1],-14}: {CpuStages.GetEmaMs(i + 1),5:0.00} ms" : "";
+                        GUI.Label(new Rect(x + 10f, cy, tw, 17f), left, _labelStyle);
+                        if (right.Length > 0) GUI.Label(new Rect(x + 207f, cy, tw, 17f), right, _labelStyle);
+                        cy += 17f;
                     }
-                    if (hits > 0) passInfo = "Passes: " + activeLine;
                 }
-                GUI.Label(new Rect(x + 10f, cy, w - 20f, 36f), passInfo, _labelStyle);
             }
             catch { }
         }
