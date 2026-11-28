@@ -4,11 +4,12 @@
 
 状态：待审批 → 待做 → 进行中 → 测试中 → 已合入 → 试玩验证通过。审批通过前不动工。
 
-## 待审批（1）
+## 待审批（2）
 
 | 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 |
 |---|---|---|---|---|---|
 | [T-017](T-017.md) | [#26](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/26) | feature | P3 | necromancy | 随从幽魂外观重做（不积血、分层冷色、可配置）——第一阶段只改材质 |
+| [T-022](T-022.md) | [#37](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/37) | bug | P3 | necromancy | Boss 随从跟随的收尾：`IDLE-FOLLOW` 距离按编队算，减少兜底传送 |
 
 ## 待做（0）
 
