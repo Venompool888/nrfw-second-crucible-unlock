@@ -3,7 +3,145 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.18.4";
+        internal const string Version = "0.19.1";
+        internal const string ExpectedSteamBuildId = "22928553";
+        internal const int DefaultFeatureMaxErrors = 5;
+
+        // Extracts the top-level (depth == 1) Steam appmanifest "buildid" value using a VDF/ACF tokenizer,
+        // ignoring nested blocks (such as PrivateDepots -> branches -> private_beta -> buildid).
+        internal static bool TryParseManifestBuildId(string manifestText, out string buildId)
+        {
+            buildId = null;
+            if (string.IsNullOrWhiteSpace(manifestText)) return false;
+
+            int depth = 0;
+            bool openedBlock = false;
+            bool expectingValueAtDepth1 = false;
+            bool pendingBuildIdKey = false;
+            string foundBuildId = null;
+
+            for (int i = 0; i < manifestText.Length;)
+            {
+                char c = manifestText[i];
+                if (char.IsWhiteSpace(c)) { ++i; continue; }
+                if (c == '/' && i + 1 < manifestText.Length && manifestText[i + 1] == '/')
+                {
+                    i += 2;
+                    while (i < manifestText.Length && manifestText[i] != '\n' && manifestText[i] != '\r') ++i;
+                    continue;
+                }
+                if (c == '{')
+                {
+                    if (pendingBuildIdKey) return false;
+                    openedBlock = true;
+                    ++depth;
+                    expectingValueAtDepth1 = false;
+                    ++i;
+                    continue;
+                }
+                if (c == '}')
+                {
+                    if (pendingBuildIdKey || --depth < 0) return false;
+                    expectingValueAtDepth1 = false;
+                    ++i;
+                    continue;
+                }
+                if (c != '"') return false;
+
+                ++i;
+                var sb = new System.Text.StringBuilder();
+                bool closed = false;
+                while (i < manifestText.Length)
+                {
+                    char q = manifestText[i++];
+                    if (q == '"') { closed = true; break; }
+                    if (q == '\\')
+                    {
+                        if (i >= manifestText.Length) return false;
+                        sb.Append(manifestText[i++]);
+                    }
+                    else sb.Append(q);
+                }
+                if (!closed) return false;
+
+                if (depth == 1)
+                {
+                    string token = sb.ToString();
+                    if (!expectingValueAtDepth1)
+                    {
+                        expectingValueAtDepth1 = true;
+                        if (string.Equals(token, "buildid", System.StringComparison.Ordinal))
+                        {
+                            if (foundBuildId != null) return false;
+                            pendingBuildIdKey = true;
+                        }
+                    }
+                    else
+                    {
+                        expectingValueAtDepth1 = false;
+                        if (pendingBuildIdKey)
+                        {
+                            pendingBuildIdKey = false;
+                            foundBuildId = token;
+                        }
+                    }
+                }
+            }
+
+            if (!openedBlock || depth != 0 || pendingBuildIdKey || string.IsNullOrEmpty(foundBuildId))
+                return false;
+            for (int i = 0; i < foundBuildId.Length; ++i)
+                if (foundBuildId[i] < '0' || foundBuildId[i] > '9') return false;
+            buildId = foundBuildId;
+            return true;
+        }
+
+        internal static bool IsExpectedSteamBuild(string manifestText, string expectedBuildId = ExpectedSteamBuildId) =>
+            !string.IsNullOrEmpty(expectedBuildId) &&
+            TryParseManifestBuildId(manifestText, out string actual) &&
+            string.Equals(actual, expectedBuildId, System.StringComparison.Ordinal);
+
+        // Fast-path predicate for native damage hooks: skip Frame wrapping and component lookups when no raised
+        // minions, retired minion damage owners, or teleport-tracked minions exist in this session.
+        internal static bool ShouldInspectDamage(bool hasMinions, bool hasRaisedOwners, bool hasTeleportMinions) =>
+            hasMinions || hasRaisedOwners || hasTeleportMinions;
+
+        // Per-feature fault isolation state: disables only the owning non-critical feature after maxErrors.
+        internal sealed class FeatureFaultGuard
+        {
+            private int _errors;
+            private volatile bool _disabled;
+
+            internal int MaxErrors { get; }
+            internal int ErrorCount => System.Threading.Volatile.Read(ref _errors);
+            internal bool IsDisabled => _disabled;
+
+            internal FeatureFaultGuard(int maxErrors = DefaultFeatureMaxErrors)
+            {
+                if (maxErrors <= 0)
+                    throw new System.ArgumentOutOfRangeException(nameof(maxErrors), "maxErrors must be positive.");
+                MaxErrors = maxErrors;
+            }
+
+            internal bool RecordError(out bool justDisabled)
+            {
+                int count = System.Threading.Interlocked.Increment(ref _errors);
+                if (count >= MaxErrors && !_disabled)
+                {
+                    _disabled = true;
+                    justDisabled = true;
+                    return true;
+                }
+                justDisabled = false;
+                return count <= MaxErrors;
+            }
+
+            internal void Reset()
+            {
+                System.Threading.Interlocked.Exchange(ref _errors, 0);
+                _disabled = false;
+            }
+        }
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA

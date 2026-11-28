@@ -139,7 +139,8 @@ namespace Necromancy
 
         private static unsafe void BeforeResolveRaisedDamage(IntPtr frame, Damage* damage, DamageResponse* response, IntPtr method)
         {
-            if (_damageProtectionActive && frame != IntPtr.Zero && damage != null && response != null)
+            if (_damageProtectionActive && frame != IntPtr.Zero && damage != null && response != null &&
+                NecromancyPolicy.ShouldInspectDamage(!Minions.IsEmpty, !RaisedDamageOwners.IsEmpty, TeleportMinions.Count > 0))
             {
                 try
                 {
@@ -177,7 +178,8 @@ namespace Necromancy
         private static void BeforeRaisedProjectileImpact(IntPtr self, IntPtr frame, ulong projectile, ulong receiver,
             IntPtr hitPosition, IntPtr hitNormal, IntPtr method)
         {
-            if (_damageProtectionActive && frame != IntPtr.Zero)
+            if (_damageProtectionActive && frame != IntPtr.Zero &&
+                NecromancyPolicy.ShouldInspectDamage(!Minions.IsEmpty, !RaisedDamageOwners.IsEmpty, TeleportMinions.Count > 0))
             {
                 try
                 {
