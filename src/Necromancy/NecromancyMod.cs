@@ -75,6 +75,7 @@ namespace Necromancy
             if (_enabled) InstallMinionFriendlyFire();
             if (_enabled) InstallRaisedMinionDamageProtection();
             if (_enabled) InstallMinionLifecycle(category);
+            if (_enabled) InstallRoarCommand(category);
             Flush();
         }
 
@@ -129,6 +130,8 @@ namespace Necromancy
                 Found.Clear(); Added.Clear(); _enableChecks = 0; _heroFrames = 0;
                 RaisedDamageOwners.Clear();
                 _damageProtectionLogs = 0;
+                LastRoar.Clear();
+                _resolvedRoarGuid = null;
                 var present = new HashSet<string>();
                 foreach (var system in __result) Collect(system, present, 0);
                 string[] missing = NecromancyPolicy.Missing(present);
@@ -169,6 +172,7 @@ namespace Necromancy
                 EnsureEnabled(__0);
                 if (_grantRequested && !_grantDone) TryGrant(__0);
                 TickLifetime(__0);
+                if (_roarEnabled) try { TickRoarTraces(__0); } catch (Exception e) { RoarTraces.Clear(); Write("roar trace FAILED " + e.GetType().Name + ": " + e.Message); }
             }
             catch (Exception e) { Error("end-of-frame", e); }
         }
@@ -401,13 +405,13 @@ namespace Necromancy
             long target = NecromancyPolicy.MinionTeamTarget(_teamMode, minionTeam);
             if (target == 0)
             {
-                Write("minion-team keep entity=" + minion.Raw + " team=" + NecromancyPolicy.TeamName(minionTeam) + " owner=" + NecromancyPolicy.TeamName(ownerTeam) + " mode=" + _teamMode);
+                Write("minion-team keep entity=" + minion.Raw + " team=" + NecromancyPolicy.TeamName(minionTeam) + " owner=" + NecromancyPolicy.TeamName(ownerTeam) + " mode=" + _teamMode + " npc=" + MinionNpcText(f, minion));
                 return;
             }
             var t = EntityRefExtensions.Get<TeamComponent>(minion, f);
             t->Data = new AssetRefTeamData { Id = new AssetGuid { Value = target } };
             Write("minion-team SET entity=" + minion.Raw + " " + NecromancyPolicy.TeamName(minionTeam) + " -> " + NecromancyPolicy.TeamName(ReadTeam(f, minion)) +
-                  " (owner " + NecromancyPolicy.TeamName(ownerTeam) + ")");
+                  " (owner " + NecromancyPolicy.TeamName(ownerTeam) + ") npc=" + MinionNpcText(f, minion));
         }
 
         // ---- read-only damage diagnostics (T-006) ---------------------------------------------
@@ -598,6 +602,178 @@ namespace Necromancy
             catch (Exception e) { Error("minion-visuals", e); }
         }
 
+        // ---- Warrick roar command ---------------------------------------------------------
+
+        private static readonly Dictionary<ulong, long> LastRoar = new();   // sim thread only; FP raw
+        private static bool _roarEnabled, _roarMissingLogged;
+        private static string _roarGesture, _roarAction;
+        private static long? _resolvedRoarGuid;
+        private static int _gestureLogs;
+
+        private static void InstallRoarCommand(MelonPreferences_Category category)
+        {
+            var h = new HarmonyLib.Harmony("NRFW.Necromancy.RoarAoe");
+            try
+            {
+                _roarGesture = category.CreateEntry("roar_gesture", NecromancyPolicy.DefaultRoarGesture,
+                    description: "Gesture asset GUID or case-insensitive path keyword.").Value;
+                _roarAction = category.CreateEntry("roar_action", NecromancyPolicy.DefaultRoarAction,
+                    description: "Action asset GUID or case-insensitive path keyword.").Value;
+                if (!category.CreateEntry("roar_enabled", true,
+                    description: "Command your raised Warrick minions to use the configured action when you roar.").Value) return;
+                Patch(h, typeof(CommandProcessingSystem), "ExecutePerformGesturePlayerCommand",
+                    new[] { typeof(Frame), typeof(int), typeof(PerformGesturePlayerCommand) }, nameof(AfterGestureCommand));
+                _roarEnabled = true;
+                Write("roar command hook installed");
+            }
+            catch (Exception e)
+            {
+                h.UnpatchSelf();
+                Write("roar command hook FAILED " + e.GetType().Name + ": " + e.Message);
+            }
+        }
+
+        private static unsafe void AfterGestureCommand(Frame __0, int __1, PerformGesturePlayerCommand __2)
+        {
+            // React only in the confirmed command stream, not during prediction/replay.
+            if (!_enabled || !_roarEnabled || __0 == null || !__0.IsVerified) return;
+            try
+            {
+                EntityRef hero = __0.GetPlayerHero(__1);
+                if (!hero.IsValid || hero.Raw != unchecked((ulong)Interlocked.Read(ref _heroRaw))) return;
+                long gestureGuid = __2.GestureData.Id.Value;
+                string path = gestureGuid > 0 ? Asset<CollectableGestureData>(__0, gestureGuid)?.Path : null;
+                bool match = NecromancyPolicy.MatchesRoarAsset(_roarGesture, gestureGuid, path);
+                if (++_gestureLogs <= 60)
+                    Write("gesture GUID=" + gestureGuid + " Path=" + (path ?? "<unresolved>") + " matched=" + (match ? "yes" : "no"));
+                if (!match) return;
+
+                long now = __0.TimeSinceStart.RawValue;
+                ActionData action = null;
+                int owned = 0, commanded = 0;
+                var seen = new List<string>();
+                // Candidates: the component iterator plus the minions this plugin recorded from GetMinionFormationSlot,
+                // in case the interop iterator yields nothing.
+                var candidates = new List<EntityRef>();
+                var keys = new HashSet<ulong>();
+                int fromIterator = 0;
+                foreach (var pair in __0.GetComponentIterator<RaisedMinionComponent>())
+                    if (keys.Add(pair.Entity.Raw)) { candidates.Add(pair.Entity); ++fromIterator; }
+                foreach (var raw in Minions.Keys)
+                    if (keys.Add(raw)) candidates.Add(new EntityRef { Raw = raw });
+                seen.Add("iterator=" + fromIterator + " recorded=" + Minions.Count);
+                foreach (var minion in candidates)
+                {
+                    if (!EntityRefExtensions.Has<RaisedMinionComponent>(minion, __0)) { seen.Add("gone:" + minion.Raw); continue; }
+                    // 0.15.4 playtest: the iterator's copied component never matched the hero (owned minions=0);
+                    // read Owner through the component pointer like MinionDamage does.
+                    var rc = EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0);
+                    ulong owner = rc == null ? 0 : rc->Owner.Raw;
+                    if (owner != hero.Raw) { seen.Add("other-owner:" + owner); continue; }
+                    ++owned;
+                    long npc = MinionNpcGuid(__0, minion);
+                    if (!NecromancyPolicy.IsWarrickNpc(npc)) { seen.Add(NecromancyPolicy.NpcName(npc)); continue; }
+                    if (LastRoar.TryGetValue(minion.Raw, out long last) && !NecromancyPolicy.LifetimeExpired(last, now, NecromancyPolicy.RoarCooldownSeconds))
+                    { seen.Add("warrick(cooldown)"); continue; }
+                    // 0.15.10 playtest: Frame.TryGetPointer(out T*) needs UIntPtr..ctor(IntPtr), missing at runtime
+                    // (MissingMethodException). Has + Get return the pointer directly, as elsewhere in this plugin.
+                    if (!EntityRefExtensions.Has<ActionComponent>(minion, __0)) { seen.Add("warrick(no-actions)"); continue; }
+                    var actions = EntityRefExtensions.Get<ActionComponent>(minion, __0);
+                    if (actions == null) { seen.Add("warrick(null-actions)"); continue; }
+                    ++commanded;
+
+                    action ??= ResolveRoarAction(__0);
+                    if (action == null) return;
+                    LastRoar[minion.Raw] = now;
+                    try
+                    {
+                        // 0.15.13 playtest: Execute on layer 0 (ActionLayer.Base, locomotion) returned an id but Warrick never
+                        // moved. Attacks run on ActionLayer.Action (1).
+                        int layer = ActionComponent.ActionLayer;
+                        int result = actions->Execute(__0, action, null, false, default, layer, false, true, default);
+                        bool running = actions->IsExecutingAction(__0, action);
+                        Write("roar minion entity=" + minion.Raw + " action GUID=" + action.Guid.Value + " layer=" + layer + " -> " + result +
+                              " executingNow=" + running);
+                        RoarTraces.Add((minion.Raw, action.Guid.Value, now, 0));
+                    }
+                    catch (Exception e) { Write("roar Execute FAILED entity=" + minion.Raw + " " + e.GetType().Name + ": " + e.Message); }
+                }
+                if (commanded == 0)
+                    Write("roar matched but no Warrick commanded: owned minions=" + owned + " [" + string.Join(", ", seen) + "]");
+            }
+            catch (Exception e)
+            {
+                _roarEnabled = false;
+                Write("roar command DISABLED " + e.GetType().Name + ": " + e.Message);
+            }
+        }
+
+        // Read-only follow-up: is the commanded move still executing 0.5 s and 1.5 s later? Verified end-of-frame only.
+        private static readonly List<(ulong Minion, long Action, long Start, int Stage)> RoarTraces = new();
+
+        private static unsafe void TickRoarTraces(Frame f)
+        {
+            if (RoarTraces.Count == 0) return;
+            long now = f.TimeSinceStart.RawValue;
+            for (int i = RoarTraces.Count - 1; i >= 0; --i)
+            {
+                var tr = RoarTraces[i];
+                long due = tr.Stage == 0 ? (1L << 15) : (3L << 15);   // 0.5 s, then 1.5 s
+                if (now - tr.Start < due) continue;
+                var minion = new EntityRef { Raw = tr.Minion };
+                string state = "gone";
+                try
+                {
+                    if (EntityRefExtensions.Has<ActionComponent>(minion, f))
+                    {
+                        var ac = EntityRefExtensions.Get<ActionComponent>(minion, f);
+                        var data = Asset<ActionData>(f, tr.Action);
+                        state = ac == null || data == null ? "unreadable" :
+                            "executing=" + ac->IsExecutingAction(f, data) + " actionLayerBusy=" + ac->IsExecuting(f, ActionComponent.ActionLayer) +
+                            " baseLayerBusy=" + ac->IsExecuting(f, ActionComponent.BaseLayer);
+                    }
+                }
+                catch (Exception e) { state = "?" + e.GetType().Name; }
+                Write("roar trace +" + (tr.Stage == 0 ? "0.5" : "1.5") + "s entity=" + tr.Minion + " " + state);
+                if (tr.Stage == 0) RoarTraces[i] = (tr.Minion, tr.Action, tr.Start, 1); else RoarTraces.RemoveAt(i);
+            }
+        }
+
+        private static ActionData ResolveRoarAction(Frame f)
+        {
+            _resolvedRoarGuid ??= NecromancyPolicy.RoarAssetGuid(_roarAction) ?? FindRoarActionGuid(f);
+            var action = _resolvedRoarGuid > 0 ? Asset<ActionData>(f, _resolvedRoarGuid.Value) : null;
+            if (action == null && !_roarMissingLogged)
+            {
+                _roarMissingLogged = true;
+                string type = "missing";
+                try
+                {
+                    var raw = _resolvedRoarGuid > 0 ? f.Context.ResourceManager.GetAsset(new AssetGuid { Value = _resolvedRoarGuid.Value }) : null;
+                    if (raw != null) type = raw.GetIl2CppType().FullName;
+                }
+                catch (Exception e) { type = "?" + e.GetType().Name; }
+                Write("roar action not resolved: " + _roarAction + " (asset type " + type + ", needs ActionData)");
+            }
+            return action;
+        }
+
+        private static long FindRoarActionGuid(Frame f)
+        {
+            var manager = f.Context.ResourceManager;
+            AssetObjectQuery query = Il2CppInterop.Runtime.Il2CppType.Of<ActionData>();
+            try
+            {
+                while (manager.FindNextAssetGuid(ref query, out var guid))
+                {
+                    var asset = manager.GetAsset(guid);
+                    if (NecromancyPolicy.MatchesRoarAsset(_roarAction, guid.Value, asset?.Path)) return guid.Value;
+                }
+                return 0;
+            }
+            finally { query.Dispose(); }
+        }
+
         // ---- minion lifecycle: no enemy auto-regen, optional lifetime ----------------------
         // Raised minions are still NPCs, so HealthSystem.UpdateEnemyHealthRegen refilled them whenever no
         // player was in regen distance (e.g. right after a teleport). Skip it for minions. The shipped data
@@ -635,6 +811,13 @@ namespace Necromancy
             var tpEntry = category.CreateEntry("minion_teleport_distance_multiplier", NecromancyPolicy.DefaultTeleportDistanceMultiplier,
                 description: "Multiplier on the shipped 20 m distance at which a minion snaps back to the player (3 = 60 m; 1 = original).");
             _teleportMultiplier = tpEntry.Value;
+            var npcEntry = category.CreateEntry("minion_npc", NecromancyPolicy.DefaultMinionNpc,
+                description: "What raiseMinion summons: warrick_boss (Warrick the Torn), warrick_enemy, wildling, native (shipped data), or an NpcData GUID. revive is never changed.");
+            var maxEntry = category.CreateEntry("minion_max_active", NecromancyPolicy.DefaultMinionMaxActive,
+                description: "Most raiseMinion minions at once while minion_npc swaps the summon (shipped 5); 0 = keep the shipped value.");
+            _minionNpc = NecromancyPolicy.MinionNpcGuid(npcEntry.Value);
+            _minionMaxActive = maxEntry.Value;
+            Write("minion_npc=" + npcEntry.Value + " -> " + (_minionNpc == 0 ? "native" : NecromancyPolicy.NpcName(_minionNpc)) + "; minion_max_active=" + _minionMaxActive);
             try
             {
                 PatchPrefix(h, typeof(RaiseMinionActionData), "Execute", new[] { typeof(Frame), typeof(EntityRef) }, nameof(BeforeRaiseData), typeof(bool));
@@ -682,11 +865,67 @@ namespace Necromancy
             catch (Exception e) { Error("teleport-log", e); }
         }
 
-        private static bool BeforeRaiseData(RaiseMinionActionData __instance)
+        // T-010: raiseMinion (UseCorpseNpcType=false) summons the configured NPC instead of npcRisenWildlingSwordA.
+        // The target must resolve to an NpcData asset first; otherwise the shipped summon is left alone. Written
+        // values are remembered per asset so a reloaded asset is swapped again and an unchanged one is not touched.
+        private static long _minionNpc;
+        private static int _minionMaxActive;
+        private static readonly Dictionary<IntPtr, (long Npc, int Max)> SummonWritten = new();
+        private static readonly HashSet<IntPtr> SummonSkipLogged = new();
+
+        // 0.15.3 playtest: EntityRefExtensions.GetData<NpcData> returned nothing for a raised Warrick (npc=0).
+        // The spawned NPC's data lives in NpcAttachmentComponent.NpcData (a storage index resolved by Get(Frame)).
+        internal static unsafe long MinionNpcGuid(Frame f, EntityRef minion)
+        {
+            if (f == null || !EntityRefExtensions.Has<NpcAttachmentComponent>(minion, f)) return 0;
+            var a = EntityRefExtensions.Get<NpcAttachmentComponent>(minion, f);
+            if (a == null || a->NpcData.IsDefault) return 0;
+            return a->NpcData.Get(f)?.Guid.Value ?? 0;
+        }
+
+        private static string MinionNpcText(Frame f, EntityRef minion)
+        {
+            try { return NecromancyPolicy.NpcName(MinionNpcGuid(f, minion)); }
+            catch (Exception e) { return "?" + e.GetType().Name; }
+        }
+
+        private static void ApplySummon(Frame f, RaiseMinionActionData d)
+        {
+            if (_minionNpc == 0) return;
+            if (f == null || d.UseCorpseNpcType)
+            {
+                if (SummonSkipLogged.Add(d.Pointer))
+                    Write("summon SKIP asset=" + d.Guid.Value + " " + (f == null ? "no frame" : "UseCorpseNpcType=true (revive keeps the corpse's enemy)"));
+                return;
+            }
+            long current = d.MinionNpcData.Id.Value;
+            int currentMax = d.MaxActiveMinions;
+            if (SummonWritten.TryGetValue(d.Pointer, out var w) && w.Npc == current && w.Max == currentMax) return;
+            var npc = f.Context?.ResourceManager?.GetAsset(new AssetGuid { Value = _minionNpc })?.TryCast<NpcData>();
+            if (npc == null)
+            {
+                SummonWritten[d.Pointer] = (current, currentMax);
+                Write("summon KEEP " + NecromancyPolicy.NpcName(current) + ": " + NecromancyPolicy.NpcName(_minionNpc) + " is not a loadable NpcData");
+                return;
+            }
+            int max = NecromancyPolicy.MinionMaxActive(_minionNpc, _minionMaxActive, currentMax);
+            d.MinionNpcData = new AssetRefNpcData { Id = new AssetGuid { Value = _minionNpc } };
+            d.MaxActiveMinions = max;
+            SummonWritten[d.Pointer] = (d.MinionNpcData.Id.Value, d.MaxActiveMinions);
+            Write("summon SWAP " + NecromancyPolicy.NpcName(current) + " -> " + NecromancyPolicy.NpcName(d.MinionNpcData.Id.Value) +
+                  " (enemyType " + npc.EnemyType + "); max active " + currentMax + " -> " + d.MaxActiveMinions +
+                  "; health x boss/giant/elite/normal " + Fp(d.HealthMultiplierBoss) + "/" + Fp(d.HealthMultiplierGiant) + "/" + Fp(d.HealthMultiplierElite) + "/" + Fp(d.HealthMultiplierNormal) +
+                  "; damage x " + Fp(d.DamageMultiplierBoss) + "/" + Fp(d.DamageMultiplierGiant) + "/" + Fp(d.DamageMultiplierElite) + "/" + Fp(d.DamageMultiplierNormal));
+        }
+
+        private static string Fp(Il2CppPhoton.Deterministic.FP v) => (v.RawValue / 65536.0).ToString("0.##");
+
+        private static bool BeforeRaiseData(Frame __0, RaiseMinionActionData __instance)
         {
             try
             {
                 if (!_enabled || __instance == null) return true;
+                try { ApplySummon(__0, __instance); } catch (Exception e) { Error("summon", e); }
                 var d = __instance.MaxDistanceBeforeTeleport;
                 if (TeleportWritten.TryGetValue(__instance.Pointer, out long written) && written == d.RawValue) return true;
                 long scaled = NecromancyPolicy.ScaledTeleportRaw(d.RawValue, _teleportMultiplier);

@@ -17,10 +17,20 @@ var layoutFields = new[]
     (Type: "Il2CppQuantum.ProjectileComponent", Field: "InstigatorRef", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x30),
     (Type: "Il2CppQuantum.CascadeInstanceComponent", Field: "Caster", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x40)
 };
+var roarFields = new[]
+{
+    (Type: "Il2CppQuantum.PerformGesturePlayerCommand", Field: "GestureData", FieldType: "Il2CppQuantum.AssetRefCollectableGestureData", Offset: 0),
+    (Type: "Il2CppQuantum.AssetRefCollectableGestureData", Field: "Id", FieldType: "Il2CppQuantum.AssetGuid", Offset: 0),
+    (Type: "Il2CppQuantum.AssetGuid", Field: "Value", FieldType: "System.Int64", Offset: 0),
+    (Type: "Il2CppQuantum.EntityRef", Field: "Raw", FieldType: "System.UInt64", Offset: 0),
+    (Type: "Il2CppPhoton.Deterministic.FP", Field: "RawValue", FieldType: "System.Int64", Offset: 0),
+};
+var checkedFields = layoutFields.Concat(roarFields).ToLookup(field => field.Type);
 var layouts = new HashSet<(string Type, string Field, string FieldType, int Offset)>();
 var types = new HashSet<string>();
 var bases = new Dictionary<string, string>();
-foreach (string assembly in new[] { "Il2Cppmoon.quantum.forsaken", "Il2Cpp__forsaken" })
+foreach (string assembly in new[] { "Il2Cppmoon.quantum.forsaken", "Il2Cpp__forsaken", "Il2CppQuantum.Engine",
+                                    "Il2CppQuantum.Deterministic", "Il2CppInterop.Runtime" })
 {
     using var s = File.OpenRead(Path.Combine(args[0], assembly + ".dll")); using var pe = new PEReader(s); var r = pe.GetMetadataReader();
     foreach (var th in r.TypeDefinitions)
@@ -34,7 +44,7 @@ foreach (string assembly in new[] { "Il2Cppmoon.quantum.forsaken", "Il2Cpp__fors
             var m = r.GetMethodDefinition(mh); var sg = m.DecodeSignature(p, (object)null);
             methods.Add((tn, r.GetString(m.Name), sg.ReturnType, sg.ParameterTypes.ToArray(), m.Attributes.HasFlag(System.Reflection.MethodAttributes.Static)));
         }
-        foreach (var candidate in layoutFields.Where(candidate => candidate.Type == tn))
+        foreach (var candidate in checkedFields[tn])
         {
             foreach (var handle in r.GetTypeDefinition(th).GetFields())
             {
@@ -68,6 +78,59 @@ foreach (var entry in nativeEntrypoints)
         m.Static == entry.Static && m.Args.SequenceEqual(entry.Args)) == 1, "native damage entry " + entry.Type + "." + entry.Name);
 foreach (var field in layoutFields)
     Check(layouts.Contains(field), "native damage layout " + field.Type + "." + field.Field);
+foreach (var field in roarFields)
+    Check(layouts.Contains(field), "roar field " + field.Type + "." + field.Field);
+
+foreach (var (type, name, result, isStatic, parameters) in new[]
+{
+    ("Il2CppQuantum.Frame", "GetPlayerHero", "Il2CppQuantum.EntityRef", false, "Il2CppQuantum.PlayerRef"),
+    ("Il2CppQuantum.PlayerRef", "op_Implicit", "Il2CppQuantum.PlayerRef", true, "System.Int32"),
+    ("Il2CppQuantum.EntityRef", "get_IsValid", "System.Boolean", false, ""),
+    ("Il2CppPhoton.Deterministic.DeterministicFrame", "get_IsVerified", "System.Boolean", false, ""),
+    ("Il2CppQuantum.Frame", "get_TimeSinceStart", "Il2CppPhoton.Deterministic.FP", false, ""),
+    ("Il2CppQuantum.Frame", "get_Context", "Il2CppQuantum.FrameContextUser", false, ""),
+    ("Il2CppQuantum.Core.FrameContext", "get_ResourceManager", "Il2CppQuantum.IResourceManager", false, ""),
+    ("Il2CppQuantum.IResourceManager", "GetAsset", "Il2CppQuantum.AssetObject", false, "Il2CppQuantum.AssetGuid"),
+    ("Il2CppQuantum.IResourceManager", "FindNextAssetGuid", "System.Boolean", false, "Il2CppQuantum.AssetObjectQuery&,Il2CppQuantum.AssetGuid&"),
+    ("Il2CppQuantum.AssetObjectQuery", "op_Implicit", "Il2CppQuantum.AssetObjectQuery", true, "Il2CppSystem.Type"),
+    ("Il2CppQuantum.AssetObjectQuery", "Dispose", "Void", false, ""),
+    ("Il2CppInterop.Runtime.Il2CppType", "Of", "Il2CppSystem.Type", true, ""),
+    ("Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase", "TryCast", "!!0", false, ""),
+    ("Il2CppQuantum.AssetObject", "get_Path", "System.String", false, ""),
+    ("Il2CppQuantum.AssetObject", "get_Guid", "Il2CppQuantum.AssetGuid", false, ""),
+    ("Il2CppQuantum.Core.FrameBase", "GetComponentIterator", "Il2CppQuantum.ComponentIterator`1<!!0>", false, ""),
+    ("Il2CppQuantum.ComponentIterator`1", "GetEnumerator", "Il2CppQuantum.ComponentIterator`1+Enumerator<!0>", false, ""),
+    ("Il2CppQuantum.ComponentIterator`1+Enumerator", "MoveNext", "System.Boolean", false, ""),
+    ("Il2CppQuantum.ComponentIterator`1+Enumerator", "get_Current", "Il2CppQuantum.EntityComponentPair`1<!0>", false, ""),
+    ("Il2CppQuantum.EntityComponentPair`1", "get_Entity", "Il2CppQuantum.EntityRef", false, ""),
+    ("Il2CppQuantum.EntityComponentPair`1", "get_Component", "!0", false, ""),
+    ("Il2CppQuantum.EntityRefExtensions", "GetData", "!!0", true, "Il2CppQuantum.EntityRef,Il2CppQuantum.Frame"),
+    ("Il2CppQuantum.ActionComponent", "Execute", "System.Int32", false,
+     "Il2CppQuantum.Frame,Il2CppQuantum.ActionData,Il2CppQuantum.ActionComponent+BeforeActionExecutedDelegate,System.Boolean," +
+     "Il2CppPhoton.Deterministic.FP,System.Int32,System.Boolean,System.Boolean,Il2CppQuantum.RuntimeActionAndOverrideRef"),
+})
+    Check(methods.Count(m => m.Type == type && m.Method == name && m.Return == result && m.Static == isStatic &&
+        string.Join(",", m.Args) == parameters) == 1, $"roar call {type}.{name}({parameters}) -> {result}");
+
+Check(NecromancyPolicy.IsWarrickNpc(2680182020363611965) && NecromancyPolicy.IsWarrickNpc(670058593051072033) &&
+      !NecromancyPolicy.IsWarrickNpc(NecromancyPolicy.WildlingSwordNpc) && !NecromancyPolicy.IsWarrickNpc(0),
+      "roar minion: only the two Warrick NpcData GUIDs qualify");
+Check(NecromancyPolicy.RoarAssetGuid(" 123 ") == 123 && NecromancyPolicy.RoarAssetGuid("0") == 0 &&
+      NecromancyPolicy.RoarAssetGuid("-5") == 0 && NecromancyPolicy.RoarAssetGuid("  ") == 0 &&
+      NecromancyPolicy.RoarAssetGuid(null) == 0 && NecromancyPolicy.RoarAssetGuid("roar") == null,
+      "roar setting: positive decimal GUID or keyword; blank/nonpositive rejected");
+Check(NecromancyPolicy.MatchesRoarAsset("  ROAR ", 123, "gestures/heroRoarData") &&
+      NecromancyPolicy.MatchesRoarAsset("123", 123, null) &&
+      NecromancyPolicy.MatchesRoarAsset("mutantSoldierSwordAOEInnerData", 123, "multiplayerActions/mutantSoldierSwordAOEInnerData") &&
+      !NecromancyPolicy.MatchesRoarAsset("mutantSoldierSwordAOEInnerData", 124, "multiplayerActions/mutantSoldierSwordAOEOuterData") &&
+      NecromancyPolicy.MatchesRoarAsset(NecromancyPolicy.DefaultRoarGesture, 2126111680215882670, "") && !NecromancyPolicy.MatchesRoarAsset(NecromancyPolicy.DefaultRoarGesture, 1770795828947168763, "") &&
+      NecromancyPolicy.MatchesRoarAsset(NecromancyPolicy.DefaultRoarAction, 4386907888524794362, null) && !NecromancyPolicy.MatchesRoarAsset(NecromancyPolicy.DefaultRoarAction, 3660829114871757151, null) &&
+      !NecromancyPolicy.MatchesRoarAsset("roar", 123, "gestures/wave") && !NecromancyPolicy.MatchesRoarAsset("roar", 123, null) &&
+      !NecromancyPolicy.MatchesRoarAsset("123", 124, "gestures/123") && !NecromancyPolicy.MatchesRoarAsset("roar", 0, "roar") &&
+      !NecromancyPolicy.MatchesRoarAsset("-5", 123, "gestures/-5") && !NecromancyPolicy.MatchesRoarAsset("  ", 123, "roar"),
+      "roar match: exact GUID or case-insensitive path keyword; no path fallback for numeric settings");
+Check(!NecromancyPolicy.LifetimeExpired(0, (3L << 16) - 1, NecromancyPolicy.RoarCooldownSeconds) &&
+      NecromancyPolicy.LifetimeExpired(0, 3L << 16, NecromancyPolicy.RoarCooldownSeconds), "roar cooldown: exactly 3 sim seconds");
 
 foreach (string t in new[] { "Il2CppQuantum.CorpseMarkerSystem", "Il2CppQuantum.RaisedMinionSystem" })
     Check(methods.Any(m => m.Type == t && m.Method == ".ctor" && m.Args.Length == 0), t + " has parameterless constructor");
@@ -85,6 +148,39 @@ Check(NecromancyPolicy.ScaledTeleportRaw(20L << 16, 3f) == 60L << 16 && Necroman
       NecromancyPolicy.ScaledTeleportRaw(20L << 16, 0f) == 20L << 16 && NecromancyPolicy.ScaledTeleportRaw(20L << 16, float.NaN) == 20L << 16 &&
       NecromancyPolicy.ScaledTeleportRaw(20L << 16, 1000f) == 1000L << 16 && NecromancyPolicy.ScaledTeleportRaw(0, 3f) == 0,
       "teleport distance: 3x of 20 m is 60 m; <=0/NaN keep shipped value; capped at 50x");
+// T-010 summon swap: field types the plugin writes, and the setting/limit rules.
+const string Raise = "Il2CppQuantum.RaiseMinionActionData";
+Check(methods.Any(m => m.Type == Raise && m.Method == "get_MinionNpcData" && m.Return == "Il2CppQuantum.AssetRefNpcData") &&
+      methods.Any(m => m.Type == Raise && m.Method == "set_MinionNpcData" && m.Args.SequenceEqual(new[] { "Il2CppQuantum.AssetRefNpcData" })),
+      "RaiseMinionActionData.MinionNpcData AssetRefNpcData get/set");
+Check(methods.Any(m => m.Type == Raise && m.Method == "get_MaxActiveMinions" && m.Return == "System.Int32") &&
+      methods.Any(m => m.Type == Raise && m.Method == "set_MaxActiveMinions" && m.Args.SequenceEqual(new[] { "System.Int32" })),
+      "RaiseMinionActionData.MaxActiveMinions Int32 get/set");
+Check(methods.Any(m => m.Type == Raise && m.Method == "get_UseCorpseNpcType" && (m.Return == "System.Boolean" || m.Return == "Il2CppQuantum.QBoolean")),
+      "RaiseMinionActionData.UseCorpseNpcType readable (separates raiseMinion from revive)");
+Check(methods.Any(m => m.Type == "Il2CppQuantum.NpcData" && m.Method == "get_EnemyType"), "NpcData.EnemyType readable");
+// T-012 0.15.14: the roar move goes on ActionComponent.ActionLayer (ActionLayer.Action = 1), not layer 0 (Base = locomotion).
+Check(methods.Count(m => m.Type == "Il2CppQuantum.ActionComponent" && m.Method == "get_ActionLayer" && m.Return == "System.Int32" && m.Args.Length == 0) == 1 &&
+      methods.Count(m => m.Type == "Il2CppQuantum.ActionComponent" && m.Method == "get_BaseLayer" && m.Return == "System.Int32" && m.Args.Length == 0) == 1,
+      "ActionComponent.ActionLayer / BaseLayer Int32 getters");
+Check(methods.Any(m => m.Type == "Il2CppQuantum.ActionComponent" && m.Method == "IsExecutingAction" && m.Return == "System.Boolean" &&
+          m.Args.SequenceEqual(new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.ActionData" })) &&
+      methods.Any(m => m.Type == "Il2CppQuantum.ActionComponent" && m.Method == "IsExecuting" && m.Return == "System.Boolean" &&
+          m.Args.SequenceEqual(new[] { "Il2CppQuantum.Frame", "System.Int32" })),
+      "ActionComponent.IsExecutingAction(Frame, ActionData) / IsExecuting(Frame, Int32) for the roar trace");
+Check(methods.Count(m => m.Type == "Il2CppQuantum.NpcDataRef" && m.Method == "Get" && m.Return == "Il2CppQuantum.NpcData" && m.Args.SequenceEqual(new[] { "Il2CppQuantum.Frame" })) == 1 &&
+      methods.Any(m => m.Type == "Il2CppQuantum.NpcDataRef" && m.Method == "get_IsDefault") && types.Contains("Il2CppQuantum.NpcAttachmentComponent"),
+      "minion NPC identity: NpcAttachmentComponent + NpcDataRef.Get(Frame) -> NpcData");
+Check(NecromancyPolicy.MinionNpcGuid("warrick_boss") == 2680182020363611965 && NecromancyPolicy.MinionNpcGuid(" Warrick_Boss ") == NecromancyPolicy.WarrickBossNpc &&
+      NecromancyPolicy.MinionNpcGuid("warrick_enemy") == 670058593051072033 && NecromancyPolicy.MinionNpcGuid("wildling") == NecromancyPolicy.WildlingSwordNpc &&
+      NecromancyPolicy.MinionNpcGuid("native") == 0 && NecromancyPolicy.MinionNpcGuid("") == 0 && NecromancyPolicy.MinionNpcGuid(null) == 0 &&
+      NecromancyPolicy.MinionNpcGuid("123") == 123 && NecromancyPolicy.MinionNpcGuid("-5") == 0 && NecromancyPolicy.MinionNpcGuid("warrick") == 0 &&
+      NecromancyPolicy.MinionNpcGuid(NecromancyPolicy.DefaultMinionNpc) == NecromancyPolicy.WarrickBossNpc,
+      "minion_npc: presets, GUID, native/empty/unknown/negative keep shipped data; default is Warrick boss");
+Check(NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, 1, 5) == 1 && NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, 0, 5) == 5 &&
+      NecromancyPolicy.MinionMaxActive(0, 1, 5) == 5 && NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, 9, 5) == 5 &&
+      NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, -2, 5) == 5 && NecromancyPolicy.MinionMaxActive(NecromancyPolicy.WarrickBossNpc, 3, 5) == 3,
+      "minion_max_active: applies only while swapped, 0/negative keep shipped, never above shipped");
 Check(Math.Abs(NecromancyPolicy.DistanceRaw(0, 0, 0, 3L << 16, 0, 4L << 16) - 5) < 1e-9, "teleport log distance: 16.16 vector length");
 Check(NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 264, 16, 4, 8) && !NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 200, 16, 4, 8) &&
       !NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 264, 16, 14, 8) && !NecromancyPolicy.ProxyLayoutOk(16, 184, 80, 264, 12, 4, 8) &&
@@ -172,6 +268,7 @@ using (var pe = new PEReader(s))
     }
 
     Check(strings.Contains("PreviewAwardItemImmediate"), "plugin calls PreviewAwardItemImmediate");
+    Check(!strings.Contains("TryGetPointer"), "plugin never calls Frame.TryGetPointer (its out T* wrapper needs the missing UIntPtr..ctor(IntPtr))");
     foreach (var (type, name, sig) in new[] {
 
         ("Il2CppQuantum.RunesAPI+Weapon", "ApplyRuneModification", "Il2CppQuantum.Frame,Il2CppQuantum.RuneModificationType,Il2CppQuantum.EntityRef,System.Int32,Il2CppQuantum.EntityRef,Il2CppQuantum.EntityRef"),

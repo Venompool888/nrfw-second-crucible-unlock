@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.13.2";
+        internal const string Version = "0.16.0";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -75,6 +75,8 @@ namespace Necromancy
             ("Il2CppQuantum.Frame+FrameEvents", "RaisedMinionTeleported",
                 new[] { "Il2CppQuantum.EntityRef", "Il2CppPhoton.Deterministic.FPVector3", "Il2CppPhoton.Deterministic.FPVector3", "Il2CppQuantum.AssetGuid" },
                 "Il2CppQuantum.EventRaisedMinionTeleported"),
+            ("Il2CppQuantum.CommandProcessingSystem", "ExecutePerformGesturePlayerCommand",
+                new[] { "Il2CppQuantum.Frame", "System.Int32", "Il2CppQuantum.PerformGesturePlayerCommand" }, "Void"),
         };
 
         // Names of required systems absent from the created tree, in RequiredSystems order.
@@ -118,6 +120,60 @@ namespace Necromancy
             if (float.IsNaN(multiplier) || multiplier <= 0f || nativeRaw <= 0) return nativeRaw;
             return (long)System.Math.Round(nativeRaw * (double)System.Math.Min(multiplier, 50f));
         }
+
+        // T-010: which NPC raiseMinion summons. The shipped raise data (UseCorpseNpcType=false) always summons
+        // npcRisenWildlingSwordA. Maintainer 2026-11-26: summon Warrick the Torn (world boss version), at most one,
+        // still needs a corpse, no boss bar/phases. revive (UseCorpseNpcType=true) is never changed.
+        internal const long WildlingSwordNpc = 2598229157892424643;   // npcRisenWildlingSwordA (shipped)
+        internal const long WarrickBossNpc = 2680182020363611965;     // npcWarrickBoss, EnemyType Boss
+        internal const long WarrickEnemyNpc = 670058593051072033;     // npcWarrickEnemy, EnemyType Giant, same AI
+        internal const string DefaultMinionNpc = "warrick_boss";
+        internal const int DefaultMinionMaxActive = 1;
+
+        // Runtime asset Path is empty in the release build (0.15.2 playtest), so defaults are GUIDs read offline from
+        // qdb_assets_all: bestialPowerGestureData (no gesture is named roar; maintainer used this one) and the inner ring.
+        internal const string DefaultRoarGesture = "2126111680215882670";   // bestialPowerGestureData
+        internal const string DefaultRoarAction = "4386907888524794362";    // mutantSoldierAttackDelayedAOEData (Warrick's delayed-AOE move). The SwordAOEInner/Middle/Outer assets are the spawned cascades, not ActionData (0.15.12 playtest).
+        internal const int RoarCooldownSeconds = 3;
+
+        internal static bool IsWarrickNpc(long npc) => npc == WarrickBossNpc || npc == WarrickEnemyNpc;
+
+        // Null denotes a keyword; zero denotes an invalid setting.
+        internal static long? RoarAssetGuid(string setting)
+        {
+            if (string.IsNullOrWhiteSpace(setting)) return 0;
+            return long.TryParse(setting, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture,
+                out long guid) ? System.Math.Max(0, guid) : null;
+        }
+
+        internal static bool MatchesRoarAsset(string setting, long guid, string path) =>
+            guid > 0 && (RoarAssetGuid(setting) is long expected ? guid == expected :
+                path != null && path.IndexOf(setting.Trim(), System.StringComparison.OrdinalIgnoreCase) >= 0);
+
+        // "native" -> 0 (keep shipped data); named presets; or a positive NpcData GUID. Anything else -> 0.
+        internal static long MinionNpcGuid(string setting)
+        {
+            string s = (setting ?? "").Trim().ToLowerInvariant();
+            switch (s)
+            {
+                case "warrick_boss": return WarrickBossNpc;
+                case "warrick_enemy": return WarrickEnemyNpc;
+                case "wildling": return WildlingSwordNpc;
+                case "": case "native": return 0;
+            }
+            return long.TryParse(s, out long guid) && guid > 0 ? guid : 0;
+        }
+
+        // MaxActiveMinions to write on the raiseMinion asset: only while the summon is swapped and the setting is
+        // positive (capped at the shipped 5); otherwise keep the shipped value.
+        internal static int MinionMaxActive(long swapGuid, int setting, int shipped) =>
+            swapGuid == 0 || setting <= 0 ? shipped : System.Math.Min(setting, System.Math.Max(shipped, 1));
+
+        internal static string NpcName(long npc) => npc switch
+        {
+            WildlingSwordNpc => "npcRisenWildlingSwordA", WarrickBossNpc => "npcWarrickBoss", WarrickEnemyNpc => "npcWarrickEnemy",
+            _ => npc.ToString(),
+        };
 
         internal static double DistanceRaw(long ax, long ay, long az, long bx, long by, long bz)
         {
