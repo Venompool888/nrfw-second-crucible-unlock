@@ -52,6 +52,7 @@ namespace Necromancy
             internal readonly List<(EntityRef Hero, long Action, long Start, EntranceRun Run)> PlayerCuts = new();
             internal int HeroFrames;
             internal bool ReadLogged, ViewContextWaitLogged, TomeAttempted, EntranceFailed, EntranceImmunityFailed, EntranceAiPauseFailed, EntrancePlayerFailed;
+            internal bool EntranceTimelineFailureLogged;
         }
 
         private sealed class BossRune

@@ -174,6 +174,7 @@ foreach (var (type, name, result, isStatic, parameters) in new[]
     (Storage + "+Storage`1", "get_m_lookup", Collections + "Dictionary`2<System.Int64,System.Int32>", false, ""),
     (Q + "EntityRefExtensions", "Has", "System.Boolean", true, Entity + "," + Frame),
     (Q + "EntityRefExtensions", "Get", "!!0*", true, Entity + "," + Frame),
+    (Q + "ActionData", "GetCurrentTimelineTime", "Il2CppPhoton.Deterministic.FP", false, Frame + "," + Entity),
     (Q + "RunesAPI", "GetRune", Q + "RuneDataRef", true, Frame + "," + Q + "AssetRefHeroItemData"),
     (Q + "RunesAPI+Weapon", "TryFindRune", "System.Boolean", true, Frame + "," + Entity + "," + Q + "RuneDataRef,System.Int32&"),
     (Q + "InventoryAPI", "GetInventoryEntity", Entity, true, Frame + "," + Entity),

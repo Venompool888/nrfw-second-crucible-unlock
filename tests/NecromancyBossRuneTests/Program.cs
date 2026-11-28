@@ -64,7 +64,7 @@ internal static class Program
               NecromancyPolicy.MinionNpcGuid("warrick_boss") != 0, "native minion default, explicit boss still available");
         const long echo = 790324362694538264, warrick = 2680182020363611965, second = 1L << 16, quarter = second / 4;
         var entrance = BossEntrancePolicy.DefaultFor(echo);
-        var expected = new BossEntrance(true, 203502697017737707, 2 * second, new[] { 2918908058815642059, 2653262915339319819 }, true, true);
+        var expected = new BossEntrance(true, 203502697017737707, 157286, new[] { 2918908058815642059, 2653262915339319819 }, true, true, 101581, 160563);
         var automatic = BossRunePolicy.Parse($"[{{\"key\":\"one\",\"slot\":0,\"npc\":{echo}}},{{\"key\":\"two\",\"slot\":1,\"npc\":{warrick}}}]", out errors, out fallback);
         Check(!fallback && errors.Length == 0 && SameEntrance(automatic[0].Entrance, expected) && automatic[1].Entrance == null,
             "missing entrance defaults only for Echo Knight");
@@ -74,6 +74,10 @@ internal static class Program
         var overrides = BossRunePolicy.Parse("[{\"key\":\"one\",\"slot\":0,\"npc\":1,\"entrance\":{\"player_action\":\"0\",\"player_action_seconds\":0.1,\"minion_actions\":[\"2\",3],\"invincible\":false,\"pause_ai\":false}}]", out errors, out fallback);
         Check(!fallback && errors.Length == 0 && SameEntrance(overrides.Single().Entrance,
             new BossEntrance(true, 0, 6554, new long[] { 2, 3 }, false, false)), "entrance overrides, mixed GUID forms and 16.16 seconds");
+        Check(overrides.Single().Entrance is { MinionDelayRaw: 0, MinionStartRaw: 0 }, "omitted minion timings default to zero");
+        var timings = BossRunePolicy.Parse("[{\"key\":\"one\",\"slot\":0,\"npc\":1,\"entrance\":{\"minion_actions\":[1],\"minion_delay_seconds\":10,\"minion_start_seconds\":2.25}}]", out errors, out fallback);
+        Check(!fallback && errors.Length == 0 && timings.Single().Entrance is { MinionDelayRaw: 10 * second, MinionStartRaw: 2 * second + quarter },
+            "explicit minion timings use 16.16 seconds");
         foreach (var (field, json) in new[]
         {
             ("entrance", "null"), ("extra", "{\"enabled\":false,\"extra\":true}"),
@@ -85,7 +89,9 @@ internal static class Program
             ("player_action_seconds", "{\"minion_actions\":[1],\"player_action_seconds\":\"2\"}"),
             ("enabled", "{\"enabled\":1,\"minion_actions\":[1]}"),
             ("invincible", "{\"enabled\":false,\"invincible\":null}"), ("pause_ai", "{\"enabled\":false,\"pause_ai\":0}")
-        })
+        }.Concat(from field in new[] { "minion_delay_seconds", "minion_start_seconds" }
+                 from value in new[] { "-1", "11", "\"2\"" }
+                 select (field, $"{{\"minion_actions\":[1],\"{field}\":{value}}}")))
         {
             var rules = BossRunePolicy.Parse("[" + Valid[..^1] + ",\"entrance\":" + json + "}]", out errors, out fallback);
             Check(!fallback && rules.Length == 1 && rules[0].Key == "one" &&
@@ -94,30 +100,53 @@ internal static class Program
         }
 
         const long start = 100 * second;
+        long restart = start + entrance.MinionDelayRaw;
+        var delayed = new EntranceRun(entrance, start);
+        Check(delayed.Start() == (EntranceCommand.Execute, 0, null, 0L, true), "entrance plays prelude from zero");
+        delayed.Executed(start, false);
+        Check(delayed.Next(start, true, false).Command == EntranceCommand.Wait, "failed prelude does not end the entrance");
+        Check(delayed.Next(restart - 1, true, false).Command == EntranceCommand.Wait, "prelude waits even when action is not executing");
+        Check(delayed.Next(restart, true, true) == (EntranceCommand.Execute, 0, null, entrance.MinionStartRaw, false),
+            "prelude restarts step 0 at the configured time and offset");
+        delayed.Executed(restart, true);
+        Check(delayed.Next(restart + quarter - 1, true, false).Command == EntranceCommand.Wait, "grace period starts at the formal execute");
+        Check(delayed.Next(restart + quarter, true, false) == (EntranceCommand.Execute, 1, null, 0L, false), "delayed entrance advances normally");
+        delayed.Executed(restart + quarter, true);
+        Check(delayed.Next(restart + 2 * quarter, true, false) is (EntranceCommand.Finish, _, "done", _, _), "delayed entrance finishes normally");
+        var lost = new EntranceRun(entrance, start);
+        lost.Start();
+        lost.Executed(start, true);
+        Check(lost.Next(start + 1, false, true) is (EntranceCommand.Finish, _, "minion gone", _, _), "prelude handles minion loss");
+        var reversed = new EntranceRun(entrance, start);
+        reversed.Start();
+        Check(reversed.Next(start - 1, true, false) is (EntranceCommand.Finish, _, "clock went backwards", _, _), "prelude handles clock reversal");
+
+        var noDelay = entrance with { MinionDelayRaw = 0 };
         EntranceRun Started(bool running = true)
         {
-            var run = new EntranceRun(entrance, start);
+            var run = new EntranceRun(noDelay, start);
             run.Start();
             run.Executed(start, running);
             return run;
         }
-        var normal = new EntranceRun(entrance, start);
-        Check(normal.Start() is (EntranceCommand.Execute, 0, _), "entrance starts with step 0");
+        var normal = new EntranceRun(noDelay, start);
+        Check(normal.Start() == (EntranceCommand.Execute, 0, null, noDelay.MinionStartRaw, false), "no delay starts step 0 at the configured offset");
         normal.Executed(start, true);
         Check(normal.Next(start + quarter - 1, true, false).Command == EntranceCommand.Wait, "entrance waits at least 0.25 seconds");
         Check(normal.Next(start + quarter, true, true).Command == EntranceCommand.Wait, "entrance waits while action is running");
-        Check(normal.Next(start + second, true, false) is (EntranceCommand.Execute, 1, _), "entrance executes step 1 after step 0 stops");
+        Check(normal.Next(start + second, true, false) == (EntranceCommand.Execute, 1, null, 0L, false), "entrance executes step 1 after step 0 stops");
         normal.Executed(start + second, true);
-        Check(normal.Next(start + second + quarter, true, false) is (EntranceCommand.Finish, _, "done"), "entrance finishes after step 1 stops");
-        Check(normal.Next(start, false, true) is (EntranceCommand.Finish, _, "done") && normal.Start().Command == EntranceCommand.Finish,
+        Check(normal.Next(start + second + quarter, true, false) is (EntranceCommand.Finish, _, "done", _, _), "entrance finishes after step 1 stops");
+        Check(normal.Next(start, false, true) is (EntranceCommand.Finish, _, "done", _, _) && normal.Start().Command == EntranceCommand.Finish,
             "entrance finish is terminal");
-        Check(Started(false).Next(start, true, false) is (EntranceCommand.Finish, _, "action 1 did not start"), "entrance handles failed start immediately");
+        Check(Started(false).Next(start, true, false) is (EntranceCommand.Finish, _, "action 1 did not start", _, _), "entrance handles failed start immediately");
         var timeout = Started();
         Check(timeout.Next(start + 20 * second, true, true).Command == EntranceCommand.Wait &&
-            timeout.Next(start + 20 * second + 1, true, true) is (EntranceCommand.Finish, _, "action 1 timed out"), "entrance times out after 20 seconds");
-        Check(Started().Next(start + 1, false, true) is (EntranceCommand.Finish, _, "minion gone"), "entrance handles minion loss");
-        Check(Started().Next(start - 1, true, true) is (EntranceCommand.Finish, _, "clock went backwards"), "entrance handles clock reversal");
-        Check(!normal.PlayerCutDue(start + 2 * second - 1) && normal.PlayerCutDue(start + 2 * second) && !normal.PlayerCutDue(start + 3 * second),
+            timeout.Next(start + 20 * second + 1, true, true) is (EntranceCommand.Finish, _, "action 1 timed out", _, _), "entrance times out after 20 seconds");
+        Check(Started().Next(start + 1, false, true) is (EntranceCommand.Finish, _, "minion gone", _, _), "entrance handles minion loss");
+        Check(Started().Next(start - 1, true, true) is (EntranceCommand.Finish, _, "clock went backwards", _, _), "entrance handles clock reversal");
+        long cut = start + expected.PlayerCutRaw;
+        Check(!normal.PlayerCutDue(cut - 1) && normal.PlayerCutDue(cut) && !normal.PlayerCutDue(start + 3 * second),
             "player cut is independent of finish and due exactly once");
         Check(!new EntranceRun(entrance with { PlayerAction = 0 }, start).PlayerCutDue(start + 10 * second), "no cut with no player action");
         Console.WriteLine($"{_tests - _failures}/{_tests} boss rune checks passed.");

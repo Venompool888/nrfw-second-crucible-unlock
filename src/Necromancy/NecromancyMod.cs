@@ -819,11 +819,12 @@ namespace Necromancy
             }
         }
 
-        private static unsafe int ForceExecute(Frame f, ActionComponent* actions, ActionData action, out bool running, out int layer)
+        private static unsafe int ForceExecute(Frame f, ActionComponent* actions, ActionData action, out bool running, out int layer, long startRaw = 0)
         {
             // Layer 0 is locomotion: a forced attack returned an id there but did not play in testing.
             layer = ActionComponent.ActionLayer;
-            int result = actions->Execute(f, action, null, false, default, layer, false, true, default);
+            var startTime = new Il2CppPhoton.Deterministic.FP { RawValue = startRaw };
+            int result = actions->Execute(f, action, null, false, startTime, layer, false, true, default);
             running = actions->IsExecutingAction(f, action);
             return result;
         }

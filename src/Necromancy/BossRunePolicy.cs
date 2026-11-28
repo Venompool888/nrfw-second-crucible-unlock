@@ -29,6 +29,7 @@ namespace Necromancy
 // npc 是 NpcData GUID（建议用字符串）；max_active 为 1..5；icon 留空则使用原版图标。
 // health_scale 为召出 Boss 的血量占原血量的比例（0.01..1，默认 0.05；原版起尸给 Boss 0.1）。
 // entrance 配置出场动作：minion_actions 按顺序播放，player_action 可选，按 player_action_seconds 截断。
+// minion_delay_seconds 为首招从头播放到重放的等待时间，minion_start_seconds 为首招正式播放的时间轴起点（均为 0..10 秒，默认 0）。
 // 缺省时仅回声骑士有内置出场；设 entrance.enabled 为 false 可关闭该符文的出场。
 [
   {
@@ -43,7 +44,8 @@ namespace Necromancy
     ""desc_zh"": ""在 8 米内的尸体上召出回声骑士为你作战（同时最多 1 个）。"",
     ""desc_en"": ""Summon the Echo Knight from a corpse within 8 meters to fight for you (maximum 1 active)."",
     ""entrance"": {
-      ""enabled"": true, ""player_action"": ""203502697017737707"", ""player_action_seconds"": 2.0,
+      ""enabled"": true, ""player_action"": ""203502697017737707"", ""player_action_seconds"": 2.4,
+      ""minion_delay_seconds"": 1.55, ""minion_start_seconds"": 2.45,
       ""minion_actions"": [""2918908058815642059"", ""2653262915339319819""], ""invincible"": true, ""pause_ai"": true
     }
   }

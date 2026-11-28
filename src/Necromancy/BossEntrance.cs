@@ -48,7 +48,8 @@ namespace Necromancy
                 var active = new ActiveEntrance { Entity = entity, Run = new EntranceRun(spec, now), Actions = actions, Start = now };
                 session.Entrances.Add(entity.Raw, active);
                 Write("entrance start entity=" + entity.Raw + " rune=" + rule.Key + " owner=" + owner.Raw + " actions=[" +
-                    string.Join(",", spec.MinionActions) + "] player=" + spec.PlayerAction + " cut=" + EntranceSeconds(spec.PlayerCutRaw) + "s");
+                    string.Join(",", spec.MinionActions) + "] player=" + spec.PlayerAction + " cut=" + EntranceSeconds(spec.PlayerCutRaw) +
+                    "s delay=" + EntranceSeconds(spec.MinionDelayRaw) + "s minionStart=" + EntranceSeconds(spec.MinionStartRaw) + "s");
 
                 // Has/Get<T> are generic interop calls: an instantiation the game never compiled throws at run time
                 // (0.18.2 hit this with HealthComponent). These two are optional, so a failure must not cancel the entrance.
@@ -74,7 +75,8 @@ namespace Necromancy
                     catch (Exception e) { session.EntranceAiPauseFailed = true; Write("entrance pause-ai UNAVAILABLE " + e.GetType().Name + ": " + e.Message); }
                 Write("entrance guards entity=" + entity.Raw + " invincible=" + immune + " aiPaused=" + paused);
 
-                bool running = ExecuteEntranceStep(f, active, active.Run.Start().Index, EntranceActions(f, entity), now);
+                var first = active.Run.Start();
+                bool running = ExecuteEntranceStep(f, session, active, first.Index, first.StartRaw, first.Prelude, EntranceActions(f, entity), now);
                 // The summoner's pose is cosmetic: a failure here must not cancel the minion's entrance.
                 if (player != null && !session.EntrancePlayerFailed && owner.IsValid && owner.Raw == unchecked((ulong)Interlocked.Read(ref _heroRaw)))
                     try
@@ -89,20 +91,38 @@ namespace Necromancy
                         }
                     }
                     catch (Exception e) { session.EntrancePlayerFailed = true; Write("entrance player action UNAVAILABLE " + e.GetType().Name + ": " + e.Message); }
-                if (!running) EndEntrance(f, session, active, active.Run.Next(now, true, false).Reason, now);
+                if (!running && !first.Prelude) EndEntrance(f, session, active, active.Run.Next(now, true, false).Reason, now);
             }
             catch (Exception e) { DisableEntrances(f, session, e); }
         }
 
-        private static unsafe bool ExecuteEntranceStep(Frame f, ActiveEntrance active, int index, ActionComponent* component, long now)
+        private static unsafe bool ExecuteEntranceStep(Frame f, BossSession session, ActiveEntrance active, int index, long startRaw,
+            bool prelude, ActionComponent* component, long now)
         {
             active.Current = index;
             var action = active.Actions[index];
             bool running = false;
-            int result = component == null ? -1 : ForceExecute(f, component, action, out running, out _);
+            int result = component == null ? -1 : ForceExecute(f, component, action, out running, out _, startRaw);
+            if (prelude)
+                Write("entrance prelude entity=" + active.Entity.Raw + " action=" + action.Guid.Value + " -> " + result + " executingNow=" + running);
+            else
+            {
+                string timeline = "?";
+                if (component != null)
+                    try { timeline = EntranceSeconds(action.GetCurrentTimelineTime(f, active.Entity).RawValue) + "s"; }
+                    catch (Exception e)
+                    {
+                        if (!session.EntranceTimelineFailureLogged)
+                        {
+                            session.EntranceTimelineFailureLogged = true;
+                            Write("entrance timeline UNAVAILABLE " + e.GetType().Name);
+                        }
+                    }
+                Write("entrance step " + (index + 1) + "/" + active.Actions.Length + " entity=" + active.Entity.Raw +
+                    " action=" + action.Guid.Value + " start=" + EntranceSeconds(startRaw) + "s -> " + result +
+                    " executingNow=" + running + " timeline=" + timeline);
+            }
             active.Run.Executed(now, running);
-            Write("entrance step " + (index + 1) + "/" + active.Actions.Length + " entity=" + active.Entity.Raw +
-                " action=" + action.Guid.Value + " -> " + result + " executingNow=" + running);
             return running;
         }
 
@@ -118,10 +138,13 @@ namespace Necromancy
                 {
                     var entity = active.Entity;
                     bool alive = EntityRefExtensions.Has<RaisedMinionComponent>(entity, f) && AiUtils.ExistsAlive(f, entity);
-                    var actions = alive ? EntranceActions(f, entity) : null;
+                    bool inPrelude = active.Run.InPrelude;
+                    var actions = alive && !inPrelude ? EntranceActions(f, entity) : null;
                     bool executing = actions != null && actions->IsExecutingAction(f, active.Actions[active.Current]);
                     var next = active.Run.Next(now, alive, executing);
-                    if (next.Command == EntranceCommand.Execute && !ExecuteEntranceStep(f, active, next.Index, actions, now))
+                    if (next.Command == EntranceCommand.Execute &&
+                        !ExecuteEntranceStep(f, session, active, next.Index, next.StartRaw, next.Prelude,
+                            inPrelude ? EntranceActions(f, entity) : actions, now) && !next.Prelude)
                         next = active.Run.Next(now, alive, false);
                     if (next.Command == EntranceCommand.Finish) EndEntrance(f, session, active, next.Reason, now);
                 }
