@@ -48,8 +48,11 @@ namespace Necromancy
             internal IntPtr Storage, Manager;
             internal readonly Dictionary<long, BossRune> Runes = new();
             internal readonly Dictionary<(ulong Entity, long Action), EntityRef> Spawns = new();
+            internal readonly Dictionary<ulong, ActiveEntrance> Entrances = new();
+            internal readonly List<(EntityRef Hero, long Action, long Start, EntranceRun Run)> PlayerCuts = new();
             internal int HeroFrames;
-            internal bool ReadLogged, ViewContextWaitLogged, TomeAttempted;
+            internal bool ReadLogged, ViewContextWaitLogged, TomeAttempted, EntranceFailed, EntranceImmunityFailed, EntranceAiPauseFailed, EntrancePlayerFailed;
+            internal bool EntranceTimelineFailureLogged;
         }
 
         private sealed class BossRune
@@ -81,6 +84,7 @@ namespace Necromancy
                 string language = category.CreateEntry("text_language", "zh", description: "Boss rune text: zh or en.").Value;
                 _bossEnglish = string.Equals(language?.Trim(), "en", StringComparison.OrdinalIgnoreCase);
                 bool enabled = category.CreateEntry("boss_runes_enabled", true, description: "Register and grant custom Boss runes.").Value;
+                _bossEntranceEnabled = category.CreateEntry("boss_entrance_enabled", true, description: "Play configured Boss summon entrances.").Value;
                 _bossTomeCharacter = (category.CreateEntry("boss_tome_character", "",
                     description: "Character (case-insensitive) that once gets a new Gold Tome of Healing with every Boss rune socketed. Recorded in granted_boss_runes as character:@tome.").Value ?? "").Trim();
                 string directory = MelonLoader.Utils.MelonEnvironment.UserDataDirectory;
@@ -117,7 +121,9 @@ namespace Necromancy
             {
                 if (!File.Exists(path)) { File.WriteAllText(path, BossRunePolicy.DefaultJson); Write("boss-runes wrote " + BossRunePolicy.FileName); }
                 var rules = BossRunePolicy.Parse(File.ReadAllText(path), out var errors, out bool fallback);
-                foreach (string error in errors) Write("boss-runes " + (fallback ? "file INVALID; using defaults: " : "rule REJECTED ") + error);
+                foreach (string error in errors)
+                    Write("boss-runes " + (fallback ? "file INVALID; using defaults: " :
+                        error.Contains(" entrance: ", StringComparison.Ordinal) ? "entrance REJECTED " : "rule REJECTED ") + error);
                 return rules;
             }
             catch (Exception e)
@@ -351,26 +357,30 @@ namespace Necromancy
             if (!IsPrivateBossAction(action.Value)) return;
             var session = _bossSession;
             var rune = BossAction(session, action.Value);
-            if (rune != null && rune.SpawnLogs < 3 && session.Spawns.Count < 64)
+            if (rune != null && (CanStartEntrance(session, rune.Rule.Entrance) || (rune.SpawnLogs < 3 && session.Spawns.Count < 64)))
                 session.Spawns[(entity.Raw, action.Value)] = entity;
         }
 
         private static unsafe void LogBossSpawns(Frame f, BossSession session)
         {
             if (session.Spawns.Count == 0) return;
-            try
+            // Executing an entrance action can raise another spawn event; handle it on the next frame.
+            var spawns = session.Spawns.ToArray();
+            session.Spawns.Clear();
+            foreach (var spawn in spawns)
             {
-                foreach (var spawn in session.Spawns)
+                var rune = BossAction(session, spawn.Key.Action);
+                if (rune == null || !EntityRefExtensions.Has<RaisedMinionComponent>(spawn.Value, f)) continue;
+                var minion = EntityRefExtensions.Get<RaisedMinionComponent>(spawn.Value, f);
+                if (minion == null || minion->RaiseActionGuid.Value != spawn.Key.Action) continue;
+                var owner = minion->Owner;
+                if (rune.SpawnLogs < 3)
                 {
-                    var rune = BossAction(session, spawn.Key.Action);
-                    if (rune == null || rune.SpawnLogs >= 3 || !EntityRefExtensions.Has<RaisedMinionComponent>(spawn.Value, f)) continue;
-                    var minion = EntityRefExtensions.Get<RaisedMinionComponent>(spawn.Value, f);
-                    if (minion == null || minion->RaiseActionGuid.Value != spawn.Key.Action) continue;
                     ++rune.SpawnLogs;
                     Write(BossLabel(rune.Rule) + " RaisedMinionSpawned A=" + BossId(spawn.Key.Action) + " npc=" + MinionNpcGuid(f, spawn.Value));
                 }
+                if (CanStartEntrance(session, rune.Rule.Entrance)) StartEntrance(f, session, spawn.Value, owner, rune.Rule);
             }
-            finally { session.Spawns.Clear(); }
         }
 
         private static void TickBossRunes(Frame f)
