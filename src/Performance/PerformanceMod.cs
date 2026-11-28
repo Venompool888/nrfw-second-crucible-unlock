@@ -1,0 +1,662 @@
+using System;
+using System.Collections.Concurrent;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+using HarmonyLib;
+using Il2Cpp;
+using Il2CppMoon.AnimationControl;
+using Il2CppQuantum;
+using Il2CppQuantum.Core;
+using Il2CppUberShader.optimizations.gc;
+using MelonLoader;
+using UnityEngine;
+using UnityEngine.Profiling;
+
+[assembly: MelonInfo(typeof(Performance.PerformanceMod), "NRFW Performance", Performance.PerformancePolicy.Version, "NRFW research")]
+[assembly: MelonGame("Moon Studios", "NoRestForTheWicked")]
+[assembly: MelonAdditionalDependencies("0Harmony")]
+
+namespace Performance
+{
+    public sealed partial class PerformanceMod : MelonMod
+    {
+        private static readonly ConcurrentQueue<string> PendingLogs = new();
+        private static string _logPath;
+
+        // Preferences
+        private static MelonPreferences_Entry<bool> _prefEnabled;
+        private static MelonPreferences_Entry<string> _prefPreset;
+        private static MelonPreferences_Entry<bool> _prefShowHud;
+        private static MelonPreferences_Entry<bool> _prefUnlockWorkers;
+        private static MelonPreferences_Entry<bool> _prefBlockActiveUnloads;
+        private static MelonPreferences_Entry<long> _prefMinFreeRamMb;
+        private static MelonPreferences_Entry<bool> _prefGuardLadder;
+        private static MelonPreferences_Entry<bool> _prefHalfResAo;
+        private static MelonPreferences_Entry<bool> _prefHalfResFlashLight;
+        private static MelonPreferences_Entry<bool> _prefHalfResTransparency;
+        private static MelonPreferences_Entry<bool> _prefOptimizeShadows;
+        private static MelonPreferences_Entry<bool> _prefOptimizeVolumetrics;
+        private static MelonPreferences_Entry<bool> _prefOptimizeSsr;
+        private static MelonPreferences_Entry<bool> _prefOptimizeReflections;
+        private static MelonPreferences_Entry<bool> _prefOptimizeCullingCloth;
+        private static MelonPreferences_Entry<bool> _prefExpDisableAssetBlending;
+        private static MelonPreferences_Entry<bool> _prefExpSsrHiZ;
+        private static MelonPreferences_Entry<int> _prefLogIntervalSeconds;
+
+        // Runtime state
+        internal static bool Enabled = true;
+        internal static PerfPreset ActivePreset = PerfPreset.UltraSmart;
+        private static PerfPreset _lastNonVanillaPreset = PerfPreset.UltraSmart;
+        internal static bool UnlockWorkers = true;
+        internal static bool BlockActiveUnloads = true;
+        internal static long MinFreeRamMb = 4096;
+        internal static bool GuardLadderKickDown = true;
+        internal static bool HalfResAo = true;
+        internal static bool HalfResFlashLight = true;
+        internal static bool HalfResTransparency = true;
+        internal static bool OptimizeShadows = true;
+        internal static bool OptimizeVolumetrics = true;
+        internal static bool OptimizeSsr = true;
+        internal static bool OptimizeReflections = true;
+        internal static bool OptimizeCullingCloth = true;
+        internal static bool ExpDisableAssetBlending;
+        internal static bool ExpSsrHiZ;
+        internal static bool HudVisible;
+
+        private static IntPtr _lastAssetPtr;
+        private static bool _hasVanillaSnapshot;
+        private static VanillaAssetSnapshot _vanilla;
+
+        private static long _blockedUnloads;
+        private static long _ladderGuards;
+        private static int _ladderErrors;
+        private static int _physicsCompIndex = -1;
+        private static bool _physicsCompLookupTried;
+
+        private static readonly FrameStatsRing FrameRing = new(240);
+        private static double _lastRamCheckTime = -10.0;
+        private static long _cachedFreeRamMb = -1;
+        private static double _lastStatsLogTime;
+
+        private static bool _f9Down, _f10Down, _f11Down;
+        private static bool _hudAvailable;
+
+        private struct VanillaAssetSnapshot
+        {
+            public MoonRenderPipelineAsset.QualityPreset QualityPreset;
+            public MoonRenderPipelineAsset.LimitWorkers LimitWorkerThreadCnt;
+            public int WorkerThreadCnt;
+            public MoonRenderPipelineAsset.IMXAOShadingRate AoShadingRate;
+            public int FlashLightResDivider;
+            public int FlashLightResDividerMinRes;
+            public int FlashLightStepsMax;
+            public float HalfResTransparencyScale;
+            public bool ExcludeParticleShadowCasters;
+            public MoonRenderPipelineAsset.ShadowResolution MainLightShadowMapRes;
+            public MoonRenderPipelineAsset.TexResolution OtherLightShadowMapRes;
+            public int PcssSearchSamples;
+            public int PcssMinSamples;
+            public int PcssMaxSamples;
+            public bool VolumetricUseLowResDepth;
+            public int VolumetricSamples;
+            public int SsrMaxSteps;
+            public bool SsrUseHiZ;
+            public float ReflPlaneTexScaling;
+            public int MaxNumReflPlaneTextures;
+            public float SmallObjectsMinScreenHeight;
+            public float SmallObjectsMinDistance;
+            public bool AssetBlendingPassEnabled;
+            public float ClothDistanceCullingThreshold;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int vKey);
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        private struct MEMORYSTATUSEX
+        {
+            public uint dwLength;
+            public uint dwMemoryLoad;
+            public ulong ullTotalPhys;
+            public ulong ullAvailPhys;
+            public ulong ullTotalPageFile;
+            public ulong ullAvailPageFile;
+            public ulong ullTotalVirtual;
+            public ulong ullAvailVirtual;
+            public ulong ullAvailExtendedVirtual;
+        }
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
+        public override void OnInitializeMelon()
+        {
+            _logPath = Path.Combine(MelonLoader.Utils.MelonEnvironment.UserDataDirectory, "NRFWPerformance.log");
+            InitPreferences();
+
+            var harmony = new HarmonyLib.Harmony("NRFW.Performance");
+            InstallHook(harmony, typeof(MoonRenderPipelineAsset), "UpdateQualityPreset", Type.EmptyTypes, postfix: nameof(AfterUpdateQualityPreset));
+            InstallHook(harmony, typeof(MoonRenderPipelineView), "FlashLightGetDepthMipIndex", new[] { typeof(int) }, postfix: nameof(AfterFlashLightGetDepthMipIndex));
+            InstallHook(harmony, typeof(MoonRenderPipelineView), "HalfResTransparencyScale", Type.EmptyTypes, postfix: nameof(AfterHalfResTransparencyScale));
+            InstallHook(
+                harmony,
+                typeof(UberGCLogic),
+                "ShouldRunCleanup",
+                new[] { typeof(UberGCLogic.CleanupType), typeof(UberGCLogic.CleanupTrigger), typeof(UberGCLogic.CleanupOutsideOfGameplayTrigger) },
+                postfix: nameof(AfterShouldRunCleanup));
+            InstallHook(
+                harmony,
+                typeof(LadderData),
+                "KickDown",
+                new[] { typeof(Frame), typeof(EntityRef) },
+                prefix: nameof(BeforeLadderKickDown));
+
+            _hudAvailable = TryInitHud();
+            Log($"init v{PerformancePolicy.Version}; enabled={Enabled}; preset={ActivePreset}; hud={HudVisible}; imgui={_hudAvailable}; freeRamMb={GetAvailableRamMb()}");
+            FlushLogs();
+        }
+
+        private static void InitPreferences()
+        {
+            var cat = MelonPreferences.CreateCategory("NRFWPerformance", "NRFW Performance");
+            _prefEnabled = cat.CreateEntry("enabled", true, description: "Master enable switch for NRFWPerformance.");
+            _prefPreset = cat.CreateEntry("preset", "UltraSmart", description: "Optimization preset: Vanilla, UltraSmart, BalancedPro, MaxFps.");
+            _prefShowHud = cat.CreateEntry("show_hud_on_start", false, description: "Show F9 performance HUD on game start.");
+            _prefUnlockWorkers = cat.CreateEntry("unlock_worker_threads", true, description: "Remove hardcoded 8-thread cap on Unity Job workers.");
+            _prefBlockActiveUnloads = cat.CreateEntry("block_active_unloads", true, description: "Defer Proactive/Panic UnloadUnusedAssets during active gameplay when free RAM is above min_free_ram_mb.");
+            _prefMinFreeRamMb = cat.CreateEntry("min_free_ram_mb", 4096L, description: "Minimum available system RAM (MB) required before blocking active-gameplay asset unloads.");
+            _prefGuardLadder = cat.CreateEntry("guard_ladder_kickdown", true, description: "Skip LadderData.KickDown when streamed entity lacks PhysicsComponent to avoid exception trace storms.");
+            _prefHalfResAo = cat.CreateEntry("half_res_ao", true, description: "Use native Half-res temporal iMXAO shading rate.");
+            _prefHalfResFlashLight = cat.CreateEntry("half_res_flashlight", true, description: "Allow half-res depth raymarching for FlashLight even with FSR/DLSS active.");
+            _prefHalfResTransparency = cat.CreateEntry("half_res_transparency", true, description: "Cap HalfResTransparencyScale to profile value (0.50-0.60) using bilateral depth upscaling.");
+            _prefOptimizeShadows = cat.CreateEntry("optimize_shadows", true, description: "Exclude particle shadow casters, cap shadow atlas resolution at 2048, and tune PCSS samples.");
+            _prefOptimizeVolumetrics = cat.CreateEntry("optimize_volumetrics", true, description: "Enable low-res depth and tuned sample count for VolumetricRenderer.");
+            _prefOptimizeSsr = cat.CreateEntry("optimize_ssr", true, description: "Tune SSRMaxSteps to profile value.");
+            _prefOptimizeReflections = cat.CreateEntry("optimize_reflections", true, description: "Cap ReflectionPlane texture scaling and max plane count.");
+            _prefOptimizeCullingCloth = cat.CreateEntry("optimize_culling_cloth", true, description: "Tighten small object culling screen height and cloth distance culling.");
+            _prefExpDisableAssetBlending = cat.CreateEntry("experimental_disable_asset_blending", false, description: "Experimental: disable AssetBlending full-screen GBuffer blend pass.");
+            _prefExpSsrHiZ = cat.CreateEntry("experimental_ssr_hiz", false, description: "Experimental: enable Hi-Z acceleration on SSR.");
+            _prefLogIntervalSeconds = cat.CreateEntry("log_stats_interval_seconds", 30, description: "Interval in seconds for periodic performance stats log lines (0 disables).");
+
+            Enabled = _prefEnabled.Value;
+            ActivePreset = PerformancePolicy.ParsePreset(_prefPreset.Value);
+            if (ActivePreset != PerfPreset.Vanilla) _lastNonVanillaPreset = ActivePreset;
+            HudVisible = _prefShowHud.Value;
+            UnlockWorkers = _prefUnlockWorkers.Value;
+            BlockActiveUnloads = _prefBlockActiveUnloads.Value;
+            MinFreeRamMb = Math.Max(512L, _prefMinFreeRamMb.Value);
+            GuardLadderKickDown = _prefGuardLadder.Value;
+            HalfResAo = _prefHalfResAo.Value;
+            HalfResFlashLight = _prefHalfResFlashLight.Value;
+            HalfResTransparency = _prefHalfResTransparency.Value;
+            OptimizeShadows = _prefOptimizeShadows.Value;
+            OptimizeVolumetrics = _prefOptimizeVolumetrics.Value;
+            OptimizeSsr = _prefOptimizeSsr.Value;
+            OptimizeReflections = _prefOptimizeReflections.Value;
+            OptimizeCullingCloth = _prefOptimizeCullingCloth.Value;
+            ExpDisableAssetBlending = _prefExpDisableAssetBlending.Value;
+            ExpSsrHiZ = _prefExpSsrHiZ.Value;
+        }
+
+        internal static void SavePreferences()
+        {
+            _prefEnabled.Value = Enabled;
+            _prefPreset.Value = ActivePreset.ToString();
+            _prefShowHud.Value = HudVisible;
+            _prefUnlockWorkers.Value = UnlockWorkers;
+            _prefBlockActiveUnloads.Value = BlockActiveUnloads;
+            _prefMinFreeRamMb.Value = MinFreeRamMb;
+            _prefGuardLadder.Value = GuardLadderKickDown;
+            _prefHalfResAo.Value = HalfResAo;
+            _prefHalfResFlashLight.Value = HalfResFlashLight;
+            _prefHalfResTransparency.Value = HalfResTransparency;
+            _prefOptimizeShadows.Value = OptimizeShadows;
+            _prefOptimizeVolumetrics.Value = OptimizeVolumetrics;
+            _prefOptimizeSsr.Value = OptimizeSsr;
+            _prefOptimizeReflections.Value = OptimizeReflections;
+            _prefOptimizeCullingCloth.Value = OptimizeCullingCloth;
+            _prefExpDisableAssetBlending.Value = ExpDisableAssetBlending;
+            _prefExpSsrHiZ.Value = ExpSsrHiZ;
+            MelonPreferences.Save();
+            Log($"saved preferences preset={ActivePreset} enabled={Enabled}");
+        }
+
+        private static void InstallHook(HarmonyLib.Harmony harmony, Type targetType, string methodName, Type[] args, string prefix = null, string postfix = null)
+        {
+            try
+            {
+                var method = targetType.GetMethod(methodName, BindingFlagsForHook, null, args, null);
+                if (method == null)
+                {
+                    Log($"HOOK MISSING: {targetType.FullName}.{methodName}");
+                    return;
+                }
+                var pre = prefix != null ? new HarmonyMethod(typeof(PerformanceMod), prefix) : null;
+                var post = postfix != null ? new HarmonyMethod(typeof(PerformanceMod), postfix) : null;
+                harmony.Patch(method, prefix: pre, postfix: post);
+                Log($"hook ok: {targetType.Name}.{methodName}");
+            }
+            catch (Exception e)
+            {
+                Log($"HOOK FAILED: {targetType.Name}.{methodName}: {e.GetType().Name}: {e.Message}");
+            }
+        }
+
+        private const System.Reflection.BindingFlags BindingFlagsForHook =
+            System.Reflection.BindingFlags.Public |
+            System.Reflection.BindingFlags.NonPublic |
+            System.Reflection.BindingFlags.Instance |
+            System.Reflection.BindingFlags.Static |
+            System.Reflection.BindingFlags.DeclaredOnly;
+
+        public override void OnUpdate()
+        {
+            FrameRing.Push(Time.unscaledDeltaTime);
+
+            var asset = MoonRenderPipeline.currentAsset;
+            if (asset != null && asset.Pointer != _lastAssetPtr)
+            {
+                _lastAssetPtr = asset.Pointer;
+                _hasVanillaSnapshot = false;
+                EnsureApplied(asset, forceRecapture: true);
+            }
+
+            PollHotkeys();
+
+            int interval = _prefLogIntervalSeconds != null ? _prefLogIntervalSeconds.Value : 30;
+            if (interval > 0)
+            {
+                double now = Time.realtimeSinceStartupAsDouble;
+                if (_lastStatsLogTime <= 0.0) _lastStatsLogTime = now;
+                else if (now - _lastStatsLogTime >= interval)
+                {
+                    _lastStatsLogTime = now;
+                    Log(FormatSummaryLine("periodic"));
+                }
+            }
+
+            FlushLogs();
+        }
+
+        private static void PollHotkeys()
+        {
+            bool f9 = (GetAsyncKeyState(0x78) & 0x8000) != 0;
+            if (f9 && !_f9Down)
+            {
+                HudVisible = !HudVisible;
+                Log($"F9 HUD={(HudVisible ? "ON" : "OFF")}");
+            }
+            _f9Down = f9;
+
+            bool f10 = (GetAsyncKeyState(0x79) & 0x8000) != 0;
+            if (f10 && !_f10Down)
+            {
+                ToggleVanillaAb();
+            }
+            _f10Down = f10;
+
+            bool f11 = (GetAsyncKeyState(0x7A) & 0x8000) != 0;
+            if (f11 && !_f11Down)
+            {
+                DumpDetailedSnapshot("F11");
+            }
+            _f11Down = f11;
+        }
+
+        internal static void ToggleVanillaAb()
+        {
+            var before = FormatSummaryLine("AB-before");
+            if (!Enabled || ActivePreset == PerfPreset.Vanilla)
+            {
+                Enabled = true;
+                ActivePreset = _lastNonVanillaPreset == PerfPreset.Vanilla ? PerfPreset.UltraSmart : _lastNonVanillaPreset;
+            }
+            else
+            {
+                _lastNonVanillaPreset = ActivePreset;
+                ActivePreset = PerfPreset.Vanilla;
+            }
+            ReapplyCurrentAsset();
+            Log(before);
+            Log(FormatSummaryLine("AB-after"));
+        }
+
+        internal static void SelectPreset(PerfPreset preset)
+        {
+            if (preset != PerfPreset.Vanilla)
+            {
+                _lastNonVanillaPreset = preset;
+                Enabled = true;
+            }
+            ActivePreset = preset;
+            ReapplyCurrentAsset();
+            Log(FormatSummaryLine("preset-switch"));
+        }
+
+        internal static void ReapplyCurrentAsset()
+        {
+            var asset = MoonRenderPipeline.currentAsset;
+            if (asset != null) EnsureApplied(asset, forceRecapture: false);
+        }
+
+        private static void AfterUpdateQualityPreset(MoonRenderPipelineAsset __instance)
+        {
+            if (__instance == null) return;
+            _lastAssetPtr = __instance.Pointer;
+            _hasVanillaSnapshot = false;
+            EnsureApplied(__instance, forceRecapture: true);
+        }
+
+        private static void EnsureApplied(MoonRenderPipelineAsset asset, bool forceRecapture)
+        {
+            if (asset == null) return;
+            if (!_hasVanillaSnapshot || forceRecapture)
+            {
+                _vanilla = CaptureSnapshot(asset);
+                _hasVanillaSnapshot = true;
+                Log($"captured vanilla SRP preset={_vanilla.QualityPreset} workers={_vanilla.LimitWorkerThreadCnt}/{_vanilla.WorkerThreadCnt} ao={_vanilla.AoShadingRate} flDiv={_vanilla.FlashLightResDivider}/{_vanilla.FlashLightResDividerMinRes}/{_vanilla.FlashLightStepsMax} halfTrans={_vanilla.HalfResTransparencyScale:0.00} mainShadow={_vanilla.MainLightShadowMapRes} pcss={_vanilla.PcssSearchSamples}/{_vanilla.PcssMinSamples}/{_vanilla.PcssMaxSamples} volLow={_vanilla.VolumetricUseLowResDepth}/{_vanilla.VolumetricSamples} ssr={_vanilla.SsrMaxSteps}/hiz={_vanilla.SsrUseHiZ} refl={_vanilla.ReflPlaneTexScaling:0.00}x{_vanilla.MaxNumReflPlaneTextures} clothDist={_vanilla.ClothDistanceCullingThreshold:0.0}");
+            }
+
+            RestoreSnapshot(asset, _vanilla);
+            if (!Enabled || ActivePreset == PerfPreset.Vanilla) return;
+
+            ApplyProfile(asset, _vanilla, PerformancePolicy.GetProfile(ActivePreset));
+        }
+
+        private static VanillaAssetSnapshot CaptureSnapshot(MoonRenderPipelineAsset a)
+        {
+            return new VanillaAssetSnapshot
+            {
+                QualityPreset = a.SelectedQualityPreset,
+                LimitWorkerThreadCnt = a.LimitWorkerThreadCnt,
+                WorkerThreadCnt = a.WorkerThreadCnt,
+                AoShadingRate = a.iMXAOShadingRate,
+                FlashLightResDivider = a.FlashLightResDivider,
+                FlashLightResDividerMinRes = a.FlashLightResDividerMinRes,
+                FlashLightStepsMax = a.FlashLightStepsMax,
+                HalfResTransparencyScale = a.HalfResTransparencyScale,
+                ExcludeParticleShadowCasters = a.ExcludePareticleSystemShadowCasters,
+                MainLightShadowMapRes = a.MainLightShadowMapResolution,
+                OtherLightShadowMapRes = a.ShadowMapResolution,
+                PcssSearchSamples = a.PCSSSearchNumSamples,
+                PcssMinSamples = a.PCSSMinNumSamples,
+                PcssMaxSamples = a.PCSSMaxNumSamples,
+                VolumetricUseLowResDepth = a.VolumetricUseLowResDepth,
+                VolumetricSamples = a.VolumetricSamples,
+                SsrMaxSteps = a.SSRMaxSteps,
+                SsrUseHiZ = a.SSRUseHiZ,
+                ReflPlaneTexScaling = a.ReflPlaneTexScaling,
+                MaxNumReflPlaneTextures = a.MaxNumReflPlaneTextures,
+                SmallObjectsMinScreenHeight = a.SmallObjectsCullingRelativeScreenHeight,
+                SmallObjectsMinDistance = a.SmallObjectsCullingMinDistance,
+                AssetBlendingPassEnabled = a.AssetBlendingPassEnabled,
+                ClothDistanceCullingThreshold = MoonClothUpdate.DistanceCullingThreshold,
+            };
+        }
+
+        private static void RestoreSnapshot(MoonRenderPipelineAsset a, in VanillaAssetSnapshot v)
+        {
+            a.LimitWorkerThreadCnt = v.LimitWorkerThreadCnt;
+            a.WorkerThreadCnt = v.WorkerThreadCnt;
+            a.iMXAOShadingRate = v.AoShadingRate;
+            a.FlashLightResDivider = v.FlashLightResDivider;
+            a.FlashLightResDividerMinRes = v.FlashLightResDividerMinRes;
+            a.FlashLightStepsMax = v.FlashLightStepsMax;
+            a.HalfResTransparencyScale = v.HalfResTransparencyScale;
+            a.ExcludePareticleSystemShadowCasters = v.ExcludeParticleShadowCasters;
+            a.MainLightShadowMapResolution = v.MainLightShadowMapRes;
+            a.ShadowMapResolution = v.OtherLightShadowMapRes;
+            a.PCSSSearchNumSamples = v.PcssSearchSamples;
+            a.PCSSMinNumSamples = v.PcssMinSamples;
+            a.PCSSMaxNumSamples = v.PcssMaxSamples;
+            a.VolumetricUseLowResDepth = v.VolumetricUseLowResDepth;
+            a.VolumetricSamples = v.VolumetricSamples;
+            a.SSRMaxSteps = v.SsrMaxSteps;
+            a.SSRUseHiZ = v.SsrUseHiZ;
+            a.ReflPlaneTexScaling = v.ReflPlaneTexScaling;
+            a.MaxNumReflPlaneTextures = v.MaxNumReflPlaneTextures;
+            a.SmallObjectsCullingRelativeScreenHeight = v.SmallObjectsMinScreenHeight;
+            a.SmallObjectsCullingMinDistance = v.SmallObjectsMinDistance;
+            a.AssetBlendingPassEnabled = v.AssetBlendingPassEnabled;
+            MoonClothUpdate.DistanceCullingThreshold = v.ClothDistanceCullingThreshold;
+        }
+
+        private static void ApplyProfile(MoonRenderPipelineAsset a, in VanillaAssetSnapshot v, in PresetProfile p)
+        {
+            if (UnlockWorkers)
+                a.LimitWorkerThreadCnt = (MoonRenderPipelineAsset.LimitWorkers)PerformancePolicy.LimitWorkersNever;
+
+            if (HalfResAo && a.iMXAOShadingRate == MoonRenderPipelineAsset.IMXAOShadingRate.Full)
+                a.iMXAOShadingRate = (MoonRenderPipelineAsset.IMXAOShadingRate)PerformancePolicy.AoRateHalf;
+
+            if (HalfResFlashLight)
+            {
+                a.FlashLightResDivider = Math.Max(a.FlashLightResDivider, p.FlashLightDivider);
+                a.FlashLightResDividerMinRes = Math.Min(a.FlashLightResDividerMinRes, p.FlashLightMinHeight);
+                a.FlashLightStepsMax = Math.Min(a.FlashLightStepsMax, p.FlashLightStepsMax);
+            }
+
+            if (HalfResTransparency)
+                a.HalfResTransparencyScale = PerformancePolicy.ComputeHalfResTransparencyScale(v.HalfResTransparencyScale, p.HalfResTransparencyCap, true);
+
+            if (OptimizeShadows)
+            {
+                a.ExcludePareticleSystemShadowCasters = true;
+                a.MainLightShadowMapResolution = (MoonRenderPipelineAsset.ShadowResolution)PerformancePolicy.CapShadowResolution(
+                    (int)v.MainLightShadowMapRes, p.MainLightShadowMaxRes);
+                a.ShadowMapResolution = (MoonRenderPipelineAsset.TexResolution)PerformancePolicy.CapShadowResolution(
+                    (int)v.OtherLightShadowMapRes, p.OtherLightShadowMaxRes);
+                a.PCSSSearchNumSamples = Math.Min(v.PcssSearchSamples, p.PcssSearchSamples);
+                a.PCSSMinNumSamples = Math.Min(v.PcssMinSamples, p.PcssMinSamples);
+                a.PCSSMaxNumSamples = Math.Min(v.PcssMaxSamples, p.PcssMaxSamples);
+            }
+
+            if (OptimizeVolumetrics)
+            {
+                a.VolumetricUseLowResDepth = true;
+                a.VolumetricSamples = Math.Min(v.VolumetricSamples, p.VolumetricSamples);
+            }
+
+            if (OptimizeSsr)
+                a.SSRMaxSteps = Math.Min(v.SsrMaxSteps, p.SsrMaxSteps);
+
+            if (ExpSsrHiZ)
+                a.SSRUseHiZ = true;
+
+            if (OptimizeReflections)
+            {
+                a.ReflPlaneTexScaling = Math.Min(v.ReflPlaneTexScaling, p.ReflPlaneScalingCap);
+                a.MaxNumReflPlaneTextures = Math.Min(v.MaxNumReflPlaneTextures, p.MaxReflPlanesCap);
+            }
+
+            if (OptimizeCullingCloth)
+            {
+                a.SmallObjectsCullingRelativeScreenHeight = Math.Max(v.SmallObjectsMinScreenHeight, p.SmallObjectsMinScreenHeight);
+                a.SmallObjectsCullingMinDistance = Math.Min(v.SmallObjectsMinDistance, p.SmallObjectsMaxMinDist);
+                if (MoonClothUpdate.EnableDistanceCulling)
+                    MoonClothUpdate.DistanceCullingThreshold = Math.Min(v.ClothDistanceCullingThreshold, p.ClothDistanceCulling);
+            }
+
+            if (ExpDisableAssetBlending)
+                a.AssetBlendingPassEnabled = false;
+        }
+
+        private static void AfterFlashLightGetDepthMipIndex(MoonRenderPipelineView __instance, int __0, ref int __result)
+        {
+            if (!Enabled || ActivePreset == PerfPreset.Vanilla || !HalfResFlashLight || __instance == null) return;
+            var asset = MoonRenderPipeline.currentAsset;
+            if (asset == null) return;
+            var profile = PerformancePolicy.GetProfile(ActivePreset);
+            __result = PerformancePolicy.ComputeFlashLightDepthMip(
+                __result,
+                __0,
+                __instance.LastCameraPixelHeight,
+                profile.FlashLightMinHeight,
+                asset.FlashLightResDivider,
+                __instance.DepthHierarchyMipCount,
+                forceHalfResEnabled: true);
+        }
+
+        private static void AfterHalfResTransparencyScale(ref float __result)
+        {
+            if (!Enabled || ActivePreset == PerfPreset.Vanilla || !HalfResTransparency) return;
+            var profile = PerformancePolicy.GetProfile(ActivePreset);
+            __result = PerformancePolicy.ComputeHalfResTransparencyScale(__result, profile.HalfResTransparencyCap, true);
+        }
+
+        private static void AfterShouldRunCleanup(
+            UberGCLogic.CleanupType __0,
+            UberGCLogic.CleanupTrigger __1,
+            ref bool __result)
+        {
+            if (!__result || !Enabled || ActivePreset == PerfPreset.Vanilla || !BlockActiveUnloads) return;
+            long freeRamMb = GetAvailableRamMb();
+            if (!PerformancePolicy.ShouldBlockCleanup((int)__0, (int)__1, freeRamMb, MinFreeRamMb, BlockActiveUnloads))
+                return;
+
+            __result = false;
+            long count = ++_blockedUnloads;
+            if (count <= 10 || (count % 25) == 0)
+                Log($"blocked active UnloadUnusedAssets type={__0} trigger={__1} freeRamMb={freeRamMb} count={count}");
+        }
+
+        private static bool BeforeLadderKickDown(Frame __0, EntityRef __1, ref bool __result)
+        {
+            if (!Enabled || ActivePreset == PerfPreset.Vanilla || !GuardLadderKickDown) return true;
+            if (__0 == null || !__1.IsValid) return true;
+            try
+            {
+                if (!_physicsCompLookupTried)
+                {
+                    _physicsCompLookupTried = true;
+                    _physicsCompIndex = ComponentTypeId.GetComponentIndex("PhysicsComponent");
+                    if (_physicsCompIndex < 0)
+                        _physicsCompIndex = ComponentTypeId.GetComponentIndex(Il2CppInterop.Runtime.Il2CppType.Of<PhysicsComponent>());
+                    Log($"LadderKickDown guard PhysicsComponent index={_physicsCompIndex}");
+                }
+                if (_physicsCompIndex >= 0 && !__0.Has(__1, _physicsCompIndex))
+                {
+                    __result = false;
+                    long count = ++_ladderGuards;
+                    if (count <= 10 || (count % 25) == 0)
+                        Log($"guarded LadderData.KickDown missing PhysicsComponent entity={__1.Raw} count={count}");
+                    return false;
+                }
+            }
+            catch (Exception e)
+            {
+                if (++_ladderErrors <= 3)
+                    Log($"LadderKickDown guard error: {e.GetType().Name}: {e.Message}");
+            }
+            return true;
+        }
+
+        private static long GetAvailableRamMb()
+        {
+            double now = 0.0;
+            try { now = Time.realtimeSinceStartupAsDouble; } catch { }
+            if (_cachedFreeRamMb >= 0 && now > 0.0 && (now - _lastRamCheckTime) < 2.0)
+                return _cachedFreeRamMb;
+
+            _lastRamCheckTime = now;
+            try
+            {
+                var mem = new MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>() };
+                if (GlobalMemoryStatusEx(ref mem))
+                {
+                    _cachedFreeRamMb = (long)(mem.ullAvailPhys / (1024UL * 1024UL));
+                    return _cachedFreeRamMb;
+                }
+            }
+            catch { }
+            return _cachedFreeRamMb;
+        }
+
+        internal static string FormatSummaryLine(string tag)
+        {
+            var m = FrameRing.Snapshot();
+            var asset = MoonRenderPipeline.currentAsset;
+            var view = MoonRenderPipeline.currentPipeline?.gameView ?? MoonRenderPipeline.currentPipeline?.currentView;
+            int w = view != null ? view.LastCameraPixelWidth : 0;
+            int h = view != null ? view.LastCameraPixelHeight : 0;
+            float scale = view != null ? view.m_CurrentResolutionScaling : 0f;
+            string qPreset = asset != null ? asset.SelectedQualityPreset.ToString() : "n/a";
+            return $"{tag}: preset={(Enabled ? ActivePreset.ToString() : "Disabled")} gamePreset={qPreset} fps={m.AvgFps:0.0}(1%low={m.OnePercentLowFps:0.0}) srpFps={MoonRenderPipeline.FPS} gpuAvg={MoonRenderPipeline.frameTimeGPUAvg:0.00}ms gpuMax={MoonRenderPipeline.frameTimeGPUMax:0.00}ms cpuNoPresent={MoonRenderPipeline.frameTimeCPUWithoutPresentWaitAvg:0.00}ms render={w}x{h}({scale:0.00}) workersMax={MoonRenderPipeline.m_MaxWorkerThreadCnt} blockedUnloads={_blockedUnloads} ladderGuards={_ladderGuards} freeRamMb={GetAvailableRamMb()}";
+        }
+
+        internal static void DumpDetailedSnapshot(string tag)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(FormatSummaryLine(tag));
+            var asset = MoonRenderPipeline.currentAsset;
+            if (asset != null)
+            {
+                sb.AppendLine($"  SRP: LimitWorkers={asset.LimitWorkerThreadCnt} WorkerCnt={asset.WorkerThreadCnt} AO={asset.iMXAOShadingRate}/{asset.iMXAOGlobalSampleQualityPreset} FlashLight=div{asset.FlashLightResDivider}/min{asset.FlashLightResDividerMinRes}/steps{asset.FlashLightStepsMax} HalfTrans={asset.HalfResTransparencyEnabled}/{asset.HalfResTransparencyScale:0.00}");
+                sb.AppendLine($"  Shadows: ExclParticles={asset.ExcludePareticleSystemShadowCasters} MainRes={asset.MainLightShadowMapResolution} OtherRes={asset.ShadowMapResolution} PCSS={asset.PCSSSearchNumSamples}/{asset.PCSSMinNumSamples}/{asset.PCSSMaxNumSamples}");
+                sb.AppendLine($"  Effects: VolLowRes={asset.VolumetricUseLowResDepth}/samples={asset.VolumetricSamples} SSR={asset.SSRMaxSteps}/HiZ={asset.SSRUseHiZ} Refl={asset.ReflPlaneTexScaling:0.00}x{asset.MaxNumReflPlaneTextures} SmallCull={asset.SmallObjectsCullingRelativeScreenHeight:0.000}@{asset.SmallObjectsCullingMinDistance:0.0}m ClothDist={MoonClothUpdate.DistanceCullingThreshold:0.0}m AssetBlend={asset.AssetBlendingPassEnabled}");
+            }
+            var view = MoonRenderPipeline.currentPipeline?.gameView ?? MoonRenderPipeline.currentPipeline?.currentView;
+            if (view != null)
+            {
+                sb.Append("  Samplers:");
+                int active = 0;
+                foreach (var (name, sampler) in EnumerateSamplers(view))
+                {
+                    if (sampler == null) continue;
+                    var rec = sampler.UnitySampler?.GetRecorder();
+                    if (rec == null || !rec.isValid || rec.sampleBlockCount <= 0) continue;
+                    active++;
+                    sb.Append($" {name}={rec.elapsedNanoseconds / 1e6:0.00}ms(gpu={rec.gpuElapsedNanoseconds / 1e6:0.00}ms)");
+                }
+                if (active == 0) sb.Append(" (inactive in Final Build)");
+                sb.AppendLine();
+            }
+            Log(sb.ToString().TrimEnd());
+            FlushLogs();
+        }
+
+        internal static (string Name, SrpSampler Sampler)[] EnumerateSamplers(MoonRenderPipelineView v) => new[]
+        {
+            ("GBuffer", v.GBufferPerfSampler),
+            ("CSM", v.MainLightPerfSampler),
+            ("OtherLights", v.OtherLightsPerfSampler),
+            ("ShadowMask", v.ShadowMaskSampler),
+            ("FlashLight", v.FlashLightSampler),
+            ("iMXAO", v.AOPerfSampler),
+            ("SSR", v.SSRPerfSampler),
+            ("Volumetric", v.GetVolumetricSamplerSafe()),
+            ("ReflPlanes", v.ReflectionPlanePerfSamplerSafe()),
+            ("TiledLight", v.TiledLightingPerfSampler),
+            ("Forward", v.ForwardPerfSampler),
+            ("TranspComp", v.TransparencyCompositionPerfSampler),
+            ("PostProcess", v.PostProcessPerfSampler),
+        };
+
+        private static void Log(string line)
+        {
+            string stamped = $"[{DateTime.Now:HH:mm:ss.fff}] {line}";
+            PendingLogs.Enqueue(stamped);
+            MelonLogger.Msg(line);
+        }
+
+        private static void FlushLogs()
+        {
+            if (string.IsNullOrEmpty(_logPath) || PendingLogs.IsEmpty) return;
+            try
+            {
+                using var sw = new StreamWriter(_logPath, append: true, Encoding.UTF8);
+                while (PendingLogs.TryDequeue(out var line))
+                    sw.WriteLine(line);
+            }
+            catch { }
+        }
+    }
+
+    internal static class ViewSamplerCompat
+    {
+        public static SrpSampler GetVolumetricSamplerSafe(this MoonRenderPipelineView v) => null;
+        public static SrpSampler ReflectionPlanePerfSamplerSafe(this MoonRenderPipelineView v) => null;
+    }
+}
