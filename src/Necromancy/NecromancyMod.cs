@@ -674,8 +674,10 @@ namespace Necromancy
                 }
                 var stamp = File.GetLastWriteTimeUtc(_reactionsPath);
                 if (!force && stamp == _reactionsStamp && _reactions != null) return;
+                string text = File.ReadAllText(_reactionsPath);
+                // Record the stamp only after a successful read, so a file locked by an editor is retried next session.
                 _reactionsStamp = stamp;
-                var table = GestureReactions.Parse(File.ReadAllText(_reactionsPath), out string fileError);
+                var table = GestureReactions.Parse(text, out string fileError);
                 if (table == null)
                 {
                     _reactions = GestureReactions.Default(gesture, action);
@@ -764,11 +766,13 @@ namespace Necromancy
                     var cycleKey = (minion.Raw, rule.Index);
                     int cycle = ReactionCycle.TryGetValue(cycleKey, out int c) ? c : 0;
                     long actionGuid = rule.Actions[GestureReactions.PickIndex(rule.Pick, rule.Actions.Length, minion.Raw, now, cycle)];
+                    // Advance before resolving: an unresolvable GUID in a cycle list is skipped next time instead of
+                    // being picked forever.
+                    ReactionCycle[cycleKey] = cycle + 1;
                     if (!resolved.TryGetValue(actionGuid, out var action)) resolved[actionGuid] = action = ResolveReactionAction(__0, actionGuid);
                     if (action == null) { seen.Add(who + "(action " + actionGuid + " unresolved)"); continue; }
                     ++commanded;
                     LastReaction[minion.Raw] = now;
-                    ReactionCycle[cycleKey] = cycle + 1;
                     try
                     {
                         // 0.15.13 playtest: Execute on layer 0 (ActionLayer.Base, locomotion) returned an id but Warrick never

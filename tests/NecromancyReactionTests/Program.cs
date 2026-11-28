@@ -190,6 +190,9 @@ internal static class Program
             ("typo key", @"{ ""who"": ""*"", ""gestrue"": ""1"", ""action"": ""2"" }", "unknown key \"gestrue\""),
             ("non-string name", @"{ ""name"": 5, ""who"": ""*"", ""gesture"": ""1"", ""action"": ""2"" }", "name must"),
             ("rule is not an object", @"""x""", "must be an object"),
+            // Review of PR #21: an unpaired surrogate escape parses as JSON but GetString() throws, which used to drop the whole file.
+            ("unpaired surrogate in name", @"{ ""name"": ""\uD800"", ""who"": ""*"", ""gesture"": ""1"", ""action"": ""2"" }", "invalid text"),
+            ("unpaired surrogate in who", @"{ ""who"": ""\uDC00"", ""gesture"": ""1"", ""action"": ""2"" }", "invalid text"),
         })
             Run("rejects " + name + ", keeps the valid rule next to it", () =>
             {

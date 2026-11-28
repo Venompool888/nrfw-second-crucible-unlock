@@ -204,7 +204,11 @@ namespace Necromancy
                 {
                     ++index;
                     if (index > MaxRules) { errors.Add("rules after #" + MaxRules + " ignored"); break; }
-                    var rule = ParseRule(item, index, out string error);
+                    ReactionRule rule;
+                    string error;
+                    // An unpaired surrogate escape (e.g. "\uD800") is valid JSON but GetString() throws; reject just this rule.
+                    try { rule = ParseRule(item, index, out error); }
+                    catch (InvalidOperationException ex) { rule = null; error = "invalid text: " + ex.Message; }
                     if (rule != null) ok.Add(rule); else errors.Add("rule #" + index + ": " + error);
                 }
                 return new ReactionTable(ok.ToArray(), errors.ToArray());
