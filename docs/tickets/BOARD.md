@@ -8,14 +8,14 @@
 
 ## 待做（0）
 
-## 进行中（2）
+## 进行中（0）
+
+## 测试中（2）
 
 | 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 待决定 |
 |---|---|---|---|---|---|---|
 | [T-010](T-010.md) | [#13](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/13) | feature | P2 | necromancy | 起尸召出的随从改成沃里克 | |
 | [T-012](T-012.md) | [#16](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/16) | feature | P2 | necromancy | 发表情「怒吼」时让召出的沃里克放插剑震波 | |
-
-## 测试中（0）
 
 ## 已合入（9）
 
