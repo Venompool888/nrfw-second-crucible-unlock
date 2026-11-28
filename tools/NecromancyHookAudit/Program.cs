@@ -62,8 +62,14 @@ string[] bossTables = { "RuneData", "ItemData", "CommodityData", "ItemAttachment
         (Q + "QBoolean", "Value", "System.Int32", 0),
         (Q + "InventoryEnumeratorEntry", "Entity", Entity, 0),
     }).ToArray();
-var checkedFields = layoutFields.Concat(roarFields).Concat(bossFields).ToLookup(field => field.Type);
+var entranceFields = new[]
+{
+    (Type: Q + "AiControllerComponent", Field: "IsDisabled", FieldType: Q + "QBoolean", Offset: 0x14),
+    (Type: Q + "DamageResolverComponent", Field: "IgnoreDamage", FieldType: Q + "QBoolean", Offset: 0),
+};
+var checkedFields = layoutFields.Concat(roarFields).Concat(bossFields).Concat(entranceFields).ToLookup(field => field.Type);
 var layouts = new HashSet<(string Type, string Field, string FieldType, int Offset)>();
+var explicitLayouts = new HashSet<string>();
 var types = new HashSet<string>();
 var bases = new Dictionary<string, string>();
 var enemyTypes = new Dictionary<string, int>();
@@ -77,7 +83,10 @@ foreach (string assembly in assemblies)
     foreach (var th in r.TypeDefinitions)
     {
         string tn = p.GetTypeFromDefinition(r, th, 0); types.Add(tn);
-        var bt = r.GetTypeDefinition(th).BaseType;
+        var definition = r.GetTypeDefinition(th);
+        if ((definition.Attributes & System.Reflection.TypeAttributes.LayoutMask) == System.Reflection.TypeAttributes.ExplicitLayout)
+            explicitLayouts.Add(tn);
+        var bt = definition.BaseType;
         if (!bt.IsNil) bases[tn] = bt.Kind == HandleKind.TypeDefinition ? p.GetTypeFromDefinition(r, (TypeDefinitionHandle)bt, 0)
             : bt.Kind == HandleKind.TypeReference ? p.GetTypeFromReference(r, (TypeReferenceHandle)bt, 0) : "?";
         foreach (var mh in r.GetTypeDefinition(th).GetMethods())
@@ -113,6 +122,7 @@ foreach (string assembly in assemblies)
 int failures = 0;
 void Check(bool ok, string what) { Console.WriteLine((ok ? "PASS: " : "FAIL: ") + what); if (!ok) failures++; }
 
+Check(NecromancyPolicy.Hooks.Length == 26, "T-018 keeps the existing 26 hooks");
 foreach (var h in NecromancyPolicy.Hooks)
 {
     int n = methods.Count(m => m.Type == h.Type && m.Method == h.Method && m.Return == h.Return && m.Args.SequenceEqual(h.Args));
@@ -189,6 +199,7 @@ foreach (var (type, name, result, isStatic, parameters) in new[]
     (Storage + "+Storage`1", "get_m_lookup", Collections + "Dictionary`2<System.Int64,System.Int32>", false, ""),
     (Q + "EntityRefExtensions", "Has", "System.Boolean", true, Entity + "," + Frame),
     (Q + "EntityRefExtensions", "Get", "!!0*", true, Entity + "," + Frame),
+    (Q + "ActionData", "GetCurrentTimelineTime", "Il2CppPhoton.Deterministic.FP", false, Frame + "," + Entity),
     (Q + "RunesAPI", "GetRune", Q + "RuneDataRef", true, Frame + "," + Q + "AssetRefHeroItemData"),
     (Q + "RunesAPI+Weapon", "TryFindRune", "System.Boolean", true, Frame + "," + Entity + "," + Q + "RuneDataRef,System.Int32&"),
     (Q + "InventoryAPI", "GetInventoryEntity", Entity, true, Frame + "," + Entity),
@@ -232,6 +243,12 @@ if (bossPng)
     BossCall("Il2Cpp.HeroItemDataAsset", "set_ItemTexture", "Void", false, "UnityEngine.Sprite");
     BossCall("Il2Cpp.AnimatedActionDataCommonAsset", "set_Icon", "Void", false, "UnityEngine.Sprite");
 }
+
+foreach (var field in entranceFields)
+    Check(layouts.Contains(field) && explicitLayouts.Contains(field.Type) && bases.GetValueOrDefault(field.Type) == "System.ValueType",
+        "entrance explicit value type field " + field.Type + "." + field.Field + " : " + field.FieldType);
+Check(methods.Count(m => m.Type == Q + "ActionComponent" && m.Method == "Abort" && m.Return == "Void" && !m.Static &&
+    m.Args.SequenceEqual(new[] { Frame, "System.Int32" })) == 1, "entrance call ActionComponent.Abort(Frame, Int32) -> Void");
 
 var nativeEntrypoints = new[]
 {
@@ -488,6 +505,7 @@ using (var pe = new PEReader(s))
     var us = MetadataTokens.UserStringHandle(1);
     while (!us.IsNil) { userStrings.Add(r.GetUserString(us)); us = r.GetNextHandle(us); }
     foreach (var h in NecromancyPolicy.Hooks) Check(userStrings.Contains(h.Method), "plugin patches '" + h.Method + "' by name");
+    Check(userStrings.Any(u => u.StartsWith("entrance start", StringComparison.Ordinal)), "plugin logs entrance start");
     // T-015 0.18.2: CrucibleUnlock JIT-compiles its view helpers before its own EntityView.GetActionView /
     // InitializeResourceManager detours; patching those first from this plugin crashed the game at launch.
     foreach (string forbidden in new[] { "GetActionView", "InitializeResourceManager" })

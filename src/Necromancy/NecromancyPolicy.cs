@@ -14,7 +14,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.18.5-t013";
+        internal const string Version = "0.19.1-t013";
 
         internal static MinionProfile ParseMinionProfile(string text, ICollection<string> errors, string source = "")
         {
