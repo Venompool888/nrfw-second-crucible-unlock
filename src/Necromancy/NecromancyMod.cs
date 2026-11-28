@@ -672,15 +672,24 @@ namespace Necromancy
                     ++owned;
                     long npc = MinionNpcGuid(__0, minion);
                     if (!NecromancyPolicy.IsWarrickNpc(npc)) { seen.Add(NecromancyPolicy.NpcName(npc)); continue; }
-                    if ((LastRoar.TryGetValue(minion.Raw, out long last) && !NecromancyPolicy.LifetimeExpired(last, now, NecromancyPolicy.RoarCooldownSeconds)) ||
-                        !__0.TryGetPointer<ActionComponent>(minion, out var actions)) { seen.Add("warrick(cooldown/no-actions)"); continue; }
+                    if (LastRoar.TryGetValue(minion.Raw, out long last) && !NecromancyPolicy.LifetimeExpired(last, now, NecromancyPolicy.RoarCooldownSeconds))
+                    { seen.Add("warrick(cooldown)"); continue; }
+                    // 0.15.10 playtest: Frame.TryGetPointer(out T*) needs UIntPtr..ctor(IntPtr), missing at runtime
+                    // (MissingMethodException). Has + Get return the pointer directly, as elsewhere in this plugin.
+                    if (!EntityRefExtensions.Has<ActionComponent>(minion, __0)) { seen.Add("warrick(no-actions)"); continue; }
+                    var actions = EntityRefExtensions.Get<ActionComponent>(minion, __0);
+                    if (actions == null) { seen.Add("warrick(null-actions)"); continue; }
                     ++commanded;
 
                     action ??= ResolveRoarAction(__0);
                     if (action == null) return;
                     LastRoar[minion.Raw] = now;
-                    int result = actions->Execute(__0, action, null, false, default, 0, false, true, default);
-                    Write("roar minion entity=" + minion.Raw + " action GUID=" + action.Guid.Value + " Path=" + action.Path + " -> " + result);
+                    try
+                    {
+                        int result = actions->Execute(__0, action, null, false, default, 0, false, true, default);
+                        Write("roar minion entity=" + minion.Raw + " action GUID=" + action.Guid.Value + " -> " + result);
+                    }
+                    catch (Exception e) { Write("roar Execute FAILED entity=" + minion.Raw + " " + e.GetType().Name + ": " + e.Message); }
                 }
                 if (commanded == 0)
                     Write("roar matched but no Warrick commanded: owned minions=" + owned + " [" + string.Join(", ", seen) + "]");

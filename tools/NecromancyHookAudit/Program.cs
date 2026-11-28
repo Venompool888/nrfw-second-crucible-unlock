@@ -105,7 +105,6 @@ foreach (var (type, name, result, isStatic, parameters) in new[]
     ("Il2CppQuantum.EntityComponentPair`1", "get_Entity", "Il2CppQuantum.EntityRef", false, ""),
     ("Il2CppQuantum.EntityComponentPair`1", "get_Component", "!0", false, ""),
     ("Il2CppQuantum.EntityRefExtensions", "GetData", "!!0", true, "Il2CppQuantum.EntityRef,Il2CppQuantum.Frame"),
-    ("Il2CppQuantum.Core.FrameBase", "TryGetPointer", "System.Boolean", false, "Il2CppQuantum.EntityRef,!!0*&"),
     ("Il2CppQuantum.ActionComponent", "Execute", "System.Int32", false,
      "Il2CppQuantum.Frame,Il2CppQuantum.ActionData,Il2CppQuantum.ActionComponent+BeforeActionExecutedDelegate,System.Boolean," +
      "Il2CppPhoton.Deterministic.FP,System.Int32,System.Boolean,System.Boolean,Il2CppQuantum.RuntimeActionAndOverrideRef"),
@@ -260,6 +259,7 @@ using (var pe = new PEReader(s))
     }
 
     Check(strings.Contains("PreviewAwardItemImmediate"), "plugin calls PreviewAwardItemImmediate");
+    Check(!strings.Contains("TryGetPointer"), "plugin never calls Frame.TryGetPointer (its out T* wrapper needs the missing UIntPtr..ctor(IntPtr))");
     foreach (var (type, name, sig) in new[] {
 
         ("Il2CppQuantum.RunesAPI+Weapon", "ApplyRuneModification", "Il2CppQuantum.Frame,Il2CppQuantum.RuneModificationType,Il2CppQuantum.EntityRef,System.Int32,Il2CppQuantum.EntityRef,Il2CppQuantum.EntityRef"),
