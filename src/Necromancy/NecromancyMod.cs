@@ -394,6 +394,7 @@ namespace Necromancy
                     nameof(AfterFormationSlot), typeof(int));
                 Patch(visualHarmony, typeof(Il2CppMoon.Forsaken.RaisedMinionVisualEffect), "ApplyTintEffect", Type.EmptyTypes, nameof(AfterApplyTint));
                 PatchPrefix(visualHarmony, typeof(Il2CppMoon.Forsaken.RaisedMinionVisualEffect), "ApplyTintEffect", Type.EmptyTypes, nameof(BeforeApplyTint), typeof(void));
+                InstallMinionLook(visualHarmony);
                 try
                 {
                     Patch(visualHarmony, typeof(Il2CppMoon.Forsaken.CharacterViewEffects), "OnDamageResolved", new[] { typeof(EventDamageResolved) },
@@ -581,7 +582,13 @@ namespace Necromancy
             AddedEffects.Remove(minion);
             try
             {
-                if (component != null) { TintAttempts.Remove(component.Pointer); TintSuccesses.Remove(component.Pointer); UnityEngine.Object.Destroy(component); }
+                if (component != null)
+                {
+                    RestoreMinionLook(component.Pointer);
+                    TintAttempts.Remove(component.Pointer);
+                    TintSuccesses.Remove(component.Pointer);
+                    UnityEngine.Object.Destroy(component);
+                }
                 if (++_visualLogs <= 150) Write("tint REMOVED added effect from pooled view of gone minion " + minion);
             }
             catch (Exception e) { Error("tint-remove", e); }
@@ -593,6 +600,7 @@ namespace Necromancy
             _tintInFlight = IntPtr.Zero;
             TintSuccesses.TryGetValue(__instance.Pointer, out int ok);
             TintSuccesses[__instance.Pointer] = ok + 1;
+            ApplyLook(__instance);
             if (Interlocked.Increment(ref _effectLogs) > 20) return;
             try
             {
@@ -603,12 +611,32 @@ namespace Necromancy
             catch (Exception e) { Error("tint-log", e); }
         }
 
+        // The stock LateUpdate clears m_effectApplied once the view's entity has no RaisedMinionComponent; a pooled
+        // (inactive) view stops updating, so it must also be active to count.
+        private static bool MinionEffectLive(ulong minion)
+        {
+            try
+            {
+                return AddedEffects.TryGetValue(minion, out var component) && component != null &&
+                       component.TryCast<Il2CppMoon.Forsaken.RaisedMinionVisualEffect>() is { isActiveAndEnabled: true, m_effectApplied: true };
+            }
+            catch { return false; }
+        }
+
         private static void EnsureMinionVisuals()
         {
             try
             {
                 long now = Environment.TickCount64;
-                foreach (var pair in Minions) if (now - pair.Value > 5000) { Minions.TryRemove(pair.Key, out _); Attached.Remove(pair.Key); RemoveAddedEffect(pair.Key); }
+                foreach (var pair in Minions)
+                    if (now - pair.Value > 5000)
+                    {
+                        // 0.19.17 playtest: Boss-rune minions that are not following stop calling GetMinionFormationSlot, so
+                        // they were dropped after 5 s and lost their look for ~25 s. The stock component still knows.
+                        if (MinionEffectLive(pair.Key)) { Minions[pair.Key] = now; continue; }
+                        Minions.TryRemove(pair.Key, out _); Attached.Remove(pair.Key); RemoveAddedEffect(pair.Key);
+                    }
+                PumpMinionLook(now);
                 if (Minions.IsEmpty) return;
                 var effectType = Il2CppInterop.Runtime.Il2CppType.Of<Il2CppMoon.Forsaken.RaisedMinionVisualEffect>();
                 var views = UnityEngine.Object.FindObjectsOfType(Il2CppInterop.Runtime.Il2CppType.Of<Il2CppMoon.Forsaken.EntityView>());

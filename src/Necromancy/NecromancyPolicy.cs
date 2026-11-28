@@ -3,12 +3,13 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.18.4";
+        internal const string Version = "0.19.18";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
         internal const long ReviveRune = 565977864064423183;         // revive: UseCorpseNpcType=true
         internal const long HealMinionsRune = 4408421902141782894;   // healMinions: flat heal 50
+        internal const long ReviveAction = 943531419627853566;
 
         // Tome of Healing (治疗宝典): WeaponStaticData offhand, HandType 4, ThomasApproved=false, no loot/vendor/recipe source.
         // Its .actions reuse the released Heal rune action 2452854199486692768; special is the light-shield parry data.
@@ -72,6 +73,8 @@ namespace Necromancy
             ("Il2CppQuantum.RunesAPI+Weapon", "IsRuneCompatible", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.RuneData" }, "System.Boolean"),
             ("Il2CppQuantum.RaisedMinionSystem", "GetMinionFormationSlot", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.EntityRef" }, "System.Int32"),
             ("Il2CppMoon.Forsaken.RaisedMinionVisualEffect", "ApplyTintEffect", new string[0], "Void"),
+            ("Il2CppMoon.Forsaken.RaisedMinionVisualEffect", "RemoveTintEffect", new string[0], "Void"),
+            ("Il2Cpp.CharacterBloodAmount", "AddBlood", new[] { "System.Single", "System.Boolean" }, "Void"),
             ("Il2CppQuantum.HealthSystem", "UpdateEnemyHealthRegen", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.HealthComponent*" }, "Void"),
             ("Il2CppQuantum.CorpseMarkerSystem", "OnNpcDied", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.Damage", "Il2CppQuantum.DamageResponse", "System.Int32" }, "Void"),
             ("Il2CppMoon.Forsaken.HeroView", "OnDamageResolved", new[] { "Il2CppQuantum.EventDamageResolved" }, "Void"),

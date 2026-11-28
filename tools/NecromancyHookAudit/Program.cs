@@ -52,7 +52,14 @@ string[] bossTables = { "RuneData", "ItemData", "CommodityData", "ItemAttachment
         (Q + "QBoolean", "Value", "System.Int32", 0),
         (Q + "InventoryEnumeratorEntry", "Entity", Entity, 0),
     }).ToArray();
-var checkedFields = layoutFields.Concat(roarFields).Concat(bossFields).ToLookup(field => field.Type);
+const string ShaderApi = "Il2CppMoon.Forsaken.ShaderApi";
+const string ColorId = "Il2CppMoon.Forsaken.ShaderPropertyIdColor";
+const string FloatId = "Il2CppMoon.Forsaken.ShaderPropertyIdFloat";
+var lookEnumMembers = new[] { "Tint", "Overlay1Color", "EffectColor", "EmissiveColor" }
+    .Select(field => (Type: ColorId, Field: field, FieldType: ColorId, Offset: -1))
+    .Concat(new[] { "EffectAmount", "EffectLocalYAddOpacity", "DitheredAlpha" }
+        .Select(field => (Type: FloatId, Field: field, FieldType: FloatId, Offset: -1))).ToArray();
+var checkedFields = layoutFields.Concat(roarFields).Concat(bossFields).Concat(lookEnumMembers).ToLookup(field => field.Type);
 var layouts = new HashSet<(string Type, string Field, string FieldType, int Offset)>();
 var types = new HashSet<string>();
 var bases = new Dictionary<string, string>();
@@ -93,6 +100,22 @@ foreach (var h in NecromancyPolicy.Hooks)
     int n = methods.Count(m => m.Type == h.Type && m.Method == h.Method && m.Return == h.Return && m.Args.SequenceEqual(h.Args));
     Check(n == 1, $"hook {h.Type}.{h.Method}({string.Join(", ", h.Args)}) -> {h.Return} unique");
 }
+const string Renderer = "UnityEngine.Renderer";
+const string Color = "UnityEngine.Color";
+const string Flags = ShaderApi + "+Flags";
+foreach (var (name, result, parameters) in new[]
+{
+    ("HasColorProperty", "System.Boolean", new[] { Renderer, ColorId }),
+    ("HasProperty", "System.Boolean", new[] { Renderer, FloatId }),
+    ("GetColor", Color, new[] { Renderer, ColorId, Flags }),
+    ("SetColor", "Void", new[] { Renderer, ColorId, Color, Flags }),
+    ("GetFloat", "System.Single", new[] { Renderer, FloatId, Flags }),
+    ("SetFloat", "Void", new[] { Renderer, FloatId, "System.Single", Flags }),
+})
+    Check(methods.Count(m => m.Type == ShaderApi && m.Method == name && m.Return == result && m.Static &&
+        m.Args.SequenceEqual(parameters)) == 1, $"look call {ShaderApi}.{name}({string.Join(",", parameters)}) -> {result}");
+foreach (var member in lookEnumMembers) Check(layouts.Contains(member), "look enum member " + member.Type + "." + member.Field);
+
 void BossCall(string type, string name, string result, bool isStatic, params string[] parameters) =>
     Check(methods.Count(m => m.Type == type && m.Method == name && m.Return == result && m.Static == isStatic &&
         m.Args.SequenceEqual(parameters)) == 1, $"boss-rune call {type}.{name}({string.Join(",", parameters)}) -> {result}");
