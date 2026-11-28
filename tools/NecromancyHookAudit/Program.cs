@@ -18,7 +18,12 @@ var layoutFields = new[]
     (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "MaxDistanceBeforeTeleport", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x50),
     (Type: "Il2CppQuantum.TransformComponent", Field: "RawPosition", FieldType: "Il2CppPhoton.Deterministic.FPVector3", Offset: 0x08),
     (Type: "Il2CppQuantum.ProjectileComponent", Field: "InstigatorRef", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x30),
-    (Type: "Il2CppQuantum.CascadeInstanceComponent", Field: "Caster", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x40)
+    (Type: "Il2CppQuantum.CascadeInstanceComponent", Field: "Caster", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x40),
+    // T-016 round 3: Boss-rune minions get NavMeshTracker dynamic search; nav index is read for the log.
+    (Type: "Il2CppQuantum.NavMeshTrackerComponent", Field: "NavMeshDynamicSearch", FieldType: "Il2CppQuantum.QBoolean", Offset: 0x08),
+    (Type: "Il2CppQuantum.NavMeshTrackerComponent", Field: "State", FieldType: "Il2CppQuantum.NavMeshTrackerState", Offset: 0),
+    (Type: "Il2CppQuantum.UseNavDataComponent", Field: "NavDataIndex", FieldType: "Il2CppQuantum.RuntimeNavigationDataRef", Offset: 0),
+    (Type: "Il2CppQuantum.RuntimeNavigationDataRef", Field: "m_index", FieldType: "System.Int32", Offset: 0)
 };
 var roarFields = new[]
 {
@@ -318,6 +323,15 @@ Check(NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 11L << 16, 10
 Check(NecromancyPolicy.EntityLabel(9223372084099418004UL) == "E.01940.011" && NecromancyPolicy.EntityLabel(9223372118459156023UL) == "E.01591.019",
       "entity label matches the Unity log form E.index.version");
 Check(types.Contains("Il2CppQuantum.UseNavDataComponent") && types.Contains("Il2CppQuantum.CorpseMarkerComponent"), "UseNavDataComponent / CorpseMarkerComponent exist");
+foreach (var (type, name, result, parameters) in new[]
+{
+    ("Il2CppQuantum.ComponentTypeId", "GetComponentIndex", "System.Int32", "System.String"),
+    ("Il2CppQuantum.Core.FrameBase", "Has", "System.Boolean", "Il2CppQuantum.EntityRef,System.Int32"),
+    ("Il2CppQuantum.Core.FrameBase", "GetPointer", "Void*", "Il2CppQuantum.EntityRef,System.Int32"),
+})
+    Check(methods.Count(m => m.Type == type && m.Method == name && m.Return == result && m.Static == (name == "GetComponentIndex") &&
+        string.Join(",", m.Args) == parameters) == 1, $"nav call {type}.{name}({parameters}) -> {result}");
+Check(bases.TryGetValue("Il2CppQuantum.Frame", out var frameBase) && frameBase == "Il2CppQuantum.Core.FrameBase", "Frame derives from FrameBase (non-generic Has/GetPointer)");
 Check(NecromancyPolicy.InHoldRange(59, 7.9, 60, 8) && !NecromancyPolicy.InHoldRange(61, 0, 60, 8) && !NecromancyPolicy.InHoldRange(10, -8.1, 60, 8) &&
       NecromancyPolicy.InHoldRange(55, 30, 60, 0), "hold range: horizontal <= teleport distance and |dy| <= max dy (0 = no limit)");
 // T-010 summon swap: field types the plugin writes, and the setting/limit rules.
@@ -474,6 +488,12 @@ using (var pe = new PEReader(s))
     // Get<HealthComponent> threw NullReferenceException in play and blocked re-summoning after a Boss died.
     Check(!r.TypeReferences.Any(h => r.GetString(r.GetTypeReference(h).Name) == "PendingDestructionComponent"),
         "plugin does not touch PendingDestructionComponent from managed code (use AiUtils.ExistsAlive)");
+    // T-016 round 3: the tracker is reached only through the non-generic index path; no managed generic over
+    // NavMeshTrackerComponent (unproven in play) may be compiled into the plugin.
+    Check(strings.Contains("GetComponentIndex") && strings.Contains("GetPointer") && userStrings.Any(u => u.StartsWith("boss-minion NAV ")),
+        "plugin turns on Boss-minion nav dynamic search via ComponentTypeId index");
+    Check(!Enumerable.Range(1, r.GetTableRowCount(TableIndex.MethodSpec)).Any(i => r.GetMethodSpecification(MetadataTokens.MethodSpecificationHandle(i)).DecodeSignature(p, (object)null).Any(a => a.Contains("NavMeshTrackerComponent"))),
+        "plugin has no generic instantiation over NavMeshTrackerComponent");
     Check(!strings.Contains("TryGetPointer"), "plugin never calls Frame.TryGetPointer (its out T* wrapper needs the missing UIntPtr..ctor(IntPtr))");
     foreach (var (type, name, sig) in new[] {
 

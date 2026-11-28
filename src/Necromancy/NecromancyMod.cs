@@ -141,6 +141,9 @@ namespace Necromancy
                 TeleportMinions.Clear();
                 MinionFollowSamples.Clear();
                 BossFollowAnchors.Clear();
+                BossNavIndex.Clear();
+                BossNavMissing.Clear();
+                _bossNavLogs = 0;
                 _followDiagnosticLines = 0;
                 _followDiagnosticsFailed = false;
                 HeldStuck.Clear();
@@ -928,6 +931,9 @@ namespace Necromancy
             _bossFollowTeleportSeconds = NecromancyPolicy.ClampBossFollowTeleportSeconds(
                 category.CreateEntry("boss_minion_follow_teleport_seconds", 1.5f,
                     description: "Seconds a Boss rune minion can stand still while following before a vanilla stuck teleport; <= 0 disables, capped at 10.").Value);
+            _bossNavDynamic = category.CreateEntry("boss_minion_nav_dynamic_search", true,
+                description: "T-016: let Boss rune minions re-pick the navmesh after changing area (turns on their NavMeshTracker dynamic search). false = vanilla Boss AI setting.").Value;
+            Write("boss_minion_nav_dynamic_search=" + _bossNavDynamic);
             try
             {
                 PatchPrefix(h, typeof(RaisedMinionSystem), "Update", new[] { typeof(Frame) }, nameof(BeforeRaisedUpdate), typeof(void));
@@ -1012,9 +1018,10 @@ namespace Necromancy
                 if (!_enabled || __0 == null) return;
                 _simFrame = __0;
                 bool bossFollow = _bossEnabled && _bossFollowTeleportSeconds > 0 && !_bossFollowTeleportFailed;
-                if (!holdTeleports && !bossFollow) return;
+                bool bossNav = _bossEnabled && _bossNavDynamic && !_bossNavFailed;
+                if (!holdTeleports && !bossFollow && !bossNav) return;
                 bool verified = __0.IsVerified;
-                if (!holdTeleports && !verified) return;
+                if (!holdTeleports && !bossNav && !verified) return;
                 List<ulong> gone = null;
                 foreach (ulong raw in TeleportMinions)
                 {
@@ -1026,6 +1033,8 @@ namespace Necromancy
                     }
                     var comp = EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0);
                     if (comp == null) continue;
+                    // Written on predicted and verified frames alike (sim state); only logging is verified-only.
+                    if (bossNav && !_bossNavFailed) EnsureBossNavDynamic(__0, minion, comp, verified);
                     long before = comp->StuckDuration.RawValue;
                     bool forceStuck = verified && bossFollow && !_bossFollowTeleportFailed && TryBossFollowTeleport(__0, minion, comp);
                     if (!holdTeleports) continue;
@@ -1147,6 +1156,65 @@ namespace Necromancy
             }
         }
 
+        // T-016 round 3 (nav report, public 22928553): Warrick / Echo Knight AI ship NavMeshDynamicSearch=false, so
+        // NavMeshTrackerSystem.Update (0x05B1F950, check 0x05B1FA53) never re-picks a navmesh, and RaisedMinionSystem's
+        // teleports only move the transform. After an area change the minion keeps the old region's UseNavDataComponent,
+        // SearchPath fails and it stands still. Turning the tracker flag on lets the native tracker rebind by itself.
+        // Component access is non-generic (ComponentTypeId index + FrameBase.Has/GetPointer): managed generics for
+        // component types this plugin has not used in play threw NullReferenceException before (T-015 0.18.3).
+        private static bool _bossNavDynamic, _bossNavFailed;
+        private static int _trackerComponentIndex = -1, _useNavComponentIndex = -1, _bossNavLogs;
+        private static readonly Dictionary<ulong, int> BossNavIndex = new(); // verified frames only
+        private static readonly HashSet<ulong> BossNavMissing = new();
+
+        private static unsafe void EnsureBossNavDynamic(Frame f, EntityRef minion, RaisedMinionComponent* comp, bool verified)
+        {
+            try
+            {
+                long action = comp->RaiseActionGuid.Value;
+                if (!IsPrivateBossAction(action)) return;
+                if (_trackerComponentIndex < 0 && !ResolveNavComponentIndices(f, minion)) return;
+                if (!f.Has(minion, _trackerComponentIndex))
+                {
+                    if (verified && BossNavMissing.Add(minion.Raw) && Interlocked.Increment(ref _bossNavLogs) <= 200)
+                        Write("boss-minion NAV no NavMeshTrackerComponent entity=" + NecromancyPolicy.EntityLabel(minion.Raw) + " A=" + BossId(action));
+                    return;
+                }
+                var tracker = (NavMeshTrackerComponent*)f.GetPointer(minion, _trackerComponentIndex);
+                if (tracker == null) return;
+                bool was = tracker->NavMeshDynamicSearch.Value != 0;
+                if (!was) tracker->NavMeshDynamicSearch.Value = 1;
+                if (!verified) return;
+                int nav = f.Has(minion, _useNavComponentIndex) ? *(int*)f.GetPointer(minion, _useNavComponentIndex) : 0;
+                bool known = BossNavIndex.TryGetValue(minion.Raw, out int old);
+                BossNavIndex[minion.Raw] = nav;
+                if ((!was || known && old != nav) && Interlocked.Increment(ref _bossNavLogs) <= 200)
+                    Write(FormattableString.Invariant(
+                        $"boss-minion NAV {(was ? "rebind" : "dynamic-search ON")} entity={NecromancyPolicy.EntityLabel(minion.Raw)} A={BossId(action)} navIndex={(known ? old.ToString(System.Globalization.CultureInfo.InvariantCulture) : "?")}->{nav} trackerState={(int)tracker->State}"));
+            }
+            catch (Exception e)
+            {
+                _bossNavFailed = true;
+                Write("boss-minion NAV disabled: " + e.GetType().Name + ": " + e.Message);
+            }
+        }
+
+        private static bool ResolveNavComponentIndices(Frame f, EntityRef minion)
+        {
+            int tracker = ComponentTypeId.GetComponentIndex("NavMeshTrackerComponent");
+            int useNav = ComponentTypeId.GetComponentIndex("UseNavDataComponent");
+            int raised = ComponentTypeId.GetComponentIndex("RaisedMinionComponent");
+            // Self-check against generics already proven in play: the index for RaisedMinionComponent must report the
+            // minion we are iterating, and the UseNavDataComponent index must agree with Has<UseNavDataComponent>.
+            bool ok = tracker > 0 && useNav > 0 && raised > 0 && tracker != useNav && f.Has(minion, raised) &&
+                      f.Has(minion, useNav) == EntityRefExtensions.Has<UseNavDataComponent>(minion, f);
+            Write("boss-minion NAV component index tracker=" + tracker + " useNav=" + useNav + " raised=" + raised + (ok ? " OK" : " MISMATCH; fix disabled"));
+            if (!ok) { _bossNavFailed = true; return false; }
+            _trackerComponentIndex = tracker;
+            _useNavComponentIndex = useNav;
+            return true;
+        }
+
         private static void DisableBossFollowTeleport(Exception e)
         {
             if (_bossFollowTeleportFailed) return;
@@ -1175,7 +1243,8 @@ namespace Necromancy
                 if (!_enabled || !__0.IsValid) return;
                 Minions[__0.Raw] = Environment.TickCount64;
                 if ((!_stuckHoldOff && (!_stuckTeleportInCombat || !_heightTeleportInRange)) ||
-                    (_bossFollowTeleportSeconds > 0 && !_bossFollowTeleportFailed && IsPrivateBossAction(__2.Value)))
+                    ((_bossFollowTeleportSeconds > 0 && !_bossFollowTeleportFailed || _bossNavDynamic && !_bossNavFailed) &&
+                     IsPrivateBossAction(__2.Value)))
                     TeleportMinions.Add(__0.Raw);
                 TrackBossSpawn(__0, __2);
             }
