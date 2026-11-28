@@ -60,6 +60,14 @@ internal static class Program
               BossRunePolicy.RemoveGrant(ledger, "Hero B", "echo_knight") == ledger, "grant removal exact, case-insensitive");
         Check(NecromancyPolicy.DefaultMinionNpc == "native" && NecromancyPolicy.MinionNpcGuid(NecromancyPolicy.DefaultMinionNpc) == 0 &&
               NecromancyPolicy.MinionNpcGuid("warrick_boss") != 0, "native minion default, explicit boss still available");
+        Check(!NecromancyPolicy.BossFollowStillExpired(20, 0), "zero follow teleport limit disables the fallback");
+        Check(!NecromancyPolicy.BossFollowStillExpired(20, -1), "negative follow teleport limit disables the fallback");
+        Check(!NecromancyPolicy.BossFollowStillExpired(1.49, 1.5), "follow teleport does not expire below the limit");
+        Check(NecromancyPolicy.BossFollowStillExpired(1.5, 1.5), "follow teleport expires at the limit");
+        Check(NecromancyPolicy.BossFollowStillExpired(2, 1.5), "follow teleport expires above the limit");
+        Check(NecromancyPolicy.ClampBossFollowTeleportSeconds(-1f) == 0f, "negative follow teleport config clamps to zero");
+        Check(NecromancyPolicy.ClampBossFollowTeleportSeconds(1.5f) == 1.5f, "follow teleport config preserves fractional seconds");
+        Check(NecromancyPolicy.ClampBossFollowTeleportSeconds(12f) == 10f, "follow teleport config caps at ten seconds");
         Console.WriteLine($"{_tests - _failures}/{_tests} boss rune checks passed.");
         return _failures == 0 ? 0 : 1;
     }

@@ -140,6 +140,7 @@ namespace Necromancy
                 MinionLastDamage.Clear();
                 TeleportMinions.Clear();
                 MinionFollowSamples.Clear();
+                BossFollowAnchors.Clear();
                 _followDiagnosticLines = 0;
                 _followDiagnosticsFailed = false;
                 HeldStuck.Clear();
@@ -924,6 +925,9 @@ namespace Necromancy
                 description: "Height difference in meters up to which far/height/stuck pull-backs are held (with horizontal distance <= the teleport distance); beyond it vanilla applies; 0 = no height limit.").Value;
             _heightTeleportInRange = category.CreateEntry("minion_height_teleport_in_range", false,
                 description: "true = vanilla height teleports; false = suppress them within the minion's teleport range.").Value;
+            _bossFollowTeleportSeconds = NecromancyPolicy.ClampBossFollowTeleportSeconds(
+                category.CreateEntry("boss_minion_follow_teleport_seconds", 1.5f,
+                    description: "Seconds a Boss rune minion can stand still while following before a vanilla stuck teleport; <= 0 disables, capped at 10.").Value);
             try
             {
                 PatchPrefix(h, typeof(RaisedMinionSystem), "Update", new[] { typeof(Frame) }, nameof(BeforeRaisedUpdate), typeof(void));
@@ -983,6 +987,9 @@ namespace Necromancy
         private static volatile bool _stuckHoldOff;
         private static int _stuckResets, _stuckLogs, _stuckHoldMaxSeconds, _heightLogs;
         private static float _stuckHoldNearRadius;
+        private static float _bossFollowTeleportSeconds;
+        private static bool _bossFollowTeleportFailed;
+        private static readonly Dictionary<ulong, (long Time, Il2CppPhoton.Deterministic.FPVector3 Position, int Logs)> BossFollowAnchors = new();
         private static readonly HashSet<ulong> TeleportMinions = new(); // sim thread; no visual-cache timeout
         private static readonly Dictionary<ulong, (long Duration, bool Released)> HeldStuck = new();
         private static readonly HashSet<ulong> HeldHeight = new();
@@ -998,13 +1005,16 @@ namespace Necromancy
         private static unsafe void BeforeRaisedUpdate(Frame __0)
         {
             if (FollowStartRestore.Count > 0) RestoreFollowStartDistances(__0);
+            bool holdTeleports = !_stuckHoldOff && (!_stuckTeleportInCombat || !_heightTeleportInRange);
             try
             {
                 FirstHit(ref _raisedUpdateHit, nameof(BeforeRaisedUpdate));
                 if (!_enabled || __0 == null) return;
                 _simFrame = __0;
-                if (_stuckHoldOff || (_stuckTeleportInCombat && _heightTeleportInRange)) return;
+                bool bossFollow = _bossEnabled && _bossFollowTeleportSeconds > 0 && !_bossFollowTeleportFailed;
+                if (!holdTeleports && !bossFollow) return;
                 bool verified = __0.IsVerified;
+                if (!holdTeleports && !verified) return;
                 List<ulong> gone = null;
                 foreach (ulong raw in TeleportMinions)
                 {
@@ -1017,6 +1027,8 @@ namespace Necromancy
                     var comp = EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0);
                     if (comp == null) continue;
                     long before = comp->StuckDuration.RawValue;
+                    bool forceStuck = verified && bossFollow && !_bossFollowTeleportFailed && TryBossFollowTeleport(__0, minion, comp);
+                    if (!holdTeleports) continue;
                     if (before == 0) HeldStuck.Remove(raw);
                     bool checkStuck = !_stuckTeleportInCombat && before > 0;
                     if (_heightTeleportInRange && !checkStuck) continue;
@@ -1053,7 +1065,7 @@ namespace Necromancy
 
                     bool near = _stuckHoldNearRadius > 0 && d3 <= _stuckHoldNearRadius && (_heightHoldMaxDy <= 0 || Math.Abs(dy) <= _heightHoldMaxDy);
                     bool following = comp->IsFollowing.Value != 0;
-                    if (!checkStuck || (!near && !withinRange)) continue;
+                    if (forceStuck || !checkStuck || (!near && !withinRange)) continue;
                     HeldStuck.TryGetValue(raw, out var held);
                     if (!near) held.Duration += __0.DeltaTime.RawValue;
                     long? lastHit = MinionLastDamage.TryGetValue(raw, out long hit) ? hit : null;
@@ -1077,12 +1089,69 @@ namespace Necromancy
                 if (gone != null) foreach (ulong raw in gone)
                 {
                     TeleportMinions.Remove(raw);
+                    if (!holdTeleports) continue;
                     HeldStuck.Remove(raw);
                     HeldHeight.Remove(raw);
                     MinionLastDamage.TryRemove(raw, out _);
                 }
             }
-            catch (Exception e) { BreakTeleportHolds(e); }
+            catch (Exception e)
+            {
+                if (holdTeleports) BreakTeleportHolds(e);
+                else DisableBossFollowTeleport(e);
+            }
+        }
+
+        private static unsafe bool TryBossFollowTeleport(Frame f, EntityRef minion, RaisedMinionComponent* comp)
+        {
+            try
+            {
+                long action = comp->RaiseActionGuid.Value;
+                if (!IsPrivateBossAction(action)) return false;
+                var transform = GetSimTransform(f, minion);
+                if (transform == null) return false;
+                var pos = transform->RawPosition;
+                long now = f.TimeSinceStart.RawValue;
+                if (!BossFollowAnchors.TryGetValue(minion.Raw, out var anchor) || comp->IsFollowing.Value == 0 ||
+                    NecromancyPolicy.DistanceRaw(anchor.Position.X.RawValue, anchor.Position.Y.RawValue, anchor.Position.Z.RawValue,
+                        pos.X.RawValue, pos.Y.RawValue, pos.Z.RawValue) >= 0.3)
+                {
+                    BossFollowAnchors[minion.Raw] = (now, pos, anchor.Logs);
+                    return false;
+                }
+
+                double still = (now - anchor.Time) / 65536.0;
+                if (!NecromancyPolicy.BossFollowStillExpired(still, _bossFollowTeleportSeconds)) return false;
+                if (anchor.Logs < 20)
+                {
+                    var ownerTransform = GetSimTransform(f, comp->Owner);
+                    string ownerDist = "?";
+                    if (ownerTransform != null)
+                    {
+                        var owner = ownerTransform->RawPosition;
+                        double dist = NecromancyPolicy.DistanceRaw(pos.X.RawValue, pos.Y.RawValue, pos.Z.RawValue,
+                            owner.X.RawValue, owner.Y.RawValue, owner.Z.RawValue);
+                        ownerDist = FormattableString.Invariant($"{dist:0.##}m");
+                    }
+                    Write(FormattableString.Invariant($"boss-minion FOLLOW-TELEPORT entity={NecromancyPolicy.EntityLabel(minion.Raw)} A={BossId(action)} still={still:0.##}s ownerDist={ownerDist}"));
+                    ++anchor.Logs;
+                }
+                BossFollowAnchors[minion.Raw] = (now, pos, anchor.Logs);
+                comp->StuckDuration.RawValue = 0x30000;
+                return true;
+            }
+            catch (Exception e)
+            {
+                DisableBossFollowTeleport(e);
+                return false;
+            }
+        }
+
+        private static void DisableBossFollowTeleport(Exception e)
+        {
+            if (_bossFollowTeleportFailed) return;
+            _bossFollowTeleportFailed = true;
+            Write("boss-minion FOLLOW-TELEPORT disabled: " + e.GetType().Name + ": " + e.Message);
         }
 
         private static void BreakTeleportHolds(Exception e)
@@ -1105,7 +1174,9 @@ namespace Necromancy
                 FirstHit(ref _minionSpawnedHit, nameof(AfterMinionSpawned));
                 if (!_enabled || !__0.IsValid) return;
                 Minions[__0.Raw] = Environment.TickCount64;
-                if (!_stuckHoldOff && (!_stuckTeleportInCombat || !_heightTeleportInRange)) TeleportMinions.Add(__0.Raw);
+                if ((!_stuckHoldOff && (!_stuckTeleportInCombat || !_heightTeleportInRange)) ||
+                    (_bossFollowTeleportSeconds > 0 && !_bossFollowTeleportFailed && IsPrivateBossAction(__2.Value)))
+                    TeleportMinions.Add(__0.Raw);
                 TrackBossSpawn(__0, __2);
             }
             catch (Exception e) { Write("spawn-register ERROR " + e.GetType().Name + ": " + e.Message); }
