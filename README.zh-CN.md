@@ -65,10 +65,11 @@
 
 ## 技术说明与源码构建
 
-[`src/`](src/) 下保留 **0.9.17 玩家默认配置**，加入用户批准的 **R17 第三试炼**，音效／输入组件仍为 **0.3.3**。核心保留已试玩的内部标签 `0.9.17-third-trial-candidate-r17`；0.9.17 仍是最新已发布正式版。
+[`src/`](src/) 下保留 **0.9.17 玩家默认配置**，加入用户批准的 **R17 第三试炼**（核心内部标签 `0.9.17-third-trial-candidate-r17`），音效／输入组件仍为 **0.3.3**（`NRFWBowgunAudioSync`），并包含独立的单机死灵起尸插件 **`NRFWNecromancy`**（源码当前版本 `0.18.4`，恢复 `raiseMinion`、`revive`、`healMinions`、治疗宝典兼容、表情招式反应表与可配置 Boss 召唤符文）。`0.9.17` 仍是最新已发布正式版，不包含第三试炼与 `NRFWNecromancy`。
 
-- Mod 在安装运行时钩子之前，会检查**精确匹配的受支持游戏版本**。
-- 构建需要 MelonLoader 引用，以及从受支持游戏版本生成的 IL2CPP 互操作程序集。
+- Mod 在安装运行时钩子之前，会检查**精确匹配的受支持游戏版本**（`22928553`）。
+- 构建需要 MelonLoader 引用，以及从受支持游戏版本生成的 IL2CPP 互操作程序集；仓库通过 `NRFWMods.sln` 与 `Directory.Build.props` 统一管理 `src/`、`tests/`、`tools/` 的编译配置。
+- `verify-local.ps1` 负责构建全部 3 个插件并运行快速纯托管测试与 3 项 PE 元数据审计；`.github/workflows/ci.yml` 在无 `vendor/` 环境下运行 `tests/` 下的全部 22 个纯托管测试项目。
 - 本仓库**不包含**游戏、MelonLoader 二进制文件或生成的互操作程序集。
 
 本地环境要求、构建命令、测试和打包流程见 **[BUILD.md](BUILD.md)**。

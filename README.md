@@ -65,10 +65,11 @@ For 0.9.17, download MelonLoader 0.7.3 and both DLLs, then place them in `Mods`.
 
 ## Technical details and building
 
-The source under [`src/`](src/) retains the **0.9.17 player defaults**, adds the approved **R17 Third Crucible**, and contains the unchanged **0.3.3** audio/input component. The core retains its tested internal label `0.9.17-third-trial-candidate-r17`. Version 0.9.17 remains the latest published stable release.
+The source under [`src/`](src/) retains the **0.9.17 player defaults**, adds the approved **R17 Third Crucible** (internal core label `0.9.17-third-trial-candidate-r17`), contains the unchanged **0.3.3** audio/input component (`NRFWBowgunAudioSync`), and includes the standalone single-player necromancy plugin (**`NRFWNecromancy`**, currently `0.18.4` in source: restores `raiseMinion`, `revive`, `healMinions`, Tome of Healing rune compatibility, gesture-driven reactions, and configurable Boss summon runes). Version `0.9.17` remains the latest published stable release and does not include the Third Crucible or `NRFWNecromancy`.
 
-- The mod checks the **exact supported game build** before installing its runtime hooks.
-- Building requires MelonLoader references and game-specific generated IL2CPP interop assemblies from the supported game.
+- The mods check the **exact supported game build** (`22928553`) before installing runtime hooks.
+- Building requires MelonLoader references and game-specific generated IL2CPP interop assemblies from the supported game; `NRFWMods.sln` and `Directory.Build.props` unify solution builds across `src/`, `tests/`, and `tools/`.
+- `verify-local.ps1` builds all three plugins and runs the fast managed suites and PE metadata audits; `.github/workflows/ci.yml` runs all 22 pure-managed test suites under `tests/` (zero `vendor/` dependencies).
 - The game, MelonLoader binaries, and generated interop assemblies are **not included**.
 
 See **[BUILD.md](BUILD.md)** for local requirements, build commands, tests, and packaging.
