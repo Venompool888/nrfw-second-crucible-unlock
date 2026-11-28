@@ -90,6 +90,7 @@ namespace Necromancy
                 var renderers = component.m_renderers;
                 var written = first && ++_lookApplyLogs <= 150 ? new Dictionary<string, string>() : null;
                 int skipped = 0;
+                var skippedShaders = written != null ? new SortedDictionary<string, int>(StringComparer.Ordinal) : null;
                 if (renderers != null)
                     foreach (var renderer in renderers)
                     {
@@ -98,6 +99,11 @@ namespace Necromancy
                         if (shader == null || !shader.name.StartsWith("forsaken/baseCharacter", StringComparison.Ordinal))
                         {
                             ++skipped;
+                            if (skippedShaders != null)
+                            {
+                                string name = renderer == null ? "(no renderer)" : shader == null ? "(no material)" : shader.name;
+                                skippedShaders[name] = skippedShaders.TryGetValue(name, out int n) ? n + 1 : 1;
+                            }
                             continue;
                         }
 
@@ -110,7 +116,7 @@ namespace Necromancy
                         SetFloat(renderer, ShaderPropertyIdFloat.DitheredAlpha, profile.DitheredAlpha);
                     }
                 if (written != null)
-                    Write($"look APPLY go={component.gameObject.name} profile={state.Profile} renderers={renderers?.Length ?? 0} skipped={skipped} written=[{string.Join(" ", written.Values)}]");
+                    Write($"look APPLY go={component.gameObject.name} profile={state.Profile} renderers={renderers?.Length ?? 0} skipped={skipped} written=[{string.Join(" ", written.Values)}] skippedShaders=[{string.Join(", ", skippedShaders.Select(p => p.Key + " x" + p.Value))}]");
 
                 void SetColor(Renderer renderer, ShaderPropertyIdColor property, LookColor? setting)
                 {

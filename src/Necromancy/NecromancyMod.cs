@@ -611,12 +611,31 @@ namespace Necromancy
             catch (Exception e) { Error("tint-log", e); }
         }
 
+        // The stock LateUpdate clears m_effectApplied once the view's entity has no RaisedMinionComponent; a pooled
+        // (inactive) view stops updating, so it must also be active to count.
+        private static bool MinionEffectLive(ulong minion)
+        {
+            try
+            {
+                return AddedEffects.TryGetValue(minion, out var component) && component != null &&
+                       component.TryCast<Il2CppMoon.Forsaken.RaisedMinionVisualEffect>() is { isActiveAndEnabled: true, m_effectApplied: true };
+            }
+            catch { return false; }
+        }
+
         private static void EnsureMinionVisuals()
         {
             try
             {
                 long now = Environment.TickCount64;
-                foreach (var pair in Minions) if (now - pair.Value > 5000) { Minions.TryRemove(pair.Key, out _); Attached.Remove(pair.Key); RemoveAddedEffect(pair.Key); }
+                foreach (var pair in Minions)
+                    if (now - pair.Value > 5000)
+                    {
+                        // 0.19.17 playtest: Boss-rune minions that are not following stop calling GetMinionFormationSlot, so
+                        // they were dropped after 5 s and lost their look for ~25 s. The stock component still knows.
+                        if (MinionEffectLive(pair.Key)) { Minions[pair.Key] = now; continue; }
+                        Minions.TryRemove(pair.Key, out _); Attached.Remove(pair.Key); RemoveAddedEffect(pair.Key);
+                    }
                 PumpMinionLook(now);
                 if (Minions.IsEmpty) return;
                 var effectType = Il2CppInterop.Runtime.Il2CppType.Of<Il2CppMoon.Forsaken.RaisedMinionVisualEffect>();

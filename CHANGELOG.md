@@ -1,6 +1,6 @@
 # Version history
 
-## Necromancy 0.19.17 (T-017 test build; renumbered at merge)
+## Necromancy 0.19.18 (T-017 test build; renumbered at merge)
 
 - T-017: Added hot-reloadable ghost materials for raised, revived, and Boss minions, with separate tint and glow layers, dithered transparency, a stock look option, and blood buildup disabled by default for minions.
 
