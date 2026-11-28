@@ -45,6 +45,10 @@ internal static class Program
         Check(ledger == "Hero A:warrick" && BossRunePolicy.AddGrant(ledger, "hero a", "WARRICK") == ledger, "grant add, no duplicate");
         Check(BossRunePolicy.HasGrant(ledger, " HERO A ", "Warrick") && !BossRunePolicy.HasGrant(ledger, "Hero B", "warrick") &&
               !BossRunePolicy.HasGrant(ledger, "Hero A", "echo_knight") && !BossRunePolicy.HasGrant("Hero A", "Hero A", "warrick"), "grant lookup exact, case-insensitive");
+        string tomes = BossRunePolicy.AddGrant(ledger, "Hero A", BossRunePolicy.TomeGrantKey);
+        Check(BossRunePolicy.HasGrant(tomes, "hero a", BossRunePolicy.TomeGrantKey) && !BossRunePolicy.HasGrant(ledger, "Hero A", BossRunePolicy.TomeGrantKey) &&
+              !BossRunePolicy.HasGrant(tomes, "Hero B", BossRunePolicy.TomeGrantKey), "tome grant recorded per character, separate from rune grants");
+        Check(BossRunePolicy.Parse("[{\"key\":\"@tome\",\"slot\":9,\"npc\":\"1\"}]", out _, out _).Length == 0, "tome grant key is not a valid rule key");
         ledger = BossRunePolicy.AddGrant(ledger, "Hero A", "echo_knight");
         Check(BossRunePolicy.RemoveGrant(ledger, "hero a", "ECHO_KNIGHT") == "Hero A:warrick" &&
               BossRunePolicy.RemoveGrant(ledger, "Hero B", "echo_knight") == ledger, "grant removal exact, case-insensitive");

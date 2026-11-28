@@ -19,6 +19,7 @@ namespace Necromancy
     {
         internal const string FileName = "NRFWNecromancyBossRunes.json";
         internal const string IconDirectory = "NRFWNecromancyBossRunes";
+        internal const string TomeGrantKey = "@tome";   // not a valid rule key, so it cannot clash with a rune grant
         internal const string DefaultJson = @"// NRFW Necromancy Boss 召唤符文（T-015）。修改后重启游戏生效。
 // slot (0..255) 决定存档里的 GUID，发放后不得更改或复用；key 是发放记录的一部分。
 // npc 是 NpcData GUID（建议用字符串）；max_active 为 1..5；icon 留空则使用原版图标。

@@ -24,6 +24,7 @@ namespace Necromancy
         private static volatile string _bossGranted;
         private static int _bossGrantDirty, _bossErrors;
         private static string _bossIconDirectory;
+        private static string _bossTomeCharacter = "";
 
         private sealed class BossSession
         {
@@ -31,7 +32,7 @@ namespace Necromancy
             internal readonly Dictionary<long, BossRune> Runes = new();
             internal readonly Dictionary<(ulong Entity, long Action), EntityRef> Spawns = new();
             internal int HeroFrames;
-            internal bool ReadLogged, ViewContextWaitLogged;
+            internal bool ReadLogged, ViewContextWaitLogged, TomeAttempted;
         }
 
         private sealed class BossRune
@@ -63,6 +64,8 @@ namespace Necromancy
                 string language = category.CreateEntry("text_language", "zh", description: "Boss rune text: zh or en.").Value;
                 _bossEnglish = string.Equals(language?.Trim(), "en", StringComparison.OrdinalIgnoreCase);
                 bool enabled = category.CreateEntry("boss_runes_enabled", true, description: "Register and grant custom Boss runes.").Value;
+                _bossTomeCharacter = (category.CreateEntry("boss_tome_character", "",
+                    description: "Character (case-insensitive) that once gets a new Gold Tome of Healing with every Boss rune socketed. Recorded in granted_boss_runes as character:@tome.").Value ?? "").Trim();
                 string directory = MelonLoader.Utils.MelonEnvironment.UserDataDirectory;
                 _bossIconDirectory = Path.Combine(directory, BossRunePolicy.IconDirectory);
                 _bossRules = LoadBossRules(Path.Combine(directory, BossRunePolicy.FileName)).OrderBy(r => r.Key, StringComparer.Ordinal).ToArray();
@@ -353,12 +356,16 @@ namespace Necromancy
                 var session = BossSessionFor(f);
                 if (session == null) return;
                 LogBossSpawns(f, session);
-                if (string.IsNullOrWhiteSpace(_targetCharacter) || !session.Runes.Values.Any(r => r.ViewReady && !r.GrantAttempted)) return;
+                bool tomePending = !session.TomeAttempted && !string.IsNullOrWhiteSpace(_bossTomeCharacter) &&
+                    session.Runes.Count > 0 && session.Runes.Values.All(r => r.ViewReady);
+                bool loosePending = !string.IsNullOrWhiteSpace(_targetCharacter) && session.Runes.Values.Any(r => r.ViewReady && !r.GrantAttempted);
+                if (!tomePending && !loosePending) return;
                 var hero = new EntityRef { Raw = unchecked((ulong)Interlocked.Read(ref _heroRaw)) };
                 if (!hero.IsValid || !InventoryAPI.GetInventoryEntity(f, hero).IsValid) { session.HeroFrames = 0; return; }
                 if (session.HeroFrames < NecromancyPolicy.GrantSettleFrames && ++session.HeroFrames < NecromancyPolicy.GrantSettleFrames) return;
                 string name = HeroName(f, hero);
-                if (!NecromancyPolicy.IsTargetCharacter(_targetCharacter, name)) return;
+                if (tomePending && NecromancyPolicy.IsTargetCharacter(_bossTomeCharacter, name)) GrantBossTome(f, hero, name, session);
+                if (!loosePending || !NecromancyPolicy.IsTargetCharacter(_targetCharacter, name)) return;
                 foreach (var rune in session.Runes.Values)
                 {
                     if (!rune.ViewReady || rune.GrantAttempted) continue;
@@ -384,6 +391,29 @@ namespace Necromancy
                 }
             }
             catch (Exception e) { BossError("tick", e); }
+        }
+
+        // One-time: a new Gold Tome of Healing with every ready Boss rune written into its slots.
+        private static void GrantBossTome(Frame f, EntityRef hero, string name, BossSession session)
+        {
+            session.TomeAttempted = true;
+            if (BossRunePolicy.HasGrant(_bossGranted, name, BossRunePolicy.TomeGrantKey)) return;
+            try
+            {
+                var runes = session.Runes.Values.OrderBy(r => r.Rule.Slot).ToArray();
+                var keys = runes.Select(r => r.Rule.Key).ToArray();
+                var indices = runes.Select(r => ReadBossRune(f, r).m_index).ToArray();
+                var tomeData = Asset<HeroItemData>(f, NecromancyPolicy.TomeOfHealing) ?? throw new InvalidOperationException("Tome of Healing data missing");
+                var tome = ItemsAPI.Create(f, tomeData, 1, ItemRarity.Gold, NewInventoryItemSource.Loot);
+                bool added = tome.IsValid && InventoryAPI.DirectlyAddItemToInventoryOrDropAsBag(f, hero, tome, NewInventoryItemSource.Loot, false);
+                Write("boss-runes TOME created for '" + name + "' entity=" + tome.Raw + " added=" + added);
+                if (!added) return;
+                int placed = WriteTomeRunes(f, hero, tome, keys, indices);
+                Write("boss-runes TOME '" + name + "' runes placed " + placed + "/" + runes.Length);
+                _bossGranted = BossRunePolicy.AddGrant(_bossGranted, name, BossRunePolicy.TomeGrantKey);
+                Interlocked.Exchange(ref _bossGrantDirty, 1);
+            }
+            catch (Exception e) { Write("boss-runes TOME FAILED " + e.GetType().Name + ": " + e.Message); }
         }
 
         private static bool HasSocketedBossRune(Frame f, EntityRef hero, RuneDataRef rune)

@@ -302,9 +302,19 @@ namespace Necromancy
                 Write("force created gold Tome of Healing entity=" + tome.Raw + " added=" + added);
             }
             if (!tome.IsValid) { Write("force SKIP no Tome of Healing"); return; }
-            if (!EntityRefExtensions.Has<WeaponComponent>(tome, f)) { Write("force SKIP tome has no WeaponComponent"); return; }
+            var indices = new int[NecromancyPolicy.RunedTome.Length];
+            for (int r = 0; r < indices.Length; ++r)
+                indices[r] = RunesAPI.GetRune(f, new AssetRefHeroItemData { Id = new AssetGuid { Value = NecromancyPolicy.RunedTome[r] } }).m_index;
+            WriteTomeRunes(f, hero, tome, NecromancyPolicy.RuneKeys, indices);
+        }
+
+        // Layout-checked direct write of rune table indices into free, non-static, non-unique tome slots,
+        // then ArmamentReload. Returns how many runes ended up in the tome (written or already present).
+        private static unsafe int WriteTomeRunes(Frame f, EntityRef hero, EntityRef tome, string[] keys, int[] indices)
+        {
+            if (!EntityRefExtensions.Has<WeaponComponent>(tome, f)) { Write("force SKIP tome has no WeaponComponent"); return 0; }
             var wc = EntityRefExtensions.Get<WeaponComponent>(tome, f);
-            if (wc == null) { Write("force SKIP WeaponComponent pointer null"); return; }
+            if (wc == null) { Write("force SKIP WeaponComponent pointer null"); return 0; }
 
             int slotSize = HeroRuneSlot.SIZE, wcSize = WeaponComponent.SIZE, count = Constants.MaxRuneSlots, unique = Constants.UniqueRuneSlotIndex;
             int offSlots = (int)Marshal.OffsetOf<WeaponComponent>("_RuneSlots_");
@@ -317,7 +327,7 @@ namespace Necromancy
             Write("force " + layout);
             if (!NecromancyPolicy.SlotLayoutOk(slotSize, Marshal.SizeOf<HeroRuneSlot>(), wcSize, Marshal.SizeOf<WeaponComponent>(), offSlots, count,
                     offStatic, offUnlocked, offRune))
-            { Write("force ABORT layout mismatch; nothing written"); return; }
+            { Write("force ABORT layout mismatch; nothing written"); return 0; }
 
             byte* slots = (byte*)wc + offSlots;
             int Read(int s, int off) => *(int*)(slots + s * slotSize + off);
@@ -329,23 +339,26 @@ namespace Necromancy
             }
             Write("force before " + State());
             for (int s = 0; s < count; ++s)
-                if ((uint)Read(s, offStatic) > 1 || (uint)Read(s, offUnlocked) > 1) { Write("force ABORT slot " + s + " bool fields not 0/1; nothing written"); return; }
+                if ((uint)Read(s, offStatic) > 1 || (uint)Read(s, offUnlocked) > 1) { Write("force ABORT slot " + s + " bool fields not 0/1; nothing written"); return 0; }
 
             int empty = new RuneDataRef().m_index;
             var written = new List<string>();
-            for (int r = 0; r < NecromancyPolicy.RunedTome.Length; ++r)
+            int placed = 0;
+            for (int r = 0; r < indices.Length; ++r)
             {
-                int index = RunesAPI.GetRune(f, new AssetRefHeroItemData { Id = new AssetGuid { Value = NecromancyPolicy.RunedTome[r] } }).m_index;
+                int index = indices[r];
+                if (index == empty) { written.Add(keys[r] + "=no-rune-index"); continue; }
                 bool present = false;
                 for (int s = 0; s < count; ++s) if (Read(s, offRune) == index) present = true;
-                if (present) { written.Add(NecromancyPolicy.RuneKeys[r] + "=already"); continue; }
+                if (present) { written.Add(keys[r] + "=already"); ++placed; continue; }
                 int target = -1;
                 for (int s = 0; s < count && target < 0; ++s)
                     if (s != unique && Read(s, offStatic) == 0 && Read(s, offRune) == empty) target = s;
-                if (target < 0) { written.Add(NecromancyPolicy.RuneKeys[r] + "=no-free-slot"); continue; }
+                if (target < 0) { written.Add(keys[r] + "=no-free-slot"); continue; }
                 *(int*)(slots + target * slotSize + offUnlocked) = 1;
                 *(int*)(slots + target * slotSize + offRune) = index;
-                written.Add(NecromancyPolicy.RuneKeys[r] + "=slot" + target + "(index " + index + ", HasRune=" + RunesAPI.Weapon.HasRune(f, tome, target) + ")");
+                ++placed;
+                written.Add(keys[r] + "=slot" + target + "(index " + index + ", HasRune=" + RunesAPI.Weapon.HasRune(f, tome, target) + ")");
             }
             Write("FORCED tome entity=" + tome.Raw + ": " + string.Join(", ", written));
             Write("force after " + State());
@@ -355,6 +368,7 @@ namespace Necromancy
                 Write("force ArmamentReload requested");
             }
             catch (Exception e) { Write("force ArmamentReload failed " + e.GetType().Name + ": " + e.Message); }
+            return placed;
         }
 
         // ---- raised minion tint ------------------------------------------------------------
