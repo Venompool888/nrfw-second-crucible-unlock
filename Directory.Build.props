@@ -9,4 +9,33 @@
     <VendorGeneratedDir Condition="'$(VendorGeneratedDir)' == ''">$(VendorDir)/generated</VendorGeneratedDir>
     <VendorRefsDir Condition="'$(VendorRefsDir)' == ''">$(VendorDir)/refs</VendorRefsDir>
   </PropertyGroup>
+
+  <Target Name="InjectGitBuildMetadata" BeforeTargets="GetAssemblyAttributes">
+    <Exec Command="git rev-parse --abbrev-ref HEAD"
+          WorkingDirectory="$(MSBuildThisFileDirectory)"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          StandardOutputImportance="Low"
+          StandardErrorImportance="Low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitBranch" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitBranchExitCode" />
+    </Exec>
+    <Exec Command="git rev-parse --short HEAD"
+          WorkingDirectory="$(MSBuildThisFileDirectory)"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          StandardOutputImportance="Low"
+          StandardErrorImportance="Low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitCommit" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitCommitExitCode" />
+    </Exec>
+    <PropertyGroup>
+      <_GitBranch Condition="'$(_GitBranchExitCode)' != '0' or '$(_GitBranch)' == ''">unknown</_GitBranch>
+      <_GitCommit Condition="'$(_GitCommitExitCode)' != '0' or '$(_GitCommit)' == ''">unknown</_GitCommit>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyMetadata Include="GitBranch" Value="$(_GitBranch)" />
+      <AssemblyMetadata Include="GitCommit" Value="$(_GitCommit)" />
+    </ItemGroup>
+  </Target>
 </Project>
