@@ -96,7 +96,10 @@ Check(NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 11L << 16, 10
       !NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 10L << 16, 10, 20L << 16, 14L << 16) &&
       NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 9L << 16, 10, 20L << 16, null) &&
       NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 11L << 16, 0, 20L << 16, null) &&
-      !NecromancyPolicy.ShouldHoldStuckTeleport(true, true, false, 0, 0, 20L << 16, 20L << 16) &&
+      NecromancyPolicy.ShouldHoldStuckTeleport(true, true, false, 5L << 16, 10, 20L << 16, null) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(true, true, false, 11L << 16, 10, 20L << 16, 19L << 16) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(true, true, false, 11L << 16, 0, 20L << 16, null) &&
+      NecromancyPolicy.ShouldHoldStuckTeleport(true, true, false, 9L << 16, 0, 20L << 16, null) &&
       !NecromancyPolicy.ShouldHoldStuckTeleport(false, false, false, 0, 0, 20L << 16, 20L << 16),
       "stuck teleport hold beyond near radius: off-follow and in range, recent hit or below cap, 0 uncaps");
 Check(NecromancyPolicy.EntityLabel(9223372084099418004UL) == "E.01940.011" && NecromancyPolicy.EntityLabel(9223372118459156023UL) == "E.01591.019",

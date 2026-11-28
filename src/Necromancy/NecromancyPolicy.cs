@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.13.11";
+        internal const string Version = "0.13.12";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -124,10 +124,19 @@ namespace Necromancy
             return (long)System.Math.Round(nativeRaw * (double)System.Math.Min(multiplier, 50f));
         }
 
+        // 0.15.12 playtest: Warrick was stuck-teleported 10.9 m away while following. Within range a following minion is
+        // now held too, but always for a bounded time (maxSeconds, or 10 s when maxSeconds is 0) and hits do not extend
+        // it, so a minion blocked on its way back still returns. Off-follow keeps the hit extension and the 0 = unlimited.
+        internal const int FollowingStuckHoldDefaultSeconds = 10;
         internal static bool ShouldHoldStuckTeleport(bool following, bool withinRange, bool near, long heldRaw, int maxSeconds,
-            long nowRaw, long? lastHitRaw) =>
-            near || (!following && withinRange && (maxSeconds == 0 || heldRaw < ((long)maxSeconds << 16) ||
-                (lastHitRaw is long hit && hit <= nowRaw && nowRaw - hit <= (5L << 16))));
+            long nowRaw, long? lastHitRaw)
+        {
+            if (near) return true;
+            if (!withinRange) return false;
+            if (following) return heldRaw < ((long)(maxSeconds > 0 ? maxSeconds : FollowingStuckHoldDefaultSeconds) << 16);
+            return maxSeconds == 0 || heldRaw < ((long)maxSeconds << 16) ||
+                (lastHitRaw is long hit && hit <= nowRaw && nowRaw - hit <= (5L << 16));
+        }
 
         // Unity/Quantum log form of an EntityRef: E.<index:5>.<version:3> (raw = flag bit 63 | version << 32 | index).
         internal static string EntityLabel(ulong raw) =>

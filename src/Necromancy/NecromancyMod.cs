@@ -773,7 +773,7 @@ namespace Necromancy
 
                     bool near = _stuckHoldNearRadius > 0 && d3 <= _stuckHoldNearRadius;
                     bool following = comp->IsFollowing.Value != 0;
-                    if (!checkStuck || (!near && (following || !withinRange))) continue;
+                    if (!checkStuck || (!near && !withinRange)) continue;
                     HeldStuck.TryGetValue(raw, out var held);
                     if (!near) held.Duration += __0.DeltaTime.RawValue;
                     long? lastHit = MinionLastDamage.TryGetValue(raw, out long hit) ? hit : null;
@@ -791,7 +791,7 @@ namespace Necromancy
                     comp->StuckDuration = default;
                     int n = Interlocked.Increment(ref _stuckResets);
                     if (verified && before >= (2L << 16) && Interlocked.Increment(ref _stuckLogs) <= 100)
-                        Write("stuck-teleport held (" + (near ? "near owner" : "off-follow in range") + ") entity=" +
+                        Write("stuck-teleport held (" + (near ? "near owner" : following ? "following in range" : "off-follow in range") + ") entity=" +
                               NecromancyPolicy.EntityLabel(raw) + " stuck=" + (before / 65536.0).ToString("0.##") + "s resets=" + n);
                 }
                 if (gone != null) foreach (ulong raw in gone)
