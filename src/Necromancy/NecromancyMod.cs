@@ -708,7 +708,14 @@ namespace Necromancy
             if (action == null && !_roarMissingLogged)
             {
                 _roarMissingLogged = true;
-                Write("roar action not resolved: " + _roarAction);
+                string type = "missing";
+                try
+                {
+                    var raw = _resolvedRoarGuid > 0 ? f.Context.ResourceManager.GetAsset(new AssetGuid { Value = _resolvedRoarGuid.Value }) : null;
+                    if (raw != null) type = raw.GetIl2CppType().FullName;
+                }
+                catch (Exception e) { type = "?" + e.GetType().Name; }
+                Write("roar action not resolved: " + _roarAction + " (asset type " + type + ", needs ActionData)");
             }
             return action;
         }
