@@ -12,12 +12,13 @@
 
 ## 待做（0）
 
-## 进行中（2）
+## 进行中（3）
 
 | 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 |
 |---|---|---|---|---|---|
 | [T-016](T-016.md) | [#24](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/24) | bug | P2 | necromancy | Boss 召唤符文召出的随从在试炼场景不跟随玩家（只靠 20 米传回追上） |
 | [T-018](T-018.md) | [#27](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/27) | feature | P3 | necromancy | 回声骑士召唤出场演出（玩家凶残之力起手 → 从天而降带 AOE → Taunt Short → 正常随从逻辑） |
+| [T-020](T-020.md) | [#29](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/29) | task | P1 | necromancy | 死灵插件 0.19.0 模块化拆分、无哈希 BuildGuard、会话重置与性能优化 |
 
 ## 测试中（0）
 

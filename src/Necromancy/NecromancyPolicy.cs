@@ -3,7 +3,77 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.18.4";
+        internal const string Version = "0.19.0";
+        internal const string ExpectedSteamBuildId = "22928553";
+        internal const int DefaultFeatureMaxErrors = 5;
+
+        private static readonly System.Text.RegularExpressions.Regex ManifestBuildIdRegex =
+            new(@"(?:^|[\s{])""buildid""\s+""([^""\r\n]*)""", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        // Extracts the Steam appmanifest buildid value when uniquely present and numeric.
+        internal static bool TryParseManifestBuildId(string manifestText, out string buildId)
+        {
+            buildId = null;
+            if (string.IsNullOrWhiteSpace(manifestText)) return false;
+            var matches = ManifestBuildIdRegex.Matches(manifestText);
+            if (matches.Count != 1) return false;
+            string candidate = matches[0].Groups[1].Value;
+            if (candidate.Length == 0) return false;
+            for (int i = 0; i < candidate.Length; ++i)
+            {
+                char c = candidate[i];
+                if (c < '0' || c > '9') return false;
+            }
+            buildId = candidate;
+            return true;
+        }
+
+        internal static bool IsExpectedSteamBuild(string manifestText, string expectedBuildId = ExpectedSteamBuildId) =>
+            !string.IsNullOrEmpty(expectedBuildId) &&
+            TryParseManifestBuildId(manifestText, out string actual) &&
+            string.Equals(actual, expectedBuildId, System.StringComparison.Ordinal);
+
+        // Fast-path predicate for native damage hooks: skip Frame wrapping and component lookups when no raised
+        // minions, retired minion damage owners, or teleport-tracked minions exist in this session.
+        internal static bool ShouldInspectDamage(bool hasMinions, bool hasRaisedOwners, bool hasTeleportMinions) =>
+            hasMinions || hasRaisedOwners || hasTeleportMinions;
+
+        // Per-feature fault isolation state: disables only the owning non-critical feature after maxErrors.
+        internal sealed class FeatureFaultGuard
+        {
+            private int _errors;
+            private volatile bool _disabled;
+
+            internal int MaxErrors { get; }
+            internal int ErrorCount => System.Threading.Volatile.Read(ref _errors);
+            internal bool IsDisabled => _disabled;
+
+            internal FeatureFaultGuard(int maxErrors = DefaultFeatureMaxErrors)
+            {
+                if (maxErrors <= 0)
+                    throw new System.ArgumentOutOfRangeException(nameof(maxErrors), "maxErrors must be positive.");
+                MaxErrors = maxErrors;
+            }
+
+            internal bool RecordError(out bool justDisabled)
+            {
+                int count = System.Threading.Interlocked.Increment(ref _errors);
+                if (count >= MaxErrors && !_disabled)
+                {
+                    _disabled = true;
+                    justDisabled = true;
+                    return true;
+                }
+                justDisabled = false;
+                return count <= MaxErrors;
+            }
+
+            internal void Reset()
+            {
+                System.Threading.Interlocked.Exchange(ref _errors, 0);
+                _disabled = false;
+            }
+        }
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA

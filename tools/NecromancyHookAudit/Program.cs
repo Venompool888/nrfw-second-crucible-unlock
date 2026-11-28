@@ -257,6 +257,20 @@ foreach (var (type, name, result, isStatic, parameters) in new[]
     Check(methods.Count(m => m.Type == type && m.Method == name && m.Return == result && m.Static == isStatic &&
         string.Join(",", m.Args) == parameters) == 1, $"roar call {type}.{name}({parameters}) -> {result}");
 
+// T-020: O(1) EntityView lookup and visuals signatures.
+foreach (var (type, name, result, isStatic, parameters) in new[]
+{
+    ("Il2CppMoon.Forsaken.EntityViewTracker", "TryGetByEntityRef", "System.Boolean", true, "Il2CppQuantum.EntityRef,Il2CppMoon.Forsaken.EntityView&"),
+    ("Il2CppMoon.Forsaken.EntityView", "get_EntityRef", "Il2CppQuantum.EntityRef", false, ""),
+    ("UnityEngine.Component", "get_gameObject", "UnityEngine.GameObject", false, ""),
+    ("UnityEngine.GameObject", "GetComponent", "UnityEngine.Component", false, "Il2CppSystem.Type"),
+    ("UnityEngine.GameObject", "AddComponent", "UnityEngine.Component", false, "Il2CppSystem.Type"),
+    ("UnityEngine.Behaviour", "set_enabled", "Void", false, "System.Boolean"),
+    ("UnityEngine.Behaviour", "get_enabled", "System.Boolean", false, ""),
+})
+    Check(methods.Count(m => m.Type == type && m.Method == name && m.Return == result && m.Static == isStatic &&
+        string.Join(",", m.Args) == parameters) == 1, $"t020 call {type}.{name}({parameters}) -> {result}");
+
 Check(NecromancyPolicy.IsWarrickNpc(2680182020363611965) && NecromancyPolicy.IsWarrickNpc(670058593051072033) &&
       !NecromancyPolicy.IsWarrickNpc(NecromancyPolicy.WildlingSwordNpc) && !NecromancyPolicy.IsWarrickNpc(0),
       "roar minion: only the two Warrick NpcData GUIDs qualify");
@@ -492,6 +506,19 @@ using (var pe = new PEReader(s))
         Check(methods.Count(m => m.Type == type && m.Method == name && string.Join(",", m.Args) == sig) == 1 && strings.Contains(name),
             "runed-tome call " + type + "." + name + "(" + sig + ") exists and is referenced");
     }
+
+    // T-020: O(1) view lookup, hash-free build guard, buffered log, safe quit teardown.
+    Check(strings.Contains("TryGetByEntityRef") && !strings.Contains("FindObjectsOfType"),
+        "plugin uses EntityViewTracker.TryGetByEntityRef instead of FindObjectsOfType");
+    Check(!strings.Contains("ComputeHash") && !r.TypeReferences.Any(h => r.GetString(r.GetTypeReference(h).Name) == "SHA256"),
+        "plugin build guard is hash-free (no SHA256/ComputeHash)");
+    Check(!strings.Contains("AppendAllLines"),
+        "plugin uses buffered StreamWriter instead of per-frame File.AppendAllLines");
+    var pluginMethods = r.GetTypeDefinition(pluginType).GetMethods().Select(h => r.GetString(r.GetMethodDefinition(h).Name)).ToHashSet();
+    Check(pluginMethods.Contains("OnApplicationQuit") && !pluginMethods.Contains("OnDeinitializeMelon"),
+        "plugin uses OnApplicationQuit instead of OnDeinitializeMelon for safe teardown");
+    Check(pluginMethods.Contains("BeforeRaisedUpdate") && pluginMethods.Contains("AfterRaisedUpdate"),
+        "plugin defines both BeforeRaisedUpdate and AfterRaisedUpdate");
 }
 if (failures > 0) { Console.WriteLine(failures + " check(s) failed"); return 1; }
 Console.WriteLine("All necromancy metadata checks passed.");
