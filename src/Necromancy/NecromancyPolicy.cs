@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.13.12";
+        internal const string Version = "0.13.13";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -128,6 +128,10 @@ namespace Necromancy
         // now held too, but always for a bounded time (maxSeconds, or 10 s when maxSeconds is 0) and hits do not extend
         // it, so a minion blocked on its way back still returns. Off-follow keeps the hit extension and the 0 = unlimited.
         internal const int FollowingStuckHoldDefaultSeconds = 10;
+
+        // Hold range: horizontal distance within the teleport distance and |dy| within maxDy (maxDy <= 0 = no limit).
+        internal static bool InHoldRange(double horiz, double dy, double maxDist, double maxDy) =>
+            horiz <= maxDist && (maxDy <= 0 || System.Math.Abs(dy) <= maxDy);
         internal static bool ShouldHoldStuckTeleport(bool following, bool withinRange, bool near, long heldRaw, int maxSeconds,
             long nowRaw, long? lastHitRaw)
         {

@@ -659,6 +659,8 @@ namespace Necromancy
                 description: "Outside the near radius, seconds to hold stuck teleports without a hit in the last 5 seconds; 0 = unlimited.").Value;
             _stuckHoldNearRadius = category.CreateEntry("minion_stuck_hold_near_radius", 10f,
                 description: "3D distance in meters from the owner within which stuck teleports are always held when stuck hold is enabled; 0 = disabled.").Value;
+            _heightHoldMaxDy = category.CreateEntry("minion_height_hold_max_dy", 8f,
+                description: "Height difference in meters up to which far/height/stuck pull-backs are held (with horizontal distance <= the teleport distance); beyond it vanilla applies; 0 = no height limit.").Value;
             _heightTeleportInRange = category.CreateEntry("minion_height_teleport_in_range", false,
                 description: "true = vanilla height teleports; false = suppress them within the minion's teleport range.").Value;
             try
@@ -721,7 +723,9 @@ namespace Necromancy
         // FollowStartDistance values raised for this frame (sim thread only). Restored by the postfix; if Update threw and
         // the postfix did not run, the next prefix restores them first. No Harmony __state/finalizer: neither is proven on
         // detoured IL2CPP methods in this runtime.
-        private static readonly List<(EntityRef Minion, long Original)> FollowStartRestore = new();
+        // Field: 0 = FollowStartDistance (height branch), 1 = MaxDistanceBeforeTeleport (far branch).
+        private static readonly List<(EntityRef Minion, int Field, long Original)> FollowStartRestore = new();
+        private static float _heightHoldMaxDy;
 
         private static unsafe void BeforeRaisedUpdate(Frame __0)
         {
@@ -758,12 +762,20 @@ namespace Necromancy
                            dz = (owner.Z.RawValue - pos.Z.RawValue) / 65536.0;
                     double horizSq = dx * dx + dz * dz;
                     double d3 = Math.Sqrt(horizSq + dy * dy);
-                    bool withinRange = d3 <= comp->MaxDistanceBeforeTeleport.RawValue / 65536.0;
                     double horiz = Math.Sqrt(horizSq);
+                    double maxDist = comp->MaxDistanceBeforeTeleport.RawValue / 65536.0;
+                    // Maintainer 2026-11-28: judge by horizontal distance (<= teleport distance) and height difference
+                    // (<= minion_height_hold_max_dy) instead of the native 3D distance; beyond either, vanilla applies.
+                    bool withinRange = NecromancyPolicy.InHoldRange(horiz, dy, maxDist, _heightHoldMaxDy);
                     long start = comp->FollowStartDistance.RawValue;
+                    if (!_heightTeleportInRange && withinRange && d3 > maxDist)
+                    {
+                        FollowStartRestore.Add((minion, 1, comp->MaxDistanceBeforeTeleport.RawValue));
+                        comp->MaxDistanceBeforeTeleport.RawValue = (long)((d3 + 1.0) * 65536.0);
+                    }
                     if (!_heightTeleportInRange && withinRange && Math.Abs(dy) > 3.0 && horiz > start / 65536.0)
                     {
-                        FollowStartRestore.Add((minion, start));
+                        FollowStartRestore.Add((minion, 0, start));
                         comp->FollowStartDistance.RawValue = (long)((horiz + 1.0) * 65536.0);
                         if (verified && HeldHeight.Add(raw) && Interlocked.Increment(ref _heightLogs) <= 100)
                             Write("height-teleport held entity=" + NecromancyPolicy.EntityLabel(raw) +
@@ -771,7 +783,7 @@ namespace Necromancy
                     }
                     else if (verified) HeldHeight.Remove(raw);
 
-                    bool near = _stuckHoldNearRadius > 0 && d3 <= _stuckHoldNearRadius;
+                    bool near = _stuckHoldNearRadius > 0 && d3 <= _stuckHoldNearRadius && (_heightHoldMaxDy <= 0 || Math.Abs(dy) <= _heightHoldMaxDy);
                     bool following = comp->IsFollowing.Value != 0;
                     if (!checkStuck || (!near && !withinRange)) continue;
                     HeldStuck.TryGetValue(raw, out var held);
@@ -1147,11 +1159,15 @@ namespace Necromancy
             Exception failure = null;
             for (int i = pending.Count - 1; i >= 0; --i)
             {
-                var (minion, original) = pending[i];
+                var (minion, field, original) = pending[i];
                 try
                 {
                     if (EntityRefExtensions.Has<RaisedMinionComponent>(minion, __0))
-                        EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0)->FollowStartDistance.RawValue = original;
+                    {
+                        var c = EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0);
+                        if (field == 1) c->MaxDistanceBeforeTeleport.RawValue = original;
+                        else c->FollowStartDistance.RawValue = original;
+                    }
                     pending.RemoveAt(i);
                 }
                 catch (Exception e) { failure ??= e; }
