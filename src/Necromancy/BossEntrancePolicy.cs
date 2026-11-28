@@ -12,8 +12,8 @@ namespace Necromancy
         private const long DefaultCutRaw = 2L << 16;
 
         internal static BossEntrance DefaultFor(long npc) => npc == 790324362694538264
-            ? new BossEntrance(true, 203502697017737707, SecondsRaw(2.4), new[] { 2918908058815642059, 2653262915339319819 }, true, true,
-                SecondsRaw(1.55), SecondsRaw(2.45))
+            ? new BossEntrance(true, 203502697017737707, SecondsRaw(2.0), new[] { 2918908058815642059, 2653262915339319819 }, true, true,
+                0, SecondsRaw(2.2))
             : null;
 
         internal static BossEntrance Read(JsonElement rule, long npc)

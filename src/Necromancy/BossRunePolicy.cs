@@ -44,8 +44,8 @@ namespace Necromancy
     ""desc_zh"": ""在 8 米内的尸体上召出回声骑士为你作战（同时最多 1 个）。"",
     ""desc_en"": ""Summon the Echo Knight from a corpse within 8 meters to fight for you (maximum 1 active)."",
     ""entrance"": {
-      ""enabled"": true, ""player_action"": ""203502697017737707"", ""player_action_seconds"": 2.4,
-      ""minion_delay_seconds"": 1.55, ""minion_start_seconds"": 2.45,
+      ""enabled"": true, ""player_action"": ""203502697017737707"", ""player_action_seconds"": 2.0,
+      ""minion_delay_seconds"": 0, ""minion_start_seconds"": 2.2,
       ""minion_actions"": [""2918908058815642059"", ""2653262915339319819""], ""invincible"": true, ""pause_ai"": true
     }
   }

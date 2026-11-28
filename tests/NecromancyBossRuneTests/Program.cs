@@ -64,7 +64,7 @@ internal static class Program
               NecromancyPolicy.MinionNpcGuid("warrick_boss") != 0, "native minion default, explicit boss still available");
         const long echo = 790324362694538264, warrick = 2680182020363611965, second = 1L << 16, quarter = second / 4;
         var entrance = BossEntrancePolicy.DefaultFor(echo);
-        var expected = new BossEntrance(true, 203502697017737707, 157286, new[] { 2918908058815642059, 2653262915339319819 }, true, true, 101581, 160563);
+        var expected = new BossEntrance(true, 203502697017737707, 131072, new[] { 2918908058815642059, 2653262915339319819 }, true, true, 0, 144179);
         var automatic = BossRunePolicy.Parse($"[{{\"key\":\"one\",\"slot\":0,\"npc\":{echo}}},{{\"key\":\"two\",\"slot\":1,\"npc\":{warrick}}}]", out errors, out fallback);
         Check(!fallback && errors.Length == 0 && SameEntrance(automatic[0].Entrance, expected) && automatic[1].Entrance == null,
             "missing entrance defaults only for Echo Knight");
@@ -99,25 +99,28 @@ internal static class Program
                 errors[0]["#1 entrance: ".Length..].Contains(field), "reject entrance only: " + json);
         }
 
+        // The shipped Echo Knight default has no delay; exercise the prelude path with an explicit one.
+        Check(new EntranceRun(entrance, 0).Start() == (EntranceCommand.Execute, 0, null, 144179L, false), "default entrance starts mid-timeline without prelude");
+        var delayedSpec = entrance with { MinionDelayRaw = 101581, MinionStartRaw = 160563 };
         const long start = 100 * second;
-        long restart = start + entrance.MinionDelayRaw;
-        var delayed = new EntranceRun(entrance, start);
+        long restart = start + delayedSpec.MinionDelayRaw;
+        var delayed = new EntranceRun(delayedSpec, start);
         Check(delayed.Start() == (EntranceCommand.Execute, 0, null, 0L, true), "entrance plays prelude from zero");
         delayed.Executed(start, false);
         Check(delayed.Next(start, true, false).Command == EntranceCommand.Wait, "failed prelude does not end the entrance");
         Check(delayed.Next(restart - 1, true, false).Command == EntranceCommand.Wait, "prelude waits even when action is not executing");
-        Check(delayed.Next(restart, true, true) == (EntranceCommand.Execute, 0, null, entrance.MinionStartRaw, false),
+        Check(delayed.Next(restart, true, true) == (EntranceCommand.Execute, 0, null, delayedSpec.MinionStartRaw, false),
             "prelude restarts step 0 at the configured time and offset");
         delayed.Executed(restart, true);
         Check(delayed.Next(restart + quarter - 1, true, false).Command == EntranceCommand.Wait, "grace period starts at the formal execute");
         Check(delayed.Next(restart + quarter, true, false) == (EntranceCommand.Execute, 1, null, 0L, false), "delayed entrance advances normally");
         delayed.Executed(restart + quarter, true);
         Check(delayed.Next(restart + 2 * quarter, true, false) is (EntranceCommand.Finish, _, "done", _, _), "delayed entrance finishes normally");
-        var lost = new EntranceRun(entrance, start);
+        var lost = new EntranceRun(delayedSpec, start);
         lost.Start();
         lost.Executed(start, true);
         Check(lost.Next(start + 1, false, true) is (EntranceCommand.Finish, _, "minion gone", _, _), "prelude handles minion loss");
-        var reversed = new EntranceRun(entrance, start);
+        var reversed = new EntranceRun(delayedSpec, start);
         reversed.Start();
         Check(reversed.Next(start - 1, true, false) is (EntranceCommand.Finish, _, "clock went backwards", _, _), "prelude handles clock reversal");
 
