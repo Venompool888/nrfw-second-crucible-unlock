@@ -188,6 +188,10 @@ namespace Necromancy
             action.MinionNpcData = new AssetRefNpcData { Id = BossGuid(rule.Npc) };
             action.UseCorpseNpcType = false;
             action.MaxActiveMinions = rule.MaxActive;
+            var hp = action.HealthMultiplierBoss; hp.RawValue = rule.HealthRaw; action.HealthMultiplierBoss = hp;
+            hp = action.HealthMultiplierGiant; hp.RawValue = rule.HealthRaw; action.HealthMultiplierGiant = hp;
+            hp = action.HealthMultiplierElite; hp.RawValue = rule.HealthRaw; action.HealthMultiplierElite = hp;
+            hp = action.HealthMultiplierNormal; hp.RawValue = rule.HealthRaw; action.HealthMultiplierNormal = hp;
             var oldItem = new AssetRefHeroItemData { Id = i };
             var rune = new RuneData
             {
@@ -205,9 +209,10 @@ namespace Necromancy
 
             f.AddAsset(action, a);
             if (f.DynamicAssetDB.FindAsset(a)?.Pointer != action.Pointer || action.Guid.Value != a.Value ||
-                action.UseCorpseNpcType || action.MinionNpcData.Id.Value != rule.Npc || action.MaxActiveMinions != rule.MaxActive)
+                action.UseCorpseNpcType || action.MinionNpcData.Id.Value != rule.Npc || action.MaxActiveMinions != rule.MaxActive ||
+                action.HealthMultiplierBoss.RawValue != rule.HealthRaw || action.HealthMultiplierNormal.RawValue != rule.HealthRaw)
                 throw new InvalidOperationException("Action AddAsset readback failed");
-            Write(label + " AddAsset action verified A=" + BossId(a.Value));
+            Write(label + " AddAsset action verified A=" + BossId(a.Value) + " health x" + rule.HealthScale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
             f.AddAsset(item, i);
             if (f.DynamicAssetDB.FindAsset(i)?.Pointer != item.Pointer || item.Guid.Value != i.Value || item.Actions[0].Id.Value != a.Value)
                 throw new InvalidOperationException("HeroRuneData AddAsset readback failed");

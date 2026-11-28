@@ -45,6 +45,12 @@ internal static class Program
         Check(ledger == "Hero A:warrick" && BossRunePolicy.AddGrant(ledger, "hero a", "WARRICK") == ledger, "grant add, no duplicate");
         Check(BossRunePolicy.HasGrant(ledger, " HERO A ", "Warrick") && !BossRunePolicy.HasGrant(ledger, "Hero B", "warrick") &&
               !BossRunePolicy.HasGrant(ledger, "Hero A", "echo_knight") && !BossRunePolicy.HasGrant("Hero A", "Hero A", "warrick"), "grant lookup exact, case-insensitive");
+        var healthDefaults = BossRunePolicy.Parse(BossRunePolicy.DefaultJson, out _, out _);
+        Check(healthDefaults.All(r => r.HealthScale == 0.05 && r.HealthRaw == 3277), "default Boss health scale 0.05 (raw 3277), below shipped 0.1");
+        Check(BossRunePolicy.Parse("[{\"key\":\"a\",\"slot\":3,\"npc\":\"1\"}]", out _, out _).Single().HealthScale == 0.05, "missing health_scale uses the default");
+        Check(BossRunePolicy.Parse("[{\"key\":\"a\",\"slot\":3,\"npc\":\"1\",\"health_scale\":0.2}]", out _, out _).Single().HealthRaw == 13107, "explicit health_scale 0.2 -> raw 13107");
+        foreach (string bad in new[] { "0", "0.005", "1.5", "-0.1", "\"0.05\"", "true" })
+            Check(BossRunePolicy.Parse("[{\"key\":\"a\",\"slot\":3,\"npc\":\"1\",\"health_scale\":" + bad + "}]", out var badErrors, out _).Length == 0 && badErrors.Length == 1, "health_scale " + bad + " rejected");
         string tomes = BossRunePolicy.AddGrant(ledger, "Hero A", BossRunePolicy.TomeGrantKey);
         Check(BossRunePolicy.HasGrant(tomes, "hero a", BossRunePolicy.TomeGrantKey) && !BossRunePolicy.HasGrant(ledger, "Hero A", BossRunePolicy.TomeGrantKey) &&
               !BossRunePolicy.HasGrant(tomes, "Hero B", BossRunePolicy.TomeGrantKey), "tome grant recorded per character, separate from rune grants");

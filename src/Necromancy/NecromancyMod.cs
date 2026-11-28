@@ -1224,8 +1224,9 @@ namespace Necromancy
             try
             {
                 FirstHit(ref _raiseDataHit, nameof(BeforeRaiseData));
-                if (!_enabled || __instance == null || IsPrivateBossAction(__instance.Guid.Value)) return true;
-                try { ApplySummon(__0, __instance); } catch (Exception e) { Error("summon", e); }
+                if (!_enabled || __instance == null) return true;
+                // Boss rune actions keep their own summon target; they still get the teleport-distance multiplier below.
+                if (!IsPrivateBossAction(__instance.Guid.Value)) try { ApplySummon(__0, __instance); } catch (Exception e) { Error("summon", e); }
                 var d = __instance.MaxDistanceBeforeTeleport;
                 if (TeleportWritten.TryGetValue(__instance.Pointer, out long written) && written == d.RawValue) return true;
                 long scaled = NecromancyPolicy.ScaledTeleportRaw(d.RawValue, _teleportMultiplier);
