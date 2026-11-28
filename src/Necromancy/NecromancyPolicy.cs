@@ -3,28 +3,96 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.19.0";
+        internal const string Version = "0.19.1";
         internal const string ExpectedSteamBuildId = "22928553";
         internal const int DefaultFeatureMaxErrors = 5;
 
-        private static readonly System.Text.RegularExpressions.Regex ManifestBuildIdRegex =
-            new(@"(?:^|[\s{])""buildid""\s+""([^""\r\n]*)""", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
-
-        // Extracts the Steam appmanifest buildid value when uniquely present and numeric.
+        // Extracts the top-level (depth == 1) Steam appmanifest "buildid" value using a VDF/ACF tokenizer,
+        // ignoring nested blocks (such as PrivateDepots -> branches -> private_beta -> buildid).
         internal static bool TryParseManifestBuildId(string manifestText, out string buildId)
         {
             buildId = null;
             if (string.IsNullOrWhiteSpace(manifestText)) return false;
-            var matches = ManifestBuildIdRegex.Matches(manifestText);
-            if (matches.Count != 1) return false;
-            string candidate = matches[0].Groups[1].Value;
-            if (candidate.Length == 0) return false;
-            for (int i = 0; i < candidate.Length; ++i)
+
+            int depth = 0;
+            bool openedBlock = false;
+            bool expectingValueAtDepth1 = false;
+            bool pendingBuildIdKey = false;
+            string foundBuildId = null;
+
+            for (int i = 0; i < manifestText.Length;)
             {
-                char c = candidate[i];
-                if (c < '0' || c > '9') return false;
+                char c = manifestText[i];
+                if (char.IsWhiteSpace(c)) { ++i; continue; }
+                if (c == '/' && i + 1 < manifestText.Length && manifestText[i + 1] == '/')
+                {
+                    i += 2;
+                    while (i < manifestText.Length && manifestText[i] != '\n' && manifestText[i] != '\r') ++i;
+                    continue;
+                }
+                if (c == '{')
+                {
+                    if (pendingBuildIdKey) return false;
+                    openedBlock = true;
+                    ++depth;
+                    expectingValueAtDepth1 = false;
+                    ++i;
+                    continue;
+                }
+                if (c == '}')
+                {
+                    if (pendingBuildIdKey || --depth < 0) return false;
+                    expectingValueAtDepth1 = false;
+                    ++i;
+                    continue;
+                }
+                if (c != '"') return false;
+
+                ++i;
+                var sb = new System.Text.StringBuilder();
+                bool closed = false;
+                while (i < manifestText.Length)
+                {
+                    char q = manifestText[i++];
+                    if (q == '"') { closed = true; break; }
+                    if (q == '\\')
+                    {
+                        if (i >= manifestText.Length) return false;
+                        sb.Append(manifestText[i++]);
+                    }
+                    else sb.Append(q);
+                }
+                if (!closed) return false;
+
+                if (depth == 1)
+                {
+                    string token = sb.ToString();
+                    if (!expectingValueAtDepth1)
+                    {
+                        expectingValueAtDepth1 = true;
+                        if (string.Equals(token, "buildid", System.StringComparison.Ordinal))
+                        {
+                            if (foundBuildId != null) return false;
+                            pendingBuildIdKey = true;
+                        }
+                    }
+                    else
+                    {
+                        expectingValueAtDepth1 = false;
+                        if (pendingBuildIdKey)
+                        {
+                            pendingBuildIdKey = false;
+                            foundBuildId = token;
+                        }
+                    }
+                }
             }
-            buildId = candidate;
+
+            if (!openedBlock || depth != 0 || pendingBuildIdKey || string.IsNullOrEmpty(foundBuildId))
+                return false;
+            for (int i = 0; i < foundBuildId.Length; ++i)
+                if (foundBuildId[i] < '0' || foundBuildId[i] > '9') return false;
+            buildId = foundBuildId;
             return true;
         }
 

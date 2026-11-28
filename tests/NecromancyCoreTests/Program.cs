@@ -11,7 +11,7 @@ internal static class Program
         // ---- version & constants ----
         Run("version and expected Steam build ID", () =>
         {
-            Assert(NecromancyPolicy.Version == "0.19.0", "version expected 0.19.0, got " + NecromancyPolicy.Version);
+            Assert(NecromancyPolicy.Version == "0.19.1", "version expected 0.19.1, got " + NecromancyPolicy.Version);
             Assert(NecromancyPolicy.ExpectedSteamBuildId == "22928553", "buildid expected 22928553");
         });
 
@@ -31,8 +31,21 @@ internal static class Program
             Assert(NecromancyPolicy.IsExpectedSteamBuild(singleLine), "single-line accepted");
         });
 
-        Run("manifest parser rejects wrong buildid", () =>
+        Run("manifest parser handles escaped paths and ignores nested PrivateDepots buildid", () =>
         {
+            const string realisticAcf =
+                "\"AppState\"\n{\n\t\"appid\"\t\t\"1371980\"\n\t\"LauncherPath\"\t\t\"C:\\\\Program Files\\\\Steam\\\\steam.exe\"\n\t\"buildid\"\t\t\"22928553\"\n\t// comment with \"buildid\" \"999\"\n\t\"PrivateDepots\"\n\t{\n\t\t\"branches\"\n\t\t{\n\t\t\t\"private_beta\"\n\t\t\t{\n\t\t\t\t\"buildid\"\t\t\"26053765\"\n\t\t\t}\n\t\t}\n\t}\n}\n";
+            Assert(NecromancyPolicy.TryParseManifestBuildId(realisticAcf, out string id) && id == "22928553", "top-level buildid captured");
+            Assert(NecromancyPolicy.IsExpectedSteamBuild(realisticAcf), "realistic ACF accepted");
+        });
+
+        Run("manifest parser rejects nested-only buildid, wrong buildid, and unbalanced braces", () =>
+        {
+            const string nestedOnly =
+                "\"AppState\"\n{\n\t\"appid\"\t\t\"1371980\"\n\t\"PrivateDepots\"\n\t{\n\t\t\"branches\"\n\t\t{\n\t\t\t\"private_beta\"\n\t\t\t{\n\t\t\t\t\"buildid\"\t\t\"22928553\"\n\t\t\t}\n\t\t}\n\t}\n}\n";
+            Assert(!NecromancyPolicy.TryParseManifestBuildId(nestedOnly, out string nestedId) && nestedId == null, "nested-only buildid rejected");
+            Assert(!NecromancyPolicy.IsExpectedSteamBuild(nestedOnly), "nested-only must fail expected check");
+
             foreach (string wrong in new[] { "22928554", "22928552", "0", "99999999" })
             {
                 string acf = "\"AppState\"\n{\n\t\"buildid\"\t\t\"" + wrong + "\"\n}\n";
@@ -41,6 +54,18 @@ internal static class Program
             }
             Assert(!NecromancyPolicy.IsExpectedSteamBuild("\"AppState\"\n{\n\t\"buildid\"\t\t\"22928553\"\n}\n", "999"), "mismatched expected parameter fails");
             Assert(!NecromancyPolicy.IsExpectedSteamBuild("\"AppState\"\n{\n\t\"buildid\"\t\t\"22928553\"\n}\n", ""), "empty expected parameter fails");
+
+            foreach (string unbalanced in new[]
+            {
+                "\"AppState\"\n{\n\t\"buildid\"\t\t\"22928553\"",
+                "\"AppState\"\n{\n\t\"buildid\"\t\t\"22928553\"\n}\n}",
+                "\"AppState\" } \"buildid\" \"22928553\" {",
+                "\"AppState\"\n{\n\t\"buildid\" { \"inner\" \"22928553\" }\n}",
+            })
+            {
+                Assert(!NecromancyPolicy.TryParseManifestBuildId(unbalanced, out _), "unbalanced/block buildid rejected");
+                Assert(!NecromancyPolicy.IsExpectedSteamBuild(unbalanced), "unbalanced/block buildid fails expected check");
+            }
         });
 
         Run("manifest parser rejects missing field and malformed manifests", () =>
