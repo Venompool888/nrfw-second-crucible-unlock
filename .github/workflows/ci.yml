@@ -1,0 +1,57 @@
+name: Pure Managed Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  pure-tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 6
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Run all pure-managed test suites (zero vendor references)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
+          $env:DOTNET_NOLOGO = '1'
+          $tests = @(
+            'tests/BowgunRepairTests/BowgunRepairTests.csproj',
+            'tests/EnemyRestorationActionHooksTests/EnemyRestorationActionHooksTests.csproj',
+            'tests/EnemyRestorationAudioDiagnosticsTests/EnemyRestorationAudioDiagnosticsTests.csproj',
+            'tests/EnemyRestorationKeeperWeaponViewsTests/EnemyRestorationKeeperWeaponViewsTests.csproj',
+            'tests/EnemyRestorationReactionViewsTests/EnemyRestorationReactionViewsTests.csproj',
+            'tests/EnemyRestorationRuntimeTests/EnemyRestorationRuntimeTests.csproj',
+            'tests/EnemyRestorationTests/EnemyRestorationTests.csproj',
+            'tests/EnemyRestorationViewsTests/EnemyRestorationViewsTests.csproj',
+            'tests/EnemyRestorationVoiceRepairTests/EnemyRestorationVoiceRepairTests.csproj',
+            'tests/EnemyRestorationWeaponViewsTests/EnemyRestorationWeaponViewsTests.csproj',
+            'tests/NecromancyBossRuneTests/NecromancyBossRuneTests.csproj',
+            'tests/NecromancyReactionTests/NecromancyReactionTests.csproj',
+            'tests/PlayerConfigurationTests/PlayerConfigurationTests.csproj',
+            'tests/RitualTemplateDiscoveryTests/RitualTemplateDiscoveryTests.csproj',
+            'tests/RuntimePolicyTests/RuntimePolicyTests.csproj',
+            'tests/ThirdTrialEntryTests/ThirdTrialEntryTests.csproj',
+            'tests/ThirdTrialHudRepairTests/ThirdTrialHudRepairTests.csproj',
+            'tests/ThirdTrialNativeStorageTests/ThirdTrialNativeStorageTests.csproj',
+            'tests/ThirdTrialPresentationTests/ThirdTrialPresentationTests.csproj',
+            'tests/ThirdTrialRuntimeTests/ThirdTrialRuntimeTests.csproj',
+            'tests/ThirdTrialSpawningTests/ThirdTrialSpawningTests.csproj',
+            'tests/ThirdTrialStorageTests/ThirdTrialStorageTests.csproj'
+          )
+          foreach ($project in $tests) {
+            Write-Host "=== $project ==="
+            if ($project -eq 'tests/EnemyRestorationRuntimeTests/EnemyRestorationRuntimeTests.csproj') {
+              dotnet run --project $project -c Release -- src/CrucibleUnlock/EnemyRestorationRuntime.cs
+            } else {
+              dotnet run --project $project -c Release
+            }
+            if ($LASTEXITCODE -ne 0) { throw "Test failed: $project (exit $LASTEXITCODE)" }
+          }
