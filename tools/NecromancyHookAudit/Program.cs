@@ -14,6 +14,9 @@ var layoutFields = new[]
     (Type: "Il2CppQuantum.Damage", Field: "Proxy", FieldType: "Il2CppQuantum.PayloadProxyGroup", Offset: 0xb8),
     (Type: "Il2CppQuantum.DamageResponse", Field: "Type", FieldType: "Il2CppQuantum.DamagePayloadResponseType", Offset: 8),
     (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "Owner", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x10),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "FollowStartDistance", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x38),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "MaxDistanceBeforeTeleport", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x50),
+    (Type: "Il2CppQuantum.TransformComponent", Field: "RawPosition", FieldType: "Il2CppPhoton.Deterministic.FPVector3", Offset: 0x08),
     (Type: "Il2CppQuantum.ProjectileComponent", Field: "InstigatorRef", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x30),
     (Type: "Il2CppQuantum.CascadeInstanceComponent", Field: "Caster", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x40)
 };
@@ -77,7 +80,7 @@ foreach (var entry in nativeEntrypoints)
     Check(methods.Count(m => m.Type == entry.Type && m.Method == entry.Name && m.Return == entry.Return &&
         m.Static == entry.Static && m.Args.SequenceEqual(entry.Args)) == 1, "native damage entry " + entry.Type + "." + entry.Name);
 foreach (var field in layoutFields)
-    Check(layouts.Contains(field), "native damage layout " + field.Type + "." + field.Field);
+    Check(layouts.Contains(field), "native field layout " + field.Type + "." + field.Field);
 foreach (var field in roarFields)
     Check(layouts.Contains(field), "roar field " + field.Type + "." + field.Field);
 
@@ -148,6 +151,25 @@ Check(NecromancyPolicy.ScaledTeleportRaw(20L << 16, 3f) == 60L << 16 && Necroman
       NecromancyPolicy.ScaledTeleportRaw(20L << 16, 0f) == 20L << 16 && NecromancyPolicy.ScaledTeleportRaw(20L << 16, float.NaN) == 20L << 16 &&
       NecromancyPolicy.ScaledTeleportRaw(20L << 16, 1000f) == 1000L << 16 && NecromancyPolicy.ScaledTeleportRaw(0, 3f) == 0,
       "teleport distance: 3x of 20 m is 60 m; <=0/NaN keep shipped value; capped at 50x");
+Check(NecromancyPolicy.ShouldHoldStuckTeleport(false, true, true, 11L << 16, 10, 20L << 16, null) &&
+      NecromancyPolicy.ShouldHoldStuckTeleport(true, true, true, 11L << 16, 10, 20L << 16, null),
+      "stuck teleport hold: near owner always holds, even following or past cap without a hit");
+Check(NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 11L << 16, 10, 20L << 16, 16L << 16) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 11L << 16, 10, 20L << 16, null) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 10L << 16, 10, 20L << 16, 14L << 16) &&
+      NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 9L << 16, 10, 20L << 16, null) &&
+      NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 11L << 16, 0, 20L << 16, null) &&
+      NecromancyPolicy.ShouldHoldStuckTeleport(true, true, false, 5L << 16, 10, 20L << 16, null) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(true, true, false, 11L << 16, 10, 20L << 16, 19L << 16) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(true, true, false, 11L << 16, 0, 20L << 16, null) &&
+      NecromancyPolicy.ShouldHoldStuckTeleport(true, true, false, 9L << 16, 0, 20L << 16, null) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(false, false, false, 0, 0, 20L << 16, 20L << 16),
+      "stuck teleport hold beyond near radius: off-follow and in range, recent hit or below cap, 0 uncaps");
+Check(NecromancyPolicy.EntityLabel(9223372084099418004UL) == "E.01940.011" && NecromancyPolicy.EntityLabel(9223372118459156023UL) == "E.01591.019",
+      "entity label matches the Unity log form E.index.version");
+Check(types.Contains("Il2CppQuantum.UseNavDataComponent") && types.Contains("Il2CppQuantum.CorpseMarkerComponent"), "UseNavDataComponent / CorpseMarkerComponent exist");
+Check(NecromancyPolicy.InHoldRange(59, 7.9, 60, 8) && !NecromancyPolicy.InHoldRange(61, 0, 60, 8) && !NecromancyPolicy.InHoldRange(10, -8.1, 60, 8) &&
+      NecromancyPolicy.InHoldRange(55, 30, 60, 0), "hold range: horizontal <= teleport distance and |dy| <= max dy (0 = no limit)");
 // T-010 summon swap: field types the plugin writes, and the setting/limit rules.
 const string Raise = "Il2CppQuantum.RaiseMinionActionData";
 Check(methods.Any(m => m.Type == Raise && m.Method == "get_MinionNpcData" && m.Return == "Il2CppQuantum.AssetRefNpcData") &&

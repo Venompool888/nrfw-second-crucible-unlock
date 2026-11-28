@@ -35,6 +35,7 @@ namespace Necromancy
         private static int _damageProtectionLogs;
 
         private static readonly ConcurrentDictionary<(IntPtr Context, ulong Entity), ulong> RaisedDamageOwners = new();
+        private static readonly ConcurrentDictionary<ulong, long> MinionLastDamage = new();
 
         private static unsafe void InstallRaisedMinionDamageProtection()
         {
@@ -153,6 +154,19 @@ namespace Necromancy
                             *response = default;
                             return;
                         }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            if (!EntityRefExtensions.Has<RaisedMinionComponent>(target.Entity, simulation))
+                            {
+                                var source = ReadDamageSource(simulation, (IntPtr)(&damage->Proxy));
+                                if (source.RaisedByPlayer)
+                                    MinionLastDamage[source.Entity.Raw] = simulation.TimeSinceStart.RawValue;
+                            }
+                        }
+                        catch (Exception) { }
                     }
                 }
                 catch (Exception e) { Error("minion-damage-resolve", e); }

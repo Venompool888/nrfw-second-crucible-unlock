@@ -10,7 +10,11 @@
 
 ## 进行中（0）
 
-## 测试中（0）
+## 测试中（1）
+
+| 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 待决定 |
+|---|---|---|---|---|---|---|
+| [T-011](T-011.md) | [#15](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/15) | bug | P1 | necromancy | 0.13.1 战斗中崩溃：寻路实体缺导航组件 | |
 
 ## 已合入（11）
 
