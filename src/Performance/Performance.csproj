@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 独立性能优化与管线诊断插件，不依赖 CrucibleUnlock 或 NRFWNecromancy。 -->
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework><PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>NRFWPerformance</AssemblyName><RootNamespace>Performance</RootNamespace><Version>0.1.0</Version>
+    <LangVersion>latest</LangVersion><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath><DebugType>none</DebugType>
+  </PropertyGroup>
+  <PropertyGroup Condition="Exists('../../vendor/generated/UnityEngine.IMGUIModule.dll')">
+    <DefineConstants>$(DefineConstants);HAS_IMGUI</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="UnityEngine.IMGUIModule" Condition="Exists('../../vendor/generated/UnityEngine.IMGUIModule.dll')"><HintPath>../../vendor/generated/UnityEngine.IMGUIModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>../../vendor/refs/0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MelonLoader"><HintPath>../../vendor/refs/MelonLoader.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppInterop.Runtime"><HintPath>../../vendor/generated/Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cppmscorlib"><HintPath>../../vendor/generated/Il2Cppmscorlib.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppSystem"><HintPath>../../vendor/generated/Il2CppSystem.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppQuantum.Engine"><HintPath>../../vendor/generated/Il2CppQuantum.Engine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppQuantum.Deterministic"><HintPath>../../vendor/generated/Il2CppQuantum.Deterministic.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cppmoon.quantum.forsaken"><HintPath>../../vendor/generated/Il2Cppmoon.quantum.forsaken.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cpp__forsaken"><HintPath>../../vendor/generated/Il2Cpp__forsaken.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>../../vendor/generated/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

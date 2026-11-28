@@ -32,5 +32,8 @@ RunSdk @('run','--project',(Join-Path $base 'tests/NecromancyReactionTests/Necro
 RunSdk @('run','--project',(Join-Path $base 'tests/NecromancyBossRuneTests/NecromancyBossRuneTests.csproj'),'-c','Release')
 $necromancy = Join-Path $base 'src/Necromancy/bin/Release/NRFWNecromancy.dll'
 RunSdk @('run','--project',(Join-Path $base 'tools/NecromancyHookAudit/NecromancyHookAudit.csproj'),'-c','Release','--',(Join-Path $base 'vendor/generated'),$necromancy)
-& (Join-Path $base 'package-local.ps1') -DllPath $core -AudioDllPath $audio
-'PASS: public source builds, policy suites, player entry-point configuration, hook/thread contracts and exact release DLL hashes.'
+RunSdk @('build',(Join-Path $base 'src/Performance/Performance.csproj'),'-c','Release','-v','minimal')
+RunSdk @('run','--project',(Join-Path $base 'tests/PerformancePolicyTests/PerformancePolicyTests.csproj'),'-c','Release')
+$perf = Join-Path $base 'src/Performance/bin/Release/NRFWPerformance.dll'
+RunSdk @('run','--project',(Join-Path $base 'tools/PerformanceHookAudit/PerformanceHookAudit.csproj'),'-c','Release','--',(Join-Path $base 'vendor/generated'),$perf)
+'PASS: public source builds, policy suites, player entry-point configuration, and PE hook/metadata audits.'
