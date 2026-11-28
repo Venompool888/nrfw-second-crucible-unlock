@@ -10,16 +10,13 @@
 
 ## 进行中（0）
 
-## 测试中（1）
+## 测试中（0）
 
-| 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 待决定 |
-|---|---|---|---|---|---|---|
-| [T-011](T-011.md) | [#15](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/15) | bug | P1 | necromancy | 0.13.1 战斗中崩溃：寻路实体缺导航组件 | |
-
-## 已合入（11）
+## 已合入（12）
 
 | 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 合入 |
 |---|---|---|---|---|---|---|
+| [T-011](T-011.md) | [#15](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/15) | bug | P1 | necromancy | 0.13.1 战斗中崩溃：寻路实体缺导航组件；随从按水平距离与高度差决定是否传回 | PR #19 · `0936148` |
 | [T-002](T-002.md) | [#3](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/3) | task | P2 | workflow | 采用 OriCoop 工作流（工单、分支、分层测试、PR） | PR #11 · `9fdcb86` |
 | [T-001](T-001.md) | [#2](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/2) | feature | P2 | necromancy | 恢复未放出的死灵起尸玩法（raiseMinion / revive / healMinions + 治疗宝典） | PR #14 · `6a3e998` |
 | [T-003](T-003.md) | [#4](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/4) | bug | P1 | necromancy | 起尸系统在原版里没有注册，起尸无法运行 | PR #14 · `6a3e998` |
