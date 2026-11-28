@@ -3,7 +3,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.17.1";
+        internal const string Version = "0.18.0";
 
         // Public Build 22928553 rune items (staff/wand, CompatibleClasses [25, 24], ThomasApproved=true).
         internal const long RaiseMinionRune = 2160606268309502004;   // raiseMinion: fixed npcRisenWildlingSwordA
@@ -58,6 +58,14 @@ namespace Necromancy
             ("Il2CppQuantum.SystemSetup", "CreateSystems", new[] { "Il2CppQuantum.RuntimeConfig", "Il2CppQuantum.SimulationConfig" },
                 "Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray`1<Il2CppQuantum.SystemBase>"),
             ("Il2CppQuantum.EndOfFrameSystem", "Update", new[] { "Il2CppQuantum.Frame" }, "Void"),
+            ("Il2CppQuantum.InitializeContentSystem", "OnInit", new[] { "Il2CppQuantum.Frame" }, "Void"),
+            ("Il2CppMoon.Playmode.InitializeQuantumAssetDatabase", "InitializeResourceManager", new[] { "Il2CppMoon.TheLoop.ViewFrame" }, "Void"),
+            ("Il2CppQuantum.RaiseMinionActionData", "CountActiveMinions", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef" }, "System.Int32"),
+            ("Il2CppQuantum.PlayerSerialization", "LoadHeroFromPlayerSerializedData",
+                new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.CharacterContents" }, "System.Boolean"),
+            ("Il2Cpp.HeroItemDataAsset", "GetName", new string[0], "System.String"),
+            ("Il2Cpp.HeroItemDataAsset", "GetDescription", new string[0], "System.String"),
+            ("Il2CppMoon.Forsaken.EntityView", "GetActionView", new[] { "Il2CppQuantum.ActionData", "System.Boolean&" }, "Il2CppMoon.Forsaken.ActionView"),
             ("Il2CppQuantum.CorpseMarkerSystem", "Update", new[] { "Il2CppQuantum.Frame" }, "Void"),
             ("Il2CppQuantum.RaisedMinionSystem", "Update", new[] { "Il2CppQuantum.Frame" }, "Void"),
             ("Il2CppQuantum.RaiseMinionActionData", "Execute", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef" }, "System.Boolean"),
@@ -132,7 +140,7 @@ namespace Necromancy
         internal const long WildlingSwordNpc = 2598229157892424643;   // npcRisenWildlingSwordA (shipped)
         internal const long WarrickBossNpc = 2680182020363611965;     // npcWarrickBoss, EnemyType Boss
         internal const long WarrickEnemyNpc = 670058593051072033;     // npcWarrickEnemy, EnemyType Giant, same AI
-        internal const string DefaultMinionNpc = "warrick_boss";
+        internal const string DefaultMinionNpc = "native";
         internal const int DefaultMinionMaxActive = 1;
 
         // Runtime asset Path is empty in the release build (0.15.2 playtest), so defaults are GUIDs read offline from

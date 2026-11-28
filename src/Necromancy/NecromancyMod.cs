@@ -76,6 +76,7 @@ namespace Necromancy
             if (_enabled) InstallRaisedMinionDamageProtection();
             if (_enabled) InstallMinionLifecycle(category);
             if (_enabled) InstallRoarCommand(category);
+            if (_enabled) InstallBossRunes(category);
             Flush();
         }
 
@@ -102,6 +103,8 @@ namespace Necromancy
         public override void OnUpdate()
         {
             if (_enabled) CaptureHero();
+            if (_enabled && _bossEnabled) PumpBossViews();
+            SaveBossGrants();
             if (_enabled && _visualsOn && (++_visualTick % 20) == 0) EnsureMinionVisuals();
             if (_grantDone && _grantedEntry != null && _grantRequested)
             {
@@ -128,6 +131,9 @@ namespace Necromancy
             try
             {
                 Found.Clear(); Added.Clear(); _enableChecks = 0; _heroFrames = 0;
+                _bossSession = null;
+                BossStorages.Clear();
+                _bossReadWithoutSession = 0;
                 RaisedDamageOwners.Clear();
                 MinionLastDamage.Clear();
                 TeleportMinions.Clear();
@@ -177,6 +183,7 @@ namespace Necromancy
             {
                 EnsureEnabled(__0);
                 if (_grantRequested && !_grantDone) TryGrant(__0);
+                if (_bossEnabled) TickBossRunes(__0);
                 TickLifetime(__0);
                 if (_roarEnabled) try { TickRoarTraces(__0); } catch (Exception e) { RoarTraces.Clear(); Write("roar trace FAILED " + e.GetType().Name + ": " + e.Message); }
             }
@@ -1072,7 +1079,7 @@ namespace Necromancy
         private static unsafe bool OffFollowWithinRange(RaisedMinionComponent* comp, double ownerDist) =>
             comp->IsFollowing.Value == 0 && ownerDist <= comp->MaxDistanceBeforeTeleport.RawValue / 65536.0;
 
-        private static void AfterMinionSpawned(EntityRef __0)
+        private static void AfterMinionSpawned(EntityRef __0, AssetGuid __2)
         {
             try
             {
@@ -1080,6 +1087,7 @@ namespace Necromancy
                 if (!_enabled || !__0.IsValid) return;
                 Minions[__0.Raw] = Environment.TickCount64;
                 if (!_stuckHoldOff && (!_stuckTeleportInCombat || !_heightTeleportInRange)) TeleportMinions.Add(__0.Raw);
+                TrackBossSpawn(__0, __2);
             }
             catch (Exception e) { Write("spawn-register ERROR " + e.GetType().Name + ": " + e.Message); }
         }
@@ -1202,7 +1210,7 @@ namespace Necromancy
             try
             {
                 FirstHit(ref _raiseDataHit, nameof(BeforeRaiseData));
-                if (!_enabled || __instance == null) return true;
+                if (!_enabled || __instance == null || IsPrivateBossAction(__instance.Guid.Value)) return true;
                 try { ApplySummon(__0, __instance); } catch (Exception e) { Error("summon", e); }
                 var d = __instance.MaxDistanceBeforeTeleport;
                 if (TeleportWritten.TryGetValue(__instance.Pointer, out long written) && written == d.RawValue) return true;
@@ -1410,12 +1418,13 @@ namespace Necromancy
             try
             {
                 long rune = __2.Guid.Value;
-                if (!NecromancyPolicy.IsNecromancyRune(rune)) return;
+                bool boss = IsReadyBossItem(__0, rune);
+                if (!boss && !NecromancyPolicy.IsNecromancyRune(rune)) return;
                 if (!EntityRefExtensions.Has<ItemComponent>(__1, __0)) return;
                 var component = EntityRefExtensions.Get<ItemComponent>(__1, __0);
                 if (component == null) return;
                 long item = component->Data.Id.Value;
-                if (!NecromancyPolicy.TomeAccepts(item, rune)) return;
+                if (!(boss ? item == NecromancyPolicy.TomeOfHealing : NecromancyPolicy.TomeAccepts(item, rune))) return;
                 __result = true;
                 if (Interlocked.Increment(ref _compatLogs) <= 10) Write("tome-runes ALLOW entity=" + __1.Raw + " rune=" + rune);
             }
@@ -1429,7 +1438,8 @@ namespace Necromancy
             try
             {
                 long rune = __2.Guid.Value;
-                if (!NecromancyPolicy.ClasslessAccepts((int)__1->Class, rune)) return;
+                int weaponClass = (int)__1->Class;
+                if (!NecromancyPolicy.ClasslessAccepts(weaponClass, rune) && !(weaponClass == 0 && IsReadyBossItem(__0, rune))) return;
                 __result = true;
                 if (Interlocked.Increment(ref _compatLogs) <= 10) Write("tome-runes ALLOW classless weapon rune=" + rune);
             }
@@ -1475,10 +1485,15 @@ namespace Necromancy
             if (failure != null) BreakTeleportHolds(failure);
         }
 
-        private static void AfterRaiseExecute(Frame __0, EntityRef __1, bool __result)
+        private static void AfterRaiseExecute(Frame __0, EntityRef __1, RaiseMinionActionData __instance, bool __result)
         {
-            if (__0 != null && __0.IsVerified && Interlocked.Increment(ref _executes) <= 200)
-                Write("raise Execute caster=" + __1.Raw + " -> " + __result);
+            try
+            {
+                if (__instance != null && IsPrivateBossAction(__instance.Guid.Value)) LogBossExecute(__0, __1, __instance, __result);
+                else if (__0 != null && __0.IsVerified && Interlocked.Increment(ref _executes) <= 200)
+                    Write("raise Execute caster=" + __1.Raw + " -> " + __result);
+            }
+            catch (Exception e) { BossError("Execute log", e); }
         }
 
         private static void AfterCanRaise(Frame __0, EntityRef __1, bool __result)

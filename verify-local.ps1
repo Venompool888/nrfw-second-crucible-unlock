@@ -27,5 +27,10 @@ $core = Join-Path $base 'src/CrucibleUnlock/bin/Release/CrucibleUnlock.dll'
 $audio = Join-Path $base 'src/BowgunRepair/bin/Release/NRFWBowgunAudioSync.dll'
 RunSdk @('run','--project',(Join-Path $base 'tools/BowgunHookAudit/BowgunHookAudit.csproj'),'-c','Release','--',(Join-Path $base 'vendor/generated'),$core)
 RunSdk @('run','--project',(Join-Path $base 'tools/BowgunInputMetadataGate/BowgunInputMetadataGate.csproj'),'-c','Release','--',$core,$audio)
+RunSdk @('build',(Join-Path $base 'src/Necromancy/Necromancy.csproj'),'-c','Release','-v','minimal')
+RunSdk @('run','--project',(Join-Path $base 'tests/NecromancyReactionTests/NecromancyReactionTests.csproj'),'-c','Release')
+RunSdk @('run','--project',(Join-Path $base 'tests/NecromancyBossRuneTests/NecromancyBossRuneTests.csproj'),'-c','Release')
+$necromancy = Join-Path $base 'src/Necromancy/bin/Release/NRFWNecromancy.dll'
+RunSdk @('run','--project',(Join-Path $base 'tools/NecromancyHookAudit/NecromancyHookAudit.csproj'),'-c','Release','--',(Join-Path $base 'vendor/generated'),$necromancy)
 & (Join-Path $base 'package-local.ps1') -DllPath $core -AudioDllPath $audio
 'PASS: public source builds, policy suites, player entry-point configuration, hook/thread contracts and exact release DLL hashes.'
