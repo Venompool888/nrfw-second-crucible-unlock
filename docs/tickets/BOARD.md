@@ -10,16 +10,13 @@
 
 ## 进行中（0）
 
-## 测试中（1）
+## 测试中（0）
 
-| 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 分支 |
-|---|---|---|---|---|---|---|
-| [T-014](T-014.md) | [#20](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/20) | feature | P2 | necromancy | 通用表情 → 招式反应（任何召唤物、多种表情各有反应） | `t/T-014-gesture-reactions` |
-
-## 已合入（4）
+## 已合入（5）
 
 | 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 合入 |
 |---|---|---|---|---|---|---|
+| [T-014](T-014.md) | [#20](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/20) | feature | P2 | necromancy | 通用表情 → 招式反应（任何召唤物、多种表情各有反应）——第一阶段 + 多招 `pick`；第二、四阶段未做 | PR #21 · `a05a963` |
 | [T-002](T-002.md) | [#3](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/3) | task | P2 | workflow | 采用 OriCoop 工作流（工单、分支、分层测试、PR） | PR #11 · `9fdcb86` |
 | [T-001](T-001.md) | [#2](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/2) | feature | P2 | necromancy | 恢复未放出的死灵起尸玩法（raiseMinion / revive / healMinions + 治疗宝典） | PR #14 · `6a3e998` |
 | [T-004](T-004.md) | [#5](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/5) | bug | P2 | necromancy | 治疗宝典镶不上死灵符文 | PR #14 · `6a3e998` |
