@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace Necromancy
 {
     internal sealed record BossRuneRule(string Key, int Slot, long Npc, bool Enabled, int MaxActive, string Icon,
-        string NameZh, string NameEn, string DescZh, string DescEn, double HealthScale = BossRunePolicy.DefaultHealthScale)
+        string NameZh, string NameEn, string DescZh, string DescEn, double HealthScale = BossRunePolicy.DefaultHealthScale, BossEntrance Entrance = null)
     {
         // Written to every HealthMultiplier* tier of the cloned raise action (FP, 16.16 fixed point).
         internal long HealthRaw => (long)Math.Round(HealthScale * 65536.0);
@@ -28,6 +28,8 @@ namespace Necromancy
 // slot (0..255) 决定存档里的 GUID，发放后不得更改或复用；key 是发放记录的一部分。
 // npc 是 NpcData GUID（建议用字符串）；max_active 为 1..5；icon 留空则使用原版图标。
 // health_scale 为召出 Boss 的血量占原血量的比例（0.01..1，默认 0.05；原版起尸给 Boss 0.1）。
+// entrance 配置出场动作：minion_actions 按顺序播放，player_action 可选，按 player_action_seconds 截断。
+// 缺省时仅回声骑士有内置出场；设 entrance.enabled 为 false 可关闭该符文的出场。
 [
   {
     ""key"": ""warrick"", ""slot"": 0, ""npc"": ""2680182020363611965"", ""enabled"": true, ""max_active"": 1, ""health_scale"": 0.05,
@@ -39,7 +41,11 @@ namespace Necromancy
     ""key"": ""echo_knight"", ""slot"": 1, ""npc"": ""790324362694538264"", ""enabled"": true, ""max_active"": 1, ""health_scale"": 0.05,
     ""icon"": ""echo_knight.png"", ""name_zh"": ""回声骑士召唤符文"", ""name_en"": ""Rune of the Echo Knight"",
     ""desc_zh"": ""在 8 米内的尸体上召出回声骑士为你作战（同时最多 1 个）。"",
-    ""desc_en"": ""Summon the Echo Knight from a corpse within 8 meters to fight for you (maximum 1 active).""
+    ""desc_en"": ""Summon the Echo Knight from a corpse within 8 meters to fight for you (maximum 1 active)."",
+    ""entrance"": {
+      ""enabled"": true, ""player_action"": ""203502697017737707"", ""player_action_seconds"": 2.0,
+      ""minion_actions"": [""2918908058815642059"", ""2653262915339319819""], ""invincible"": true, ""pause_ai"": true
+    }
   }
 ]
 ";
@@ -66,6 +72,8 @@ namespace Necromancy
                         if (slots.Contains(rule.Slot)) throw new FormatException("duplicate slot " + rule.Slot);
                         keys.Add(rule.Key);
                         slots.Add(rule.Slot);
+                        try { rule = rule with { Entrance = BossEntrancePolicy.Read(row, rule.Npc) }; }
+                        catch (FormatException e) { rejected.Add("#" + index + " entrance: " + e.Message); }
                         rules.Add(rule);
                     }
                     catch (FormatException e) { rejected.Add("#" + index + ": " + e.Message); }

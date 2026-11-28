@@ -183,7 +183,11 @@ namespace Necromancy
             {
                 EnsureEnabled(__0);
                 if (_grantRequested && !_grantDone) TryGrant(__0);
-                if (_bossEnabled) TickBossRunes(__0);
+                if (_bossEnabled)
+                {
+                    TickEntrances(__0);
+                    TickBossRunes(__0);
+                }
                 TickLifetime(__0);
                 if (_roarEnabled) try { TickRoarTraces(__0); } catch (Exception e) { RoarTraces.Clear(); Write("roar trace FAILED " + e.GetType().Name + ": " + e.Message); }
             }
@@ -760,6 +764,7 @@ namespace Necromancy
                 foreach (var raw in Minions.Keys)
                     if (keys.Add(raw)) candidates.Add(new EntityRef { Raw = raw });
                 seen.Add("iterator=" + fromIterator + " recorded=" + Minions.Count);
+                var entrances = _bossSession?.Entrances.Count > 0 ? BossSessionFor(__0)?.Entrances : null;
                 foreach (var minion in candidates)
                 {
                     if (!EntityRefExtensions.Has<RaisedMinionComponent>(minion, __0)) { seen.Add("gone:" + minion.Raw); continue; }
@@ -769,6 +774,7 @@ namespace Necromancy
                     ulong owner = rc == null ? 0 : rc->Owner.Raw;
                     if (owner != hero.Raw) { seen.Add("other-owner:" + owner); continue; }
                     ++owned;
+                    if (entrances?.ContainsKey(minion.Raw) == true) { seen.Add(minion.Raw + "(entrance)"); continue; }
                     var npcData = MinionNpcData(__0, minion);
                     long npc = npcData?.Guid.Value ?? 0;
                     string tier = npcData == null ? "" : npcData.EnemyType.ToString();
@@ -796,11 +802,7 @@ namespace Necromancy
                     LastReaction[minion.Raw] = now;
                     try
                     {
-                        // 0.15.13 playtest: Execute on layer 0 (ActionLayer.Base, locomotion) returned an id but Warrick never
-                        // moved. Attacks run on ActionLayer.Action (1).
-                        int layer = ActionComponent.ActionLayer;
-                        int result = actions->Execute(__0, action, null, false, default, layer, false, true, default);
-                        bool running = actions->IsExecutingAction(__0, action);
+                        int result = ForceExecute(__0, actions, action, out bool running, out int layer);
                         Write("reaction minion entity=" + minion.Raw + " npc=" + who + " rule=" + rule.Label + " action GUID=" + action.Guid.Value +
                               " layer=" + layer + " -> " + result + " executingNow=" + running);
                         RoarTraces.Add((minion.Raw, action.Guid.Value, now, 0));
@@ -815,6 +817,15 @@ namespace Necromancy
                 _roarEnabled = false;
                 Write("roar command DISABLED " + e.GetType().Name + ": " + e.Message);
             }
+        }
+
+        private static unsafe int ForceExecute(Frame f, ActionComponent* actions, ActionData action, out bool running, out int layer)
+        {
+            // Layer 0 is locomotion: a forced attack returned an id there but did not play in testing.
+            layer = ActionComponent.ActionLayer;
+            int result = actions->Execute(f, action, null, false, default, layer, false, true, default);
+            running = actions->IsExecutingAction(f, action);
+            return result;
         }
 
         // Read-only follow-up: is the commanded move still executing 0.5 s and 1.5 s later? Verified end-of-frame only.
