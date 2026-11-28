@@ -129,8 +129,9 @@ namespace Necromancy
                 Found.Clear(); Added.Clear(); _enableChecks = 0; _heroFrames = 0;
                 RaisedDamageOwners.Clear();
                 MinionLastDamage.Clear();
-                StuckHoldMinions.Clear();
+                TeleportMinions.Clear();
                 HeldStuck.Clear();
+                HeldHeight.Clear();
                 _damageProtectionLogs = 0;
                 var present = new HashSet<string>();
                 foreach (var system in __result) Collect(system, present, 0);
@@ -652,16 +653,20 @@ namespace Necromancy
             }
             catch (Exception e) { Write("nav-attachment probe FAILED " + e.GetType().Name + ": " + e.Message); }
             var stuckEntry = category.CreateEntry("minion_stuck_teleport_in_combat", false,
-                description: "false = hold stuck teleports while a minion is not following and is within its teleport range, subject to the hold cap. Far and height teleports are unchanged.");
+                description: "true = vanilla stuck teleports; false = hold near the owner and while off-follow within teleport range, subject to the hold cap outside the near radius.");
             _stuckTeleportInCombat = stuckEntry.Value;
             _stuckHoldMaxSeconds = category.CreateEntry("minion_stuck_hold_max_seconds", 10,
-                description: "Seconds to hold stuck teleports without a hit in the last 5 seconds; 0 = unlimited.").Value;
+                description: "Outside the near radius, seconds to hold stuck teleports without a hit in the last 5 seconds; 0 = unlimited.").Value;
+            _stuckHoldNearRadius = category.CreateEntry("minion_stuck_hold_near_radius", 10f,
+                description: "3D distance in meters from the owner within which stuck teleports are always held when stuck hold is enabled; 0 = disabled.").Value;
+            _heightTeleportInRange = category.CreateEntry("minion_height_teleport_in_range", false,
+                description: "true = vanilla height teleports; false = suppress them within the minion's teleport range.").Value;
             try
             {
                 PatchPrefix(h, typeof(RaisedMinionSystem), "Update", new[] { typeof(Frame) }, nameof(BeforeRaisedUpdate), typeof(void));
-                Write(_stuckTeleportInCombat ? "minion update prefix installed (stuck hold off by config)" : "combat stuck-teleport suppression installed");
+                Write("minion update teleport hooks installed");
             }
-            catch (Exception e) { Write("combat stuck-teleport suppression FAILED " + e.GetType().Name + ": " + e.Message); }
+            catch (Exception e) { Write("minion update teleport hooks FAILED " + e.GetType().Name + ": " + e.Message); }
             try
             {
                 Patch(h, typeof(Frame.FrameEvents), "RaisedMinionSpawned",
@@ -704,24 +709,32 @@ namespace Necromancy
         private static readonly Dictionary<IntPtr, long> TeleportWritten = new();
         private static float _teleportMultiplier = NecromancyPolicy.DefaultTeleportDistanceMultiplier;
 
-        private static bool _stuckTeleportInCombat;
+        private static bool _stuckTeleportInCombat, _heightTeleportInRange;
         private static volatile bool _stuckHoldOff;
-        private static int _stuckResets, _stuckLogs, _stuckHoldMaxSeconds;
-        private static readonly HashSet<ulong> StuckHoldMinions = new(); // sim thread; no visual-cache timeout
+        private static int _stuckResets, _stuckLogs, _stuckHoldMaxSeconds, _heightLogs;
+        private static float _stuckHoldNearRadius;
+        private static readonly HashSet<ulong> TeleportMinions = new(); // sim thread; no visual-cache timeout
         private static readonly Dictionary<ulong, (long Duration, bool Released)> HeldStuck = new();
+        private static readonly HashSet<ulong> HeldHeight = new();
         private static Frame _simFrame; // teleport events fire inside RaisedMinionSystem.Update
+
+        // FollowStartDistance values raised for this frame (sim thread only). Restored by the postfix; if Update threw and
+        // the postfix did not run, the next prefix restores them first. No Harmony __state/finalizer: neither is proven on
+        // detoured IL2CPP methods in this runtime.
+        private static readonly List<(EntityRef Minion, long Original)> FollowStartRestore = new();
 
         private static unsafe void BeforeRaisedUpdate(Frame __0)
         {
+            if (FollowStartRestore.Count > 0) RestoreFollowStartDistances(__0);
             try
             {
                 FirstHit(ref _raisedUpdateHit, nameof(BeforeRaisedUpdate));
                 if (!_enabled || __0 == null) return;
                 _simFrame = __0;
-                if (_stuckTeleportInCombat || _stuckHoldOff) return;
+                if (_stuckHoldOff || (_stuckTeleportInCombat && _heightTeleportInRange)) return;
                 bool verified = __0.IsVerified;
                 List<ulong> gone = null;
-                foreach (ulong raw in StuckHoldMinions)
+                foreach (ulong raw in TeleportMinions)
                 {
                     var minion = new EntityRef { Raw = raw };
                     if (!EntityRefExtensions.Has<RaisedMinionComponent>(minion, __0))
@@ -733,20 +746,38 @@ namespace Necromancy
                     if (comp == null) continue;
                     long before = comp->StuckDuration.RawValue;
                     if (before == 0) HeldStuck.Remove(raw);
-                    if (before <= 0 || comp->IsFollowing.Value != 0) continue;
+                    bool checkStuck = !_stuckTeleportInCombat && before > 0;
+                    if (_heightTeleportInRange && !checkStuck) continue;
                     var ownerTransform = GetSimTransform(__0, comp->Owner);
                     var minionTransform = GetSimTransform(__0, minion);
                     if (ownerTransform == null || minionTransform == null) continue;
                     var owner = ownerTransform->RawPosition;
                     var pos = minionTransform->RawPosition;
-                    double d3 = NecromancyPolicy.DistanceRaw(owner.X.RawValue, owner.Y.RawValue, owner.Z.RawValue,
-                        pos.X.RawValue, pos.Y.RawValue, pos.Z.RawValue);
+                    double dx = (owner.X.RawValue - pos.X.RawValue) / 65536.0,
+                           dy = (owner.Y.RawValue - pos.Y.RawValue) / 65536.0,
+                           dz = (owner.Z.RawValue - pos.Z.RawValue) / 65536.0;
+                    double horizSq = dx * dx + dz * dz;
+                    double d3 = Math.Sqrt(horizSq + dy * dy);
                     bool withinRange = d3 <= comp->MaxDistanceBeforeTeleport.RawValue / 65536.0;
-                    if (!withinRange) continue;
+                    double horiz = Math.Sqrt(horizSq);
+                    long start = comp->FollowStartDistance.RawValue;
+                    if (!_heightTeleportInRange && withinRange && Math.Abs(dy) > 3.0 && horiz > start / 65536.0)
+                    {
+                        FollowStartRestore.Add((minion, start));
+                        comp->FollowStartDistance.RawValue = (long)((horiz + 1.0) * 65536.0);
+                        if (verified && HeldHeight.Add(raw) && Interlocked.Increment(ref _heightLogs) <= 100)
+                            Write("height-teleport held entity=" + NecromancyPolicy.EntityLabel(raw) +
+                                  " dy=" + dy.ToString("0.#") + " horiz=" + horiz.ToString("0.#"));
+                    }
+                    else if (verified) HeldHeight.Remove(raw);
+
+                    bool near = _stuckHoldNearRadius > 0 && d3 <= _stuckHoldNearRadius;
+                    bool following = comp->IsFollowing.Value != 0;
+                    if (!checkStuck || (!near && (following || !withinRange))) continue;
                     HeldStuck.TryGetValue(raw, out var held);
-                    held.Duration += __0.DeltaTime.RawValue;
+                    if (!near) held.Duration += __0.DeltaTime.RawValue;
                     long? lastHit = MinionLastDamage.TryGetValue(raw, out long hit) ? hit : null;
-                    if (!NecromancyPolicy.ShouldHoldStuckTeleport(comp->IsFollowing.Value != 0, withinRange,
+                    if (!NecromancyPolicy.ShouldHoldStuckTeleport(following, withinRange, near,
                         held.Duration, _stuckHoldMaxSeconds, __0.TimeSinceStart.RawValue, lastHit))
                     {
                         if (!held.Released)
@@ -755,25 +786,29 @@ namespace Necromancy
                         HeldStuck[raw] = (held.Duration, true);
                         continue;
                     }
-                    HeldStuck[raw] = held;
+                    if (near) HeldStuck.Remove(raw);
+                    else HeldStuck[raw] = held;
                     comp->StuckDuration = default;
                     int n = Interlocked.Increment(ref _stuckResets);
                     if (verified && before >= (2L << 16) && Interlocked.Increment(ref _stuckLogs) <= 100)
-                        Write("stuck-teleport held (off-follow in range) entity=" + NecromancyPolicy.EntityLabel(raw) +
-                              " stuck=" + (before / 65536.0).ToString("0.##") + "s resets=" + n);
+                        Write("stuck-teleport held (" + (near ? "near owner" : "off-follow in range") + ") entity=" +
+                              NecromancyPolicy.EntityLabel(raw) + " stuck=" + (before / 65536.0).ToString("0.##") + "s resets=" + n);
                 }
                 if (gone != null) foreach (ulong raw in gone)
                 {
-                    StuckHoldMinions.Remove(raw);
+                    TeleportMinions.Remove(raw);
                     HeldStuck.Remove(raw);
+                    HeldHeight.Remove(raw);
                     MinionLastDamage.TryRemove(raw, out _);
                 }
             }
-            catch (Exception e)
-            {
-                _stuckHoldOff = true;
-                Write("stuck-hold ERROR " + e.GetType().Name + ": " + e.Message + "; combat stuck-teleport hold turned off, rest of the plugin unaffected");
-            }
+            catch (Exception e) { BreakTeleportHolds(e); }
+        }
+
+        private static void BreakTeleportHolds(Exception e)
+        {
+            _stuckHoldOff = true;
+            Write("teleport-hold ERROR " + e.GetType().Name + ": " + e.Message + "; teleport holds turned off, rest of the plugin unaffected");
         }
 
         private static unsafe TransformComponent* GetSimTransform(Frame f, EntityRef entity) =>
@@ -790,7 +825,7 @@ namespace Necromancy
                 FirstHit(ref _minionSpawnedHit, nameof(AfterMinionSpawned));
                 if (!_enabled || !__0.IsValid) return;
                 Minions[__0.Raw] = Environment.TickCount64;
-                if (!_stuckTeleportInCombat && !_stuckHoldOff) StuckHoldMinions.Add(__0.Raw);
+                if (!_stuckHoldOff && (!_stuckTeleportInCombat || !_heightTeleportInRange)) TeleportMinions.Add(__0.Raw);
             }
             catch (Exception e) { Write("spawn-register ERROR " + e.GetType().Name + ": " + e.Message); }
         }
@@ -1098,7 +1133,30 @@ namespace Necromancy
 
         private static void AfterRaisedUpdate(Frame __0)
         {
-            if (__0 != null && __0.IsVerified && Interlocked.Increment(ref _raisedTicks) == 1) Write("RaisedMinionSystem running");
+            if (FollowStartRestore.Count > 0) RestoreFollowStartDistances(__0);
+            try
+            {
+                if (__0 != null && __0.IsVerified && Interlocked.Increment(ref _raisedTicks) == 1) Write("RaisedMinionSystem running");
+            }
+            catch (Exception e) { BreakTeleportHolds(e); }
+        }
+
+        private static unsafe void RestoreFollowStartDistances(Frame __0)
+        {
+            var pending = FollowStartRestore;
+            Exception failure = null;
+            for (int i = pending.Count - 1; i >= 0; --i)
+            {
+                var (minion, original) = pending[i];
+                try
+                {
+                    if (EntityRefExtensions.Has<RaisedMinionComponent>(minion, __0))
+                        EntityRefExtensions.Get<RaisedMinionComponent>(minion, __0)->FollowStartDistance.RawValue = original;
+                    pending.RemoveAt(i);
+                }
+                catch (Exception e) { failure ??= e; }
+            }
+            if (failure != null) BreakTeleportHolds(failure);
         }
 
         private static void AfterRaiseExecute(Frame __0, EntityRef __1, bool __result)

@@ -14,6 +14,7 @@ var layoutFields = new[]
     (Type: "Il2CppQuantum.Damage", Field: "Proxy", FieldType: "Il2CppQuantum.PayloadProxyGroup", Offset: 0xb8),
     (Type: "Il2CppQuantum.DamageResponse", Field: "Type", FieldType: "Il2CppQuantum.DamagePayloadResponseType", Offset: 8),
     (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "Owner", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x10),
+    (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "FollowStartDistance", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x38),
     (Type: "Il2CppQuantum.RaisedMinionComponent", Field: "MaxDistanceBeforeTeleport", FieldType: "Il2CppPhoton.Deterministic.FP", Offset: 0x50),
     (Type: "Il2CppQuantum.TransformComponent", Field: "RawPosition", FieldType: "Il2CppPhoton.Deterministic.FPVector3", Offset: 0x08),
     (Type: "Il2CppQuantum.ProjectileComponent", Field: "InstigatorRef", FieldType: "Il2CppQuantum.EntityRef", Offset: 0x30),
@@ -87,14 +88,17 @@ Check(NecromancyPolicy.ScaledTeleportRaw(20L << 16, 3f) == 60L << 16 && Necroman
       NecromancyPolicy.ScaledTeleportRaw(20L << 16, 0f) == 20L << 16 && NecromancyPolicy.ScaledTeleportRaw(20L << 16, float.NaN) == 20L << 16 &&
       NecromancyPolicy.ScaledTeleportRaw(20L << 16, 1000f) == 1000L << 16 && NecromancyPolicy.ScaledTeleportRaw(0, 3f) == 0,
       "teleport distance: 3x of 20 m is 60 m; <=0/NaN keep shipped value; capped at 50x");
-Check(NecromancyPolicy.ShouldHoldStuckTeleport(false, true, 11L << 16, 10, 20L << 16, 16L << 16) &&
-      !NecromancyPolicy.ShouldHoldStuckTeleport(false, true, 11L << 16, 10, 20L << 16, null) &&
-      !NecromancyPolicy.ShouldHoldStuckTeleport(false, true, 10L << 16, 10, 20L << 16, 14L << 16) &&
-      NecromancyPolicy.ShouldHoldStuckTeleport(false, true, 9L << 16, 10, 20L << 16, null) &&
-      NecromancyPolicy.ShouldHoldStuckTeleport(false, true, 11L << 16, 0, 20L << 16, null) &&
-      !NecromancyPolicy.ShouldHoldStuckTeleport(true, true, 0, 0, 20L << 16, 20L << 16) &&
-      !NecromancyPolicy.ShouldHoldStuckTeleport(false, false, 0, 0, 20L << 16, 20L << 16),
-      "stuck teleport hold: off-follow and in range, recent hit or below cap, 0 uncaps");
+Check(NecromancyPolicy.ShouldHoldStuckTeleport(false, true, true, 11L << 16, 10, 20L << 16, null) &&
+      NecromancyPolicy.ShouldHoldStuckTeleport(true, true, true, 11L << 16, 10, 20L << 16, null),
+      "stuck teleport hold: near owner always holds, even following or past cap without a hit");
+Check(NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 11L << 16, 10, 20L << 16, 16L << 16) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 11L << 16, 10, 20L << 16, null) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 10L << 16, 10, 20L << 16, 14L << 16) &&
+      NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 9L << 16, 10, 20L << 16, null) &&
+      NecromancyPolicy.ShouldHoldStuckTeleport(false, true, false, 11L << 16, 0, 20L << 16, null) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(true, true, false, 0, 0, 20L << 16, 20L << 16) &&
+      !NecromancyPolicy.ShouldHoldStuckTeleport(false, false, false, 0, 0, 20L << 16, 20L << 16),
+      "stuck teleport hold beyond near radius: off-follow and in range, recent hit or below cap, 0 uncaps");
 Check(NecromancyPolicy.EntityLabel(9223372084099418004UL) == "E.01940.011" && NecromancyPolicy.EntityLabel(9223372118459156023UL) == "E.01591.019",
       "entity label matches the Unity log form E.index.version");
 Check(types.Contains("Il2CppQuantum.UseNavDataComponent") && types.Contains("Il2CppQuantum.CorpseMarkerComponent"), "UseNavDataComponent / CorpseMarkerComponent exist");
