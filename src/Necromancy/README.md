@@ -32,12 +32,18 @@ grant_character = "你的角色名"
 granted_characters = ""
 minion_lifetime_seconds = 600
 minion_teleport_distance_multiplier = 3
+minion_stuck_teleport_in_combat = false
+minion_profile_boss = "stuck=offfollow"
+minion_profile_giant = "stuck=offfollow"
+minion_profile_elite = "stuck=offfollow"
+minion_profile_normal = "stuck=offfollow"
+minion_profile_overrides = ""
 ```
 
 - `grant_character` 默认为空，即不发放；填上角色名（不区分大小写）才会给这个角色发。
 - 想给已发过的角色再发一次，从 `granted_characters` 里删掉它的名字。
 - `minion_lifetime_seconds` 填 0 表示随从一直存在，直到被打死。
-- `minion_teleport_distance_multiplier`：随从离玩家多远才传送回来，乘在原版 20 米上（默认 3 = 60 米，1 = 原版）。
+- `minion_teleport_distance_multiplier`：没单独设 `teleport` 时，传回距离按原版 20 米乘此倍数（默认 3 = 60 米，1 = 原版）。
 - `minion_npc`（T-010）：raiseMinion 召出谁。默认 `native`（原版野人剑士）。也可填 `warrick_boss`（变异者沃里克）、`warrick_enemy`（巨型档）、`wildling`（原版野人剑士）或 NpcData GUID；已有配置不会自动重置。目标解析不到 NpcData 时保持原版。revive 和 Boss 符文不受此项影响。
 - `minion_max_active`（T-010）：换了召唤目标时 raiseMinion 同时在场上限，默认 1，0 = 原版 5，不会超过原版。沃里克按 Boss 档缩放（生命、伤害 ×0.1）。
 
@@ -46,11 +52,16 @@ minion_teleport_distance_multiplier = 3
 - 反应表在 `UserData/NRFWNecromancyReactions.json`。文件不存在时插件按 `roar_gesture`／`roar_action` 写出默认表，里面只有一条 T-012 的规则：你的沃里克（Boss 版、巨型版）在你做「凶残之力」时放延迟范围攻击，每只随从冷却 3 秒。改完存盘，下次进游戏或读档时生效（会话开始时检查文件修改时间）。
 - 每条规则：`who`（NPC 资产 GUID／`profile:名字`／`tier:boss|giant|elite|normal`／`*`，可写一组）、`gesture`（表情 GUID）、`action`（动作 GUID，一个或一组，最多 16 个）、`pick`（`first`／`random`／`cycle`）、`cooldown`（秒，0–600，默认 3）、`mode`（目前只有 `force`）、`name`（日志用）。GUID 建议写成带引号的字符串。
 - 匹配：发表情时，你召出的每只随从各自取最具体的一条规则（NPC GUID ＞ profile ＞ 档位 ＞ `*`，同级取文件里靠前的），各放各的招；没有规则的随从不受影响。冷却按随从计。`random` 用（随从, 模拟时间）的哈希选，不动游戏的随机数。
-- `profile:` 要等 T-013（召唤物分档配置）合入才会匹配，现在写了只会在日志提示一次。
+- `profile:名字` 匹配 T-013 给随从选中的配置名：`boss`／`giant`／`elite`／`normal`（按档位）、`default`（取不到 NPC 数据时）或 `npc:<NPC GUID>`（`minion_profile_overrides` 里单独配的）。随从出生后几帧内才选好配置，这之前 `profile:` 规则不匹配。
 - 写错的规则被跳过，日志 `reactions rule REJECTED rule #n: 原因`；整个文件读不了（JSON 坏、没有 `rules`、`version` 不是 1）时日志 `reactions file INVALID`，并退回内置的沃里克规则。`mode: prefer`（让 AI 自己选招时加权）还没做，写了会被拒。
 - `roar_enabled`：总开关，默认 `true`。`roar_gesture`／`roar_action` 现在只在生成默认表时用；已有反应表时改它们没有效果，删掉 JSON 文件即可按新值重新生成。
 - 日志：每次做表情 `gesture GUID=… matched=yes|no`（前 60 次）；放招 `reaction minion entity=… npc=名字/档位 rule=#n(name) action GUID=… layer=1 -> 结果 executingNow=…`；+0.5 s／+1.5 s `reaction trace … executing=…`；没人放招时 `reaction gesture matched but no minion commanded: … [每只随从的原因]`；动作 GUID 不是 ActionData 时 `reaction action not resolved: GUID (asset type …)`。
 - 已知 GUID：表情凶残之力 bestialPower `2126111680215882670`、fisticuffs `1770795828947168763`；沃里克的动作：延迟范围攻击 `4386907888524794362`、下劈短震波 `1578638975510328898`、跳劈（快）`2630019745959013014`。插剑震波内／中／外圈（`3660829114871757151` 等）是招式生成的震波实体，不是动作。其他敌人的动作 GUID 要靠离线读包（T-014 第二阶段的本地对照表）。
+
+- `minion_profile_boss` / `giant` / `elite` / `normal` 分别用于 Boss、巨型、精英和普通随从；NPC 数据暂时取不到时，重试后用普通档。
+- `minion_profile_overrides` 按十进制 NPC 资产 GUID 整条替换分档配置，例如 `"123:teleport=50,stuck=never;456:follow_start=6"`。
+- `teleport`、`follow_start`、`follow_stop`、`formation_radius`、`enemy_search_radius`、`avoid_radius` 的单位是米；`follow_speed` 和 `avoid_speed` 是速度倍数。没填的数值保持召唤时的值。
+- `stuck=offfollow`（默认）沿用 0.16.1 的卡住拦截规则：离主人 10 米内一律不传，范围内跟随中最多拦 10 秒、未跟随时最近 5 秒打中过敌人可续拦；`never` 让跟随中的随从也按未跟随的规则拦；`vanilla` 不拦这名随从的卡住传送。没写 `stuck=` 的分档或覆盖按 `offfollow` 处理。高度与远距离拦截不分档，仍由全局配置控制。`minion_stuck_teleport_in_combat=true` 强制所有随从使用原版卡住逻辑。
 
 ### Boss 召唤符文（T-015）
 

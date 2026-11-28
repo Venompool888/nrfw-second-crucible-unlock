@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <NoWarn>$(NoWarn);NETSDK1138</NoWarn>
+  </PropertyGroup>
+  <!-- T-013 minion profiles: pure logic only. No loader, game, Unity or interop DLL references. -->
+  <ItemGroup>
+    <Compile Include="../../src/Necromancy/NecromancyPolicy.cs" Link="NecromancyPolicy.cs" />
+  </ItemGroup>
+</Project>
