@@ -14,7 +14,7 @@ namespace Necromancy
     // Pure data and decisions; no game types so the offline audit can compile this file alone.
     internal static class NecromancyPolicy
     {
-        internal const string Version = "0.19.1-t013";
+        internal const string Version = "0.19.2-t013";
 
         internal static MinionProfile ParseMinionProfile(string text, ICollection<string> errors, string source = "")
         {
@@ -164,6 +164,7 @@ namespace Necromancy
             ("Il2CppQuantum.HealMinionsActionData", "Execute", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef" }, "System.Boolean"),
             ("Il2CppQuantum.RunesAPI+Weapon", "IsRuneCompatible", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.RuneData" }, "System.Boolean"),
             ("Il2CppQuantum.RaisedMinionSystem", "GetMinionFormationSlot", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.EntityRef" }, "System.Int32"),
+            ("Il2CppQuantum.RaisedMinionSystem", "IsTargetStillValid", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.EntityRef" }, "System.Boolean"),
             ("Il2CppMoon.Forsaken.RaisedMinionVisualEffect", "ApplyTintEffect", new string[0], "Void"),
             ("Il2CppQuantum.HealthSystem", "UpdateEnemyHealthRegen", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.HealthComponent*" }, "Void"),
             ("Il2CppQuantum.CorpseMarkerSystem", "OnNpcDied", new[] { "Il2CppQuantum.Frame", "Il2CppQuantum.EntityRef", "Il2CppQuantum.Damage", "Il2CppQuantum.DamageResponse", "System.Int32" }, "Void"),
@@ -283,6 +284,30 @@ namespace Necromancy
         // now held too, but always for a bounded time (maxSeconds, or 10 s when maxSeconds is 0) and hits do not extend
         // it, so a minion blocked on its way back still returns. Off-follow keeps the hit extension and the 0 = unlimited.
         internal const int FollowingStuckHoldDefaultSeconds = 10;
+
+        internal static float ClampBossFollowTeleportSeconds(float seconds) => System.Math.Clamp(seconds, 0f, 10f);
+
+        internal static bool BossFollowStillExpired(double stillSeconds, double limitSeconds) =>
+            limitSeconds > 0 && stillSeconds >= limitSeconds;
+
+        // T-016 idle-follow. RaisedMinionSystem.Update only follows the owner while the minion has no attack target,
+        // and IsTargetStillValid has no distance check, so a Boss that holds a target without acting on it stands
+        // still while the owner walks off. Such a minion gets its targets rejected until it is back at the owner.
+        internal const double BossIdleFollowMaxSeconds = 30, BossIdleHitGraceSeconds = 5;
+
+        internal static float ClampBossIdleFollowSeconds(float seconds) => System.Math.Clamp(seconds, 0f, 30f);
+
+        // An action in progress doubles the wait instead of vetoing it: a wind-up should not be cut short, but a Boss
+        // that keeps an idle action on the layer must not be stuck forever either.
+        internal static bool BossIdleShouldFollow(bool following, double ownerDist, double followStart, double stillSeconds,
+            double limitSeconds, bool actionBusy, long now, long? lastHit) =>
+            limitSeconds > 0 && !following && ownerDist > followStart &&
+            stillSeconds >= (actionBusy ? limitSeconds * 2 : limitSeconds) &&
+            (lastHit == null || now - lastHit.Value > (long)(BossIdleHitGraceSeconds * 65536));
+
+        // "arrived" / "hit" / "timeout" ends the override; null keeps it.
+        internal static string BossIdleFollowEnd(double ownerDist, double followStop, double elapsedSeconds, bool hitSinceStart) =>
+            hitSinceStart ? "hit" : ownerDist <= followStop + 1.0 ? "arrived" : elapsedSeconds >= BossIdleFollowMaxSeconds ? "timeout" : null;
 
         // Hold range: horizontal distance within the teleport distance and |dy| within maxDy (maxDy <= 0 = no limit).
         internal static bool InHoldRange(double horiz, double dy, double maxDist, double maxDy) =>
