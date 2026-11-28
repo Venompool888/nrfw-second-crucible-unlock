@@ -1124,7 +1124,7 @@ namespace Necromancy
                 type = null;
             }
             var (name, profile) = NecromancyPolicy.SelectMinionProfile(guid, (int?)type, TierProfiles, _npcProfiles);
-            var mode = profile.StuckHold.GetValueOrDefault();
+            var mode = NecromancyPolicy.StuckModeOf(profile);
             var applied = frame.IsVerified ? new List<string>() : null;
             ApplyProfileValue(ref comp->MaxDistanceBeforeTeleport, profile.TeleportDistance, "teleport", applied);
             ApplyProfileValue(ref comp->FollowStartDistance, profile.FollowStart, "follow_start", applied);

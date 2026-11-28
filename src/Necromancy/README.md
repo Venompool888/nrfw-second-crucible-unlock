@@ -56,7 +56,7 @@ minion_profile_overrides = ""
 - `minion_profile_boss` / `giant` / `elite` / `normal` 分别用于 Boss、巨型、精英和普通随从；NPC 数据暂时取不到时，重试后用普通档。
 - `minion_profile_overrides` 按十进制 NPC 资产 GUID 整条替换分档配置，例如 `"123:teleport=50,stuck=never;456:follow_start=6"`。
 - `teleport`、`follow_start`、`follow_stop`、`formation_radius`、`enemy_search_radius`、`avoid_radius` 的单位是米；`follow_speed` 和 `avoid_speed` 是速度倍数。没填的数值保持召唤时的值。
-- `stuck=offfollow`（默认）沿用 0.16.1 的卡住拦截规则：离主人 10 米内一律不传，范围内跟随中最多拦 10 秒、未跟随时最近 5 秒打中过敌人可续拦；`never` 让跟随中的随从也按未跟随的规则拦；`vanilla` 不拦这名随从的卡住传送。高度与远距离拦截不分档，仍由全局配置控制。`minion_stuck_teleport_in_combat=true` 强制所有随从使用原版卡住逻辑。
+- `stuck=offfollow`（默认）沿用 0.16.1 的卡住拦截规则：离主人 10 米内一律不传，范围内跟随中最多拦 10 秒、未跟随时最近 5 秒打中过敌人可续拦；`never` 让跟随中的随从也按未跟随的规则拦；`vanilla` 不拦这名随从的卡住传送。没写 `stuck=` 的分档或覆盖按 `offfollow` 处理。高度与远距离拦截不分档，仍由全局配置控制。`minion_stuck_teleport_in_combat=true` 强制所有随从使用原版卡住逻辑。
 
 ## 构建与离线核验
 

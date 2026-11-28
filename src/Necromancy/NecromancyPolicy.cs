@@ -87,6 +87,10 @@ namespace Necromancy
             return (enemyType.HasValue ? tier : "default", tiers[tier]);
         }
 
+        // A profile without stuck= (a tier or override that only sets distances) keeps the documented default, offfollow;
+        // default(StuckHoldMode) is Vanilla, so GetValueOrDefault() would silently turn the hold off for that minion.
+        internal static StuckHoldMode StuckModeOf(MinionProfile profile) => profile?.StuckHold ?? StuckHoldMode.OffFollow;
+
         // Per-minion stuck mode on top of the 0.16.1 hold rules: offfollow = those rules unchanged (default);
         // never = a following minion is held like an off-follow one (hits extend the hold); vanilla = no stuck hold.
         internal static bool ShouldHoldStuck(StuckHoldMode mode, bool following, bool withinRange, bool near,

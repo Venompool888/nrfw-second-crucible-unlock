@@ -238,6 +238,10 @@ Check(NecromancyPolicy.ShouldHoldStuck(StuckHoldMode.OffFollow, true, true, fals
       !NecromancyPolicy.ShouldHoldStuck(StuckHoldMode.Vanilla, false, true, false, 0, 0, 20L << 16, 20L << 16) &&
       !NecromancyPolicy.ShouldHoldStuck(StuckHoldMode.Never, false, false, false, 0, 0, 20L << 16, 20L << 16),
       "minion stuck mode: offfollow = 0.16.1 rules, never = following held like off-follow, vanilla never holds");
+Check(NecromancyPolicy.StuckModeOf(new MinionProfile(TeleportDistance: 50)) == StuckHoldMode.OffFollow &&
+      NecromancyPolicy.StuckModeOf(null) == StuckHoldMode.OffFollow &&
+      NecromancyPolicy.StuckModeOf(new MinionProfile(StuckHold: StuckHoldMode.Vanilla)) == StuckHoldMode.Vanilla,
+      "minion stuck mode: a profile without stuck= defaults to offfollow");
 Check(NecromancyPolicy.EntityLabel(9223372084099418004UL) == "E.01940.011" && NecromancyPolicy.EntityLabel(9223372118459156023UL) == "E.01591.019",
       "entity label matches the Unity log form E.index.version");
 Check(types.Contains("Il2CppQuantum.UseNavDataComponent") && types.Contains("Il2CppQuantum.CorpseMarkerComponent"), "UseNavDataComponent / CorpseMarkerComponent exist");
