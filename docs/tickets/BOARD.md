@@ -4,19 +4,17 @@
 
 状态：待审批 → 待做 → 进行中 → 测试中 → 已合入 → 试玩验证通过。审批通过前不动工。
 
-## 待审批（1）
+## 待审批（0）
 
-| 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 |
-|---|---|---|---|---|---|
-| [T-016](T-016.md) | [#24](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/24) | bug | P2 | necromancy | Boss 召唤符文召出的随从在试炼场景不跟随玩家（只靠 20 米传回追上） |
 
 ## 待做（0）
 
-## 进行中（1）
+## 进行中（2）
 
-| 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 待决定 |
-|---|---|---|---|---|---|---|
-| [T-013](T-013.md) | [#17](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/17) | feature | P2 | necromancy | 召唤物分档行为配置 | 默认数值 |
+| 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 |
+|---|---|---|---|---|---|
+| [T-013](T-013.md) | [#17](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/17) | feature | P2 | necromancy | 召唤物分档行为配置 |
+| [T-016](T-016.md) | [#24](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/24) | bug | P2 | necromancy | Boss 召唤符文召出的随从在试炼场景不跟随玩家（只靠 20 米传回追上） |
 
 ## 测试中（0）
 
