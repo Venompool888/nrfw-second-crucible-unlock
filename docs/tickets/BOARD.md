@@ -4,11 +4,7 @@
 
 状态：待审批 → 待做 → 进行中 → 测试中 → 已合入 → 试玩验证通过。审批通过前不动工。
 
-## 待审批（1）
-
-| 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 待决定 |
-|---|---|---|---|---|---|---|
-| [T-010](T-010.md) | [#13](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/13) | feature | P2 | necromancy | 起尸召出的随从改成沃里克 | 变体、在场上限、是否要尸体、Boss 血条与阶段 |
+## 待审批（0）
 
 ## 待做（0）
 
@@ -20,7 +16,7 @@
 |---|---|---|---|---|---|---|
 | [T-011](T-011.md) | [#15](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/15) | bug | P1 | necromancy | 0.13.1 战斗中崩溃：寻路实体缺导航组件 | |
 
-## 已合入（9）
+## 已合入（11）
 
 | 工单 | GitHub | 类型 | 优先级 | 模块 | 标题 | 合入 |
 |---|---|---|---|---|---|---|
@@ -33,5 +29,7 @@
 | [T-007](T-007.md) | [#8](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/8) | bug | P2 | necromancy | 随从跟着传送后血量回满 | PR #14 · `6a3e998` |
 | [T-008](T-008.md) | [#9](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/9) | feature | P3 | necromancy | 随从在场时限 | PR #14 · `6a3e998` |
 | [T-009](T-009.md) | [#12](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/12) | feature | P3 | necromancy | 随从传回距离拉远到 3 倍 | PR #14 · `6a3e998` |
+| [T-010](T-010.md) | [#13](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/13) | feature | P2 | necromancy | 起尸召出的随从改成沃里克 | PR #18 · `ab6f0a6` |
+| [T-012](T-012.md) | [#16](https://github.com/Venompool888/nrfw-second-crucible-unlock/issues/16) | feature | P2 | necromancy | 发表情「怒吼」时让召出的沃里克放插剑震波 | PR #18 · `ab6f0a6` |
 
 ## 试玩验证通过（0）
